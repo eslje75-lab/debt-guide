@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>무료 채무진단 | 채무정리길잡이</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-slate-50">
+
+<div id="header-placeholder"></div>
+
+<!-- 상단 안내 -->
+<section class="bg-blue-700 text-white py-8">
+  <div class="max-w-3xl mx-auto px-4 text-center">
+    <h1 class="text-2xl md:text-3xl font-bold mb-2">무료 채무 진단</h1>
+    <p class="text-blue-100 text-sm">입력하신 정보는 진단에만 활용되며 외부에 제공되지 않습니다.</p>
+  </div>
+</section>
+
+<!-- 진행 표시 -->
+<div class="bg-white border-b border-slate-200 sticky top-16 z-50 no-print">
+  <div class="max-w-3xl mx-auto px-4 py-4">
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center flex-1">
+        <div id="dot-1" class="step-dot active">1</div>
+        <div id="line-1" class="step-line pending"></div>
+        <div id="dot-2" class="step-dot pending">2</div>
+        <div id="line-2" class="step-line pending"></div>
+        <div id="dot-3" class="step-dot pending">3</div>
+        <div id="line-3" class="step-line pending"></div>
+        <div id="dot-4" class="step-dot pending">4</div>
+      </div>
+      <span id="progress-pct" class="ml-4 text-sm font-semibold text-blue-700">25%</span>
+    </div>
+    <div class="flex justify-between text-xs text-slate-400 step-label">
+      <span>채무현황</span><span>연체·법적현황</span><span>소득·생활비</span><span>재산·기타</span>
+    </div>
+    <div class="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+      <div id="progress-bar" class="progress-bar h-full bg-blue-600 rounded-full" style="width:25%"></div>
+    </div>
+  </div>
+</div>
+
+<div class="max-w-3xl mx-auto px-4 py-8">
+
+  <!-- ══ STEP 1: 채무현황 ══ -->
+  <div id="step-1" class="form-step active">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
+      <h2 class="text-xl font-bold text-slate-800 mb-1">1단계 · 채무 현황</h2>
+      <p class="text-slate-400 text-sm mb-6">보유한 채무의 종류와 규모를 입력해 주세요.</p>
+
+      <div class="space-y-6">
+
+        <!-- 채무 종류 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">
+            채무 종류 <span class="text-red-500">*</span>
+            <span class="text-slate-400 font-normal ml-1">(해당 항목 모두 선택)</span>
+          </label>
+          <p class="text-xs text-slate-400 mb-2">채무 종류에 따라 신청 가능한 제도가 달라집니다.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 text-sm">
+              <input type="checkbox" name="debt-type" value="bank" class="accent-blue-700">
+              <span>
+                <strong class="text-slate-800">은행·카드사 대출</strong>
+                <span class="block text-xs text-slate-400">시중은행, 카드사 대출</span>
+              </span>
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 text-sm">
+              <input type="checkbox" name="debt-type" value="savings" class="accent-blue-700">
+              <span>
+                <strong class="text-slate-800">저축은행·캐피탈·상호금융</strong>
+                <span class="block text-xs text-slate-400">저축은행, 캐피탈, 신협, 새마을금고 등</span>
+              </span>
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 text-sm">
+              <input type="checkbox" name="debt-type" value="card" class="accent-blue-700">
+              <span>
+                <strong class="text-slate-800">카드론·현금서비스·리볼빙</strong>
+                <span class="block text-xs text-slate-400">신용카드 단기 이용 채무</span>
+              </span>
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 text-sm">
+              <input type="checkbox" name="debt-type" value="insurance" class="accent-blue-700">
+              <span>
+                <strong class="text-slate-800">보험약관대출</strong>
+                <span class="block text-xs text-slate-400">보험사 약관에 따른 대출</span>
+              </span>
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 text-sm">
+              <input type="checkbox" name="debt-type" value="private" class="accent-blue-700">
+              <span>
+                <strong class="text-slate-800">사채·개인 간 채무</strong>
+                <span class="block text-xs text-slate-400">사금융, 지인 간 차용금 등</span>
+              </span>
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 text-sm">
+              <input type="checkbox" name="debt-type" value="tax" class="accent-blue-700">
+              <span>
+                <strong class="text-slate-800">세금·건강보험료·과태료</strong>
+                <span class="block text-xs text-slate-400">공과금 성격의 채무</span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 무담보 채무 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">
+            무담보(신용) 채무 총액 <span class="text-red-500">*</span>
+          </label>
+          <div class="relative">
+            <input id="unsecured-debt" type="number" min="0" placeholder="0"
+              class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-8">
+            <span class="absolute right-3 top-2.5 text-slate-400 text-sm">원</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">신용대출·카드론·사채 등 담보 없는 채무 합산 (없으면 0)</p>
+        </div>
+
+        <!-- 담보 채무 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">담보 채무 총액</label>
+          <div class="relative">
+            <input id="secured-debt" type="number" min="0" placeholder="0"
+              class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-8">
+            <span class="absolute right-3 top-2.5 text-slate-400 text-sm">원</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">주택담보대출·전세자금대출 등 (없으면 0)</p>
+        </div>
+
+        <!-- 채권자 수 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">
+            총 채권자(금융사) 수 <span class="text-red-500">*</span>
+          </label>
+          <input id="creditor-count" type="number" min="1" placeholder="예: 3"
+            class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm">
+          <p class="text-xs text-slate-400 mt-1">대출·카드 채무가 있는 금융기관 수</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ STEP 2: 연체·법적 현황 ══ -->
+  <div id="step-2" class="form-step">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
+      <h2 class="text-xl font-bold text-slate-800 mb-1">2단계 · 연체·법적 현황</h2>
+      <p class="text-slate-400 text-sm mb-6">연체 기간과 법적 조치 여부는 적합한 제도를 결정하는 핵심 기준입니다.</p>
+
+      <div class="space-y-6">
+
+        <!-- 현재 연체 여부 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            현재 연체 중이신가요? <span class="text-red-500">*</span>
+          </label>
+          <div class="flex gap-3">
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm flex-1">
+              <input type="radio" name="is-delinquent" value="yes" onchange="toggleArrearsFields(true)" class="accent-blue-700">
+              예, 연체 중입니다
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm flex-1">
+              <input type="radio" name="is-delinquent" value="no" onchange="toggleArrearsFields(false)" class="accent-blue-700">
+              아니오 (연체 없음)
+            </label>
+          </div>
+        </div>
+
+        <!-- 연체 세부 (조건부 표시) -->
+        <div id="arrears-details" class="hidden space-y-4 pl-1 border-l-4 border-amber-300">
+          <div class="pl-4">
+            <label class="block text-sm font-medium text-slate-700 mb-2">
+              연체 기간 <span class="text-red-500">*</span>
+            </label>
+            <select id="arrears-period" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white">
+              <option value="">선택해 주세요</option>
+              <option value="1">1개월 미만</option>
+              <option value="2">1개월 ~ 3개월</option>
+              <option value="5">3개월 ~ 6개월</option>
+              <option value="9">6개월 ~ 1년</option>
+              <option value="18">1년 이상</option>
+            </select>
+            <p class="text-xs text-slate-400 mt-1">가장 오래된 연체 기준</p>
+          </div>
+          <div class="pl-4">
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">연체 중인 금융사 수</label>
+            <input id="delinquent-creditor-count" type="number" min="1" placeholder="예: 2"
+              class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm">
+          </div>
+        </div>
+
+        <!-- 법적 조치 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            현재 법적 조치를 받고 있나요?
+            <span class="text-slate-400 font-normal ml-1">(복수 선택)</span>
+          </label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="legal-action" value="seizure" class="accent-blue-700"> 압류·추심
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="legal-action" value="provisional" class="accent-blue-700"> 가압류
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="legal-action" value="order" class="accent-blue-700"> 지급명령
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="legal-action" value="lawsuit" class="accent-blue-700"> 소송 진행 중
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="legal-action" value="auction" class="accent-blue-700"> 경매 진행 중
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="legal-action" value="none" id="legal-none" onchange="toggleLegalNone(this)" class="accent-blue-700"> 해당 없음
+            </label>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ STEP 3: 소득·생활비 ══ -->
+  <div id="step-3" class="form-step">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
+      <h2 class="text-xl font-bold text-slate-800 mb-1">3단계 · 소득·생활비</h2>
+      <p class="text-slate-400 text-sm mb-6">소득 유무와 월 필수 지출을 입력해 주세요. 개인회생 신청의 핵심 조건입니다.</p>
+
+      <div class="space-y-6">
+
+        <!-- 소득 유무 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            현재 소득이 있으신가요? <span class="text-red-500">*</span>
+          </label>
+          <div class="flex gap-3">
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm flex-1">
+              <input type="radio" name="has-income" value="yes" onchange="toggleIncomeFields(true)" class="accent-blue-700">
+              예, 있습니다
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm flex-1">
+              <input type="radio" name="has-income" value="no" onchange="toggleIncomeFields(false)" class="accent-blue-700">
+              아니오 (소득 없음)
+            </label>
+          </div>
+        </div>
+
+        <!-- 소득 세부 (조건부 표시) -->
+        <div id="income-details" class="hidden space-y-4 pl-1 border-l-4 border-blue-300">
+          <div class="pl-4">
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">
+              소득 유형 <span class="text-red-500">*</span>
+            </label>
+            <select id="income-type" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white">
+              <option value="">선택해 주세요</option>
+              <option value="employed">근로소득 (정규직·계약직)</option>
+              <option value="self">사업소득 (자영업·개인사업자)</option>
+              <option value="pension">연금·공적급여 (국민연금·기초수급 등)</option>
+              <option value="daily">일용직·프리랜서·단기 근로</option>
+            </select>
+          </div>
+          <div class="pl-4">
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">
+              월 평균 소득 (세후) <span class="text-red-500">*</span>
+            </label>
+            <div class="relative">
+              <input id="monthly-income" type="number" min="0" placeholder="0"
+                class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-8">
+              <span class="absolute right-3 top-2.5 text-slate-400 text-sm">원</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">최근 3개월 평균 세후 실수령액</p>
+          </div>
+        </div>
+
+        <!-- 부양가족 수 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">
+            부양가족 수 <span class="text-red-500">*</span>
+          </label>
+          <input id="dependents" type="number" min="0" placeholder="0"
+            class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm">
+          <p class="text-xs text-slate-400 mt-1">본인 제외 (배우자·자녀·부모 등 실제 부양 중인 가족 수)</p>
+        </div>
+
+        <!-- 월 필수 생활비 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">
+            월 필수 생활비 합계 <span class="text-red-500">*</span>
+          </label>
+          <div class="relative">
+            <input id="monthly-living" type="number" min="0" placeholder="0"
+              class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-8">
+            <span class="absolute right-3 top-2.5 text-slate-400 text-sm">원</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">주거비(월세·관리비) + 식비 + 교통비 + 의료비 등 필수 지출 합산</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ STEP 4: 재산·기타 ══ -->
+  <div id="step-4" class="form-step">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
+      <h2 class="text-xl font-bold text-slate-800 mb-1">4단계 · 재산·기타</h2>
+      <p class="text-slate-400 text-sm mb-6">보유 재산과 추가 정보를 입력해 주세요. 어림값도 괜찮습니다.</p>
+
+      <div class="space-y-6">
+
+        <!-- 보유 재산 현황 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-3">
+            보유 재산 현황
+            <span class="text-slate-400 font-normal ml-1">(없으면 0)</span>
+          </label>
+          <div class="space-y-3">
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-600 w-36 shrink-0">예금·현금</span>
+              <div class="relative flex-1">
+                <input id="cash-assets" type="number" min="0" placeholder="0"
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-8">
+                <span class="absolute right-3 top-2 text-slate-400 text-sm">원</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-600 w-36 shrink-0">부동산 (시가)</span>
+              <div class="relative flex-1">
+                <input id="property-value" type="number" min="0" placeholder="0"
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-8">
+                <span class="absolute right-3 top-2 text-slate-400 text-sm">원</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-600 w-36 shrink-0">차량 (시세)</span>
+              <div class="relative flex-1">
+                <input id="car-value" type="number" min="0" placeholder="0"
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-8">
+                <span class="absolute right-3 top-2 text-slate-400 text-sm">원</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-600 w-36 shrink-0">임차보증금</span>
+              <div class="relative flex-1">
+                <input id="deposit-value" type="number" min="0" placeholder="0"
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-8">
+                <span class="absolute right-3 top-2 text-slate-400 text-sm">원</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-600 w-36 shrink-0">보험 해약환급금</span>
+              <div class="relative flex-1">
+                <input id="insurance-value" type="number" min="0" placeholder="0"
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-8">
+                <span class="absolute right-3 top-2 text-slate-400 text-sm">원</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 나이 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">
+            나이 (만 나이) <span class="text-red-500">*</span>
+          </label>
+          <input id="age" type="number" min="19" max="99" placeholder="예: 38"
+            class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm">
+        </div>
+
+        <!-- 건강 상태 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">건강 상태 (근로능력에 영향이 있나요?)</label>
+          <div class="flex gap-3">
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm flex-1">
+              <input type="radio" name="health" value="yes"
+                onchange="document.getElementById('has-health-issues').value='yes'" class="accent-blue-700">
+              있음 (질병·장애·고령 등)
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm flex-1">
+              <input type="radio" name="health" value="no" checked
+                onchange="document.getElementById('has-health-issues').value='no'" class="accent-blue-700">
+              없음
+            </label>
+          </div>
+          <input type="hidden" id="has-health-issues" value="no">
+        </div>
+
+        <!-- 채무 발생 원인 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            채무 발생 주요 원인
+            <span class="text-slate-400 font-normal ml-1">(복수 선택)</span>
+          </label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="debt-cause" value="business" class="accent-blue-700"> 사업 실패·폐업
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="debt-cause" value="medical" class="accent-blue-700"> 의료비·질병
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="debt-cause" value="living" class="accent-blue-700"> 생활비 부족
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="debt-cause" value="investment" class="accent-blue-700"> 투자 손실
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="debt-cause" value="unemployment" class="accent-blue-700"> 실직·소득 감소
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="debt-cause" value="guarantee" class="accent-blue-700"> 보증 채무
+            </label>
+          </div>
+        </div>
+
+        <!-- 이전 채무조정 이력 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">이전에 채무조정을 신청한 적이 있나요?</label>
+          <select id="prior-adjustment" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white">
+            <option value="none">없음 (처음 신청)</option>
+            <option value="ccrs">신용회복위원회 (완료·취소·진행 중)</option>
+            <option value="rehab">개인회생 (완료·취소·진행 중)</option>
+            <option value="bankrupt">개인파산 (완료·진행 중)</option>
+          </select>
+        </div>
+
+        <div class="disclaimer-box">
+          입력하신 내용은 진단 참고용으로만 활용되며, 법률상담이나 법적 결론을 제공하지 않습니다.
+          모든 결과는 참고용이며, 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다.
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 버튼 영역 -->
+  <div class="flex justify-between mt-6">
+    <button id="btn-prev" onclick="prevStep()"
+      class="hidden items-center gap-2 px-6 py-3 border border-slate-300 rounded-xl text-slate-700 font-medium text-sm hover:bg-slate-50 transition-colors" style="display:none">
+      ← 이전
+    </button>
+    <div class="flex-1"></div>
+    <button id="btn-next" onclick="nextStep()"
+      class="inline-flex items-center gap-2 bg-blue-700 text-white px-8 py-3 rounded-xl font-medium text-sm hover:bg-blue-800 transition-colors">
+      다음 →
+    </button>
+    <button id="btn-submit" onclick="submitDiagnosis()"
+      class="inline-flex items-center gap-2 bg-green-600 text-white px-8 py-3 rounded-xl font-medium text-sm hover:bg-green-700 transition-colors" style="display:none">
+      진단 결과 보기 ✓
+    </button>
+  </div>
+</div>
+
+<div id="footer-placeholder"></div>
+<div id="toast"></div>
+
+<script src="js/main.js"></script>
+<script src="js/diagnosis.js"></script>
+<script>
+  initPage('diagnosis');
+  goStep(1);
+
+  function toggleArrearsFields(show) {
+    document.getElementById('arrears-details').classList.toggle('hidden', !show);
+    if (!show) {
+      document.getElementById('arrears-period').value = '';
+      document.getElementById('delinquent-creditor-count').value = '';
+    }
+  }
+
+  function toggleIncomeFields(show) {
+    document.getElementById('income-details').classList.toggle('hidden', !show);
+    if (!show) {
+      document.getElementById('income-type').value = '';
+      document.getElementById('monthly-income').value = '';
+    }
+  }
+
+  function toggleLegalNone(cb) {
+    if (cb.checked) {
+      document.querySelectorAll('input[name="legal-action"]').forEach(c => {
+        if (c !== cb) c.checked = false;
+      });
+    }
+  }
+</script>
+</body>
+</html>

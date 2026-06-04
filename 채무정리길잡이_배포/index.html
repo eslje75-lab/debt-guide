@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>채무정리길잡이 - 개인회생·파산 셀프 진행 지원</title>
+  <meta name="description" content="개인회생, 개인파산·면책, 신용회복위원회 절차를 혼자 준비할 수 있도록 돕는 무료 채무진단 플랫폼">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css?v=4">
+  <script>history.scrollRestoration = 'manual';</script>
+  <style>
+    .compare-table { table-layout: fixed !important; width: 100% !important; }
+    @media (max-width: 767px) {
+      .compare-table th, .compare-table td {
+        font-size: 11px !important;
+        padding: 8px 4px !important;
+        word-break: keep-all !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-50">
+
+<div id="header-placeholder"></div>
+
+<!-- ══ HERO ══ -->
+<section class="hero-gradient text-white">
+  <div class="max-w-5xl mx-auto px-4 py-20 text-center">
+    <div class="inline-block bg-white/10 text-white/90 text-sm font-semibold px-4 py-1.5 rounded-full mb-6 border border-white/20">
+      실제 개인회생 경험자가 만든 채무정리 정보 플랫폼
+    </div>
+    <h1 class="text-3xl md:text-5xl font-bold leading-snug mb-5" style="line-height:1.5">
+      빚 정리, 어디서부터<br>시작해야 할지 모르겠다면
+    </h1>
+    <p class="text-lg md:text-xl text-blue-100 mb-8 leading-relaxed">
+      3분 무료진단으로 개인회생 · 개인파산·면책 · 신용회복위원회<br>
+      절차 중 <strong class="text-white">나에게 맞는 방향</strong>을 확인하세요.
+    </p>
+    <div class="flex flex-col sm:flex-row gap-3 justify-center">
+      <a href="diagnosis.html" class="bg-white text-blue-800 font-bold px-8 py-4 rounded-xl hover:bg-blue-50 transition-colors text-lg shadow-lg">
+        무료진단 시작하기 →
+      </a>
+      <a href="#compare" class="border border-white/40 text-white px-8 py-4 rounded-xl hover:bg-white/10 transition-colors text-lg">
+        절차 비교 보기
+      </a>
+    </div>
+    <p class="mt-6 text-blue-200 text-sm">
+      ※ 진단은 완전 무료입니다. 회원가입 없이 바로 시작하세요.
+    </p>
+  </div>
+</section>
+
+<!-- ══ 서비스 소개 ══ -->
+<section class="section">
+  <div class="max-w-5xl mx-auto px-4">
+    <div class="text-center mb-12">
+      <h2 class="text-2xl md:text-3xl font-bold text-slate-800 mb-3">어떻게 도와드리나요?</h2>
+      <p class="text-slate-500">복잡한 절차를 단계별로, 막막함 없이 시작할 수 있도록</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 card-hover">
+        <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4">
+          <span class="text-2xl">🔍</span>
+        </div>
+        <h3 class="font-bold text-slate-800 mb-2 text-lg">① 무료 채무진단</h3>
+        <p class="text-slate-500 text-sm leading-relaxed text-left">소득·채무·재산 정보를 입력하면 개인회생·파산·신용회복위원회 중 어떤 절차가 맞는지 참고 방향을 알 수 있습니다.</p>
+        <a href="diagnosis.html" class="mt-4 inline-block text-blue-700 text-sm font-medium hover:underline">진단 시작 →</a>
+      </div>
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 card-hover">
+        <div class="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center mb-4">
+          <span class="text-2xl">📋</span>
+        </div>
+        <h3 class="font-bold text-slate-800 mb-2 text-lg">② 셀프 진행 가이드</h3>
+        <p class="text-slate-500 text-sm leading-relaxed text-left">단계별 체크리스트, 필요서류 목록, 작성예시를 통해 법원 절차를 스스로 준비할 수 있도록 돕습니다.</p>
+        <a href="rehabilitation.html" class="mt-4 inline-block text-blue-700 text-sm font-medium hover:underline">가이드 보기 →</a>
+      </div>
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 card-hover">
+        <div class="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center mb-4">
+          <span class="text-2xl">🤖</span>
+        </div>
+        <h3 class="font-bold text-slate-800 mb-2 text-lg">③ AI 서류 검토</h3>
+        <p class="text-slate-500 text-sm leading-relaxed text-left">직접 작성한 내용을 붙여넣으면 AI가 필수항목 누락·형식 미비·첨부서류 필요 여부를 참고 안내합니다.</p>
+        <a href="ai-review.html" class="mt-4 inline-block text-blue-700 text-sm font-medium hover:underline">AI 검토 →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 절차 비교 ══ -->
+<section id="compare" class="section bg-white">
+  <div class="max-w-5xl mx-auto px-4">
+    <div class="text-center mb-10">
+      <h2 class="text-2xl md:text-3xl font-bold text-slate-800 mb-3">3가지 채무조정 절차 비교</h2>
+      <p class="text-slate-500 text-sm">※ 아래 내용은 일반적인 참고 안내이며, 실제 적용 여부는 전문가 검토가 필요합니다.</p>
+    </div>
+    <div class="rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <table class="compare-table">
+        <colgroup>
+          <col style="width:17%">
+          <col style="width:27%">
+          <col style="width:27%">
+          <col style="width:29%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="p-3 md:p-4 text-left">구분</th>
+            <th class="p-3 md:p-4 text-center">개인회생</th>
+            <th class="p-3 md:p-4 text-center">개인파산·면책</th>
+            <th class="p-3 md:p-4 text-center">신용회복위원회</th>
+          </tr>
+        </thead>
+        <tbody class="text-slate-700">
+          <tr>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">기관</td>
+            <td class="p-3 md:p-4 text-center">법원</td>
+            <td class="p-3 md:p-4 text-center">법원</td>
+            <td class="p-3 md:p-4 text-center">신용회복위원회</td>
+          </tr>
+          <tr>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">주요 대상</td>
+            <td class="p-3 md:p-4 text-center">정기소득 있는 채무자</td>
+            <td class="p-3 md:p-4 text-center">소득·재산 없는 채무자</td>
+            <td class="p-3 md:p-4 text-center">연체 초기·소득 있는 채무자</td>
+          </tr>
+          <tr>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">기간</td>
+            <td class="p-3 md:p-4 text-center">변제기간 3~5년</td>
+            <td class="p-3 md:p-4 text-center">절차 6개월~1년 이상</td>
+            <td class="p-3 md:p-4 text-center">조정 후 최대 10년</td>
+          </tr>
+          <tr>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">채무 처리</td>
+            <td class="p-3 md:p-4 text-center">일부 변제 후 나머지 면책</td>
+            <td class="p-3 md:p-4 text-center">재산 정리 후 전부 면책</td>
+            <td class="p-3 md:p-4 text-center">이자 감면·분할 상환</td>
+          </tr>
+          <tr>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">비용</td>
+            <td class="p-3 md:p-4 text-center">인지대·송달료 등 소액</td>
+            <td class="p-3 md:p-4 text-center">인지대·송달료 등 소액</td>
+            <td class="p-3 md:p-4 text-center">무료</td>
+          </tr>
+          <tr>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">신용 영향</td>
+            <td class="p-3 md:p-4 text-center">신용불량 기록</td>
+            <td class="p-3 md:p-4 text-center">신용불량 기록</td>
+            <td class="p-3 md:p-4 text-center">협약 기간 제한</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-xs text-slate-400 text-center mt-3">참고용 안내이며 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다.</p>
+  </div>
+</section>
+
+<!-- ══ 운영자 스토리 ══ -->
+<section class="section bg-slate-50">
+  <div class="max-w-3xl mx-auto px-4">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 md:p-10">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-12 h-12 bg-blue-700 rounded-full flex items-center justify-center text-white font-bold text-lg">운</div>
+        <div>
+          <div class="font-bold text-slate-800">운영자 소개</div>
+          <div class="text-sm text-slate-400">개인회생 신청 → 면책 완료</div>
+        </div>
+      </div>
+
+      <h2 class="text-xl md:text-2xl font-bold text-slate-800 mb-6 leading-snug">
+        "제가 직접 겪었기에 만들었습니다"
+      </h2>
+
+      <div class="space-y-4 text-slate-600 leading-relaxed text-[15px]">
+        <p>저는 과거 개인회생을 신청해 면책까지 받았던 사람입니다.<br>
+        지금은 그 무거운 짐을 내려놓았지만, 그 과정은 결코 쉽지 않았습니다.</p>
+
+        <p>가장 힘들었던 건 빚 그 자체보다도,
+        <span class="story-highlight">무엇을 어떻게 해야 할지 알려주는 사람이 아무도 없었다</span>는 것이었습니다.
+        제 상황이 정확히 어떤 상태인지, 저에게 가장 맞는 제도가 무엇인지
+        제대로 진단받지 못한 채 막막하게 발을 들였습니다.</p>
+
+        <p>절차는 복잡했고, 준비해야 할 서류는 끝이 없었습니다.
+        결국 법무사에 맡기며 적지 않은 수임료를 치러야 했습니다.
+        <span class="story-highlight">돈이 없어 시작한 채무조정인데, 그 과정에서 또 큰돈을 내야 한다</span>는 사실이
+        저를 가장 비참하게 만들었습니다.</p>
+
+        <p>그때의 막막함과 외로움을 저는 또렷이 기억합니다.</p>
+
+        <p>그래서 같은 고민 앞에 선 누군가가, 적어도 저처럼 혼자 헤매지는 않기를 바라는 마음으로
+        이 플랫폼을 만들었습니다.</p>
+
+        <p class="text-slate-700 font-medium">
+          스스로 자신의 상황을 진단하고, 자신에게 꼭 맞는 채무조정 절차를 차분히 밟아갈 수 있도록 —<br>
+          <span class="story-highlight">제가 그때 절실히 필요로 했던 그 도움을, 이제 당신께 드리고 싶습니다.</span>
+        </p>
+      </div>
+
+      <div class="mt-8 pt-6 border-t border-slate-100 flex flex-col sm:flex-row gap-3">
+        <a href="diagnosis.html" class="bg-blue-700 text-white px-6 py-3 rounded-xl font-medium text-sm hover:bg-blue-800 transition-colors text-center">
+          지금 무료진단 시작하기
+        </a>
+        <a href="resources.html" class="border border-slate-200 text-slate-700 px-6 py-3 rounded-xl font-medium text-sm hover:bg-slate-50 transition-colors text-center">
+          절차 자세히 알아보기
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 유료 서비스 소개 ══ -->
+<section class="section bg-white">
+  <div class="max-w-5xl mx-auto px-4">
+    <div class="text-center mb-10">
+      <h2 class="text-2xl md:text-3xl font-bold text-slate-800 mb-3">유료 서비스</h2>
+      <p class="text-slate-500">무료진단 이후, 실제 절차 준비를 더 체계적으로 돕는 도구</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="border border-slate-200 rounded-2xl p-6 text-center">
+        <div class="text-3xl font-bold text-slate-800 mb-1">무료</div>
+        <div class="text-slate-400 text-sm mb-4">기본 이용</div>
+        <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
+          <li class="flex gap-2"><span class="text-green-500">✓</span> 채무 무료진단</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> 기본 절차 안내</li>
+        </ul>
+        <a href="diagnosis.html" class="block w-full py-2.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">진단 시작</a>
+      </div>
+
+      <div class="border border-slate-200 rounded-2xl p-6 text-center">
+        <div class="text-3xl font-bold text-slate-800 mb-1">9,900<span class="text-base font-normal">원</span></div>
+        <div class="text-slate-400 text-sm mb-4">베이직</div>
+        <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
+          <li class="flex gap-2"><span class="text-green-500">✓</span> 진행 로드맵</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> 서류 체크리스트</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> 작성예시 열람</li>
+        </ul>
+        <a href="pricing.html" class="block w-full py-2.5 border border-blue-300 rounded-lg text-sm font-medium text-blue-700 hover:bg-blue-50 transition-colors">구매하기</a>
+      </div>
+
+      <div class="border-2 border-blue-700 rounded-2xl p-6 text-center pricing-featured">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs px-3 py-1 rounded-full font-semibold">추천</div>
+        <div class="text-3xl font-bold text-slate-800 mb-1">29,000<span class="text-base font-normal">원</span></div>
+        <div class="text-slate-400 text-sm mb-4">프리미엄</div>
+        <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
+          <li class="flex gap-2"><span class="text-green-500">✓</span> AI 서류 검토</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> 진행률 관리</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> PDF 체크리스트</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> 마이페이지 저장</li>
+        </ul>
+        <a href="pricing.html" class="block w-full py-2.5 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors">구매하기</a>
+      </div>
+    </div>
+
+    <div class="disclaimer-box mt-8">
+      <strong>⚠ 법률대리 아님 고지</strong><br>
+      본 서비스는 법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.
+      사용자가 직접 절차를 이해하고 준비할 수 있도록 돕는 정보 제공 및 서류 점검 보조 서비스입니다.
+      구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
+    </div>
+  </div>
+</section>
+
+<!-- ══ 자주 묻는 질문 (홈 미리보기) ══ -->
+<section class="section-sm bg-slate-50">
+  <div class="max-w-3xl mx-auto px-4 text-center">
+    <h2 class="text-xl font-bold text-slate-800 mb-2">더 궁금하신가요?</h2>
+    <p class="text-slate-500 text-sm mb-6">자주 묻는 질문과 상세 가이드를 자료실에서 확인하세요.</p>
+    <a href="resources.html" class="inline-block bg-white border border-slate-200 text-slate-700 px-6 py-3 rounded-xl font-medium text-sm hover:bg-slate-50 transition-colors shadow-sm">자료실 바로가기 →</a>
+  </div>
+</section>
+
+<div id="footer-placeholder"></div>
+<div id="toast"></div>
+
+<script src="js/main.js"></script>
+<script>initPage('home');</script>
+</body>
+</html>

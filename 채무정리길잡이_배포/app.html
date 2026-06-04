@@ -1,0 +1,3240 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>채무정리길잡이 - 개인회생·파산 셀프 진행 지원</title>
+  <meta name="description" content="개인회생, 개인파산·면책, 신용회복위원회 절차를 혼자 준비할 수 있도록 돕는 무료 채무진단 플랫폼">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+/* ==============================
+   채무정리길잡이 - 공통 스타일
+   ============================== */
+
+:root {
+  --blue-primary: #1d4ed8;
+  --blue-light:   #3b82f6;
+  --blue-dark:    #1e3a8a;
+  --blue-bg:      #eff6ff;
+  --green-ok:     #16a34a;
+  --yellow-warn:  #d97706;
+  --gray-muted:   #64748b;
+}
+
+body {
+  font-family: 'Malgun Gothic', '맑은 고딕', -apple-system, BlinkMacSystemFont,
+               'Segoe UI', sans-serif;
+  background: #f8fafc;
+  color: #1e293b;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+
+/* ── Navbar ── */
+.navbar-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(255,255,255,0.97);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.08);
+}
+#mobile-menu { display: none; }
+#mobile-menu.open { display: block; }
+
+/* ── Cards ── */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(29,78,216,0.14);
+}
+
+/* ── Progress bar ── */
+.progress-bar { transition: width 0.45s ease-in-out; }
+
+/* ── Multi-step form ── */
+.form-step { display: none; animation: fadeSlide 0.3s ease; }
+.form-step.active { display: block; }
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Step dot navigator ── */
+.step-dot {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+  transition: background 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+.step-dot.active  { background: #1d4ed8; color: #fff; }
+.step-dot.done    { background: #16a34a; color: #fff; }
+.step-dot.pending { background: #e2e8f0; color: #94a3b8; }
+.step-line { flex: 1; height: 2px; }
+.step-line.done    { background: #16a34a; }
+.step-line.pending { background: #e2e8f0; }
+
+/* ── Result cards ── */
+.result-high   { border-left: 5px solid #16a34a; }
+.result-medium { border-left: 5px solid #d97706; }
+.result-low    { border-left: 5px solid #94a3b8; }
+
+.badge-high   { background:#dcfce7; color:#15803d; }
+.badge-medium { background:#fef9c3; color:#854d0e; }
+.badge-low    { background:#f1f5f9; color:#64748b; }
+
+/* ── Disclaimer box ── */
+.disclaimer-box {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-left: 4px solid #94a3b8;
+  border-radius: 8px;
+  padding: 16px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.8;
+}
+
+/* ── Checklist ── */
+.checklist-item { transition: opacity 0.2s; }
+.checklist-item.completed { opacity: 0.5; }
+.checklist-item.completed .item-name { text-decoration: line-through; color: #94a3b8; }
+
+/* ── FAQ accordion ── */
+.faq-answer { display: none; animation: fadeSlide 0.2s ease; }
+.faq-answer.open { display: block; }
+.faq-icon { transition: transform 0.25s; }
+.faq-icon.open { transform: rotate(45deg); }
+
+/* ── Pricing ── */
+.pricing-featured {
+  border: 2px solid #1d4ed8;
+  position: relative;
+  transform: scale(1.03);
+}
+@media (max-width: 640px) {
+  .pricing-featured { transform: scale(1); }
+  .step-label { display: none; }
+}
+
+/* ── Hero gradient ── */
+.hero-gradient {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 55%, #3b82f6 100%);
+}
+
+/* ── Toast ── */
+#toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+  padding: 12px 20px; border-radius: 8px;
+  color: #fff; font-size: 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  opacity: 0; transform: translateY(10px);
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: none;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+
+/* ── Input focus ── */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.18);
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #93c5fd; border-radius: 3px; }
+
+/* ── Print ── */
+@media print {
+  .no-print { display: none !important; }
+  .navbar-sticky { position: static; }
+}
+
+/* ── Comparison table ── */
+.compare-table th { background: #1d4ed8; color: #fff; }
+.compare-table tr:nth-child(even) { background: #f0f9ff; }
+.compare-table { table-layout: fixed; width: 100%; }
+
+/* ── Story section ── */
+.story-highlight { color: #1d4ed8; font-weight: 600; }
+
+/* ── Section spacing ── */
+.section { padding: 64px 0; }
+.section-sm { padding: 40px 0; }
+
+/* ── Mobile readability ── */
+@media (max-width: 768px) {
+  .text-slate-400 { color: #64748b !important; }
+  .text-slate-500 { color: #475569 !important; }
+  .text-blue-100  { color: #bfdbfe !important; }
+  .text-blue-200  { color: #93c5fd !important; }
+
+  /* 히어로 섹션 상하 여백 축소 */
+  .hero-gradient > div { padding-top: 3rem !important; padding-bottom: 3rem !important; }
+
+  /* 가로 스크롤 방지 */
+  section, .max-w-5xl, .max-w-3xl, .max-w-6xl { max-width: 100%; }
+
+  /* 테이블 가독성 */
+  .compare-table td, .compare-table th { font-size: 11px !important; padding: 8px 4px !important; word-break: keep-all !important; }
+  .compare-table th:first-child, .compare-table td:first-child { width: 52px !important; }
+
+  /* 카드 padding 축소 */
+  .pricing-featured { transform: scale(1) !important; }
+}
+
+/* ── Scroll-to-top button ── */
+#scroll-top-btn {
+  position: fixed;
+  bottom: 76px;
+  right: 24px;
+  z-index: 9998;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #1d4ed8;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(29,78,216,0.35);
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.3s, transform 0.3s, background 0.2s;
+  pointer-events: none;
+}
+#scroll-top-btn.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+#scroll-top-btn:hover { background: #1e3a8a; }
+#scroll-top-btn svg { width: 20px; height: 20px; }
+
+  .page { display: none; }
+  #p-home { display: block; }
+  </style>
+</head>
+<body class="bg-slate-50">
+<div id="toast"></div>
+<div id="example-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" style="display:none!important">
+  <div class="bg-white rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6 shadow-2xl">
+    <div class="flex items-center justify-between mb-4">
+      <h3 id="modal-title" class="font-bold text-slate-800 text-lg"></h3>
+      <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">&#215;</button>
+    </div>
+    <div id="modal-content" class="text-sm text-slate-600 leading-relaxed whitespace-pre-line bg-slate-50 p-4 rounded-xl border border-slate-200"></div>
+    <button onclick="closeModal()" class="mt-4 w-full py-2.5 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors">닫기</button>
+  </div>
+</div>
+<nav class="navbar-sticky bg-white border-b border-slate-200 no-print">
+  <div class="max-w-6xl mx-auto px-4">
+    <div class="flex items-center justify-between h-16">
+      <a href="#" onclick="navigate('home');return false;" class="flex items-center gap-2">
+        <div class="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center">
+          <span class="text-white font-bold text-sm">채</span>
+        </div>
+        <span class="font-bold text-slate-800 text-lg">채무정리길잡이</span>
+      </a>
+      <div class="hidden lg:flex items-center gap-5">
+        <a href="#" onclick="navigate('home');return false;"           data-page="home"           class="nav-link text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors">홈</a>
+        <a href="#" onclick="navigate('diagnosis');return false;"      data-page="diagnosis"      class="nav-link text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors">무료진단</a>
+        <a href="#" onclick="navigate('rehabilitation');return false;" data-page="rehabilitation" class="nav-link text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors">개인회생</a>
+        <a href="#" onclick="navigate('bankruptcy');return false;"     data-page="bankruptcy"     class="nav-link text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors">개인파산</a>
+        <a href="#" onclick="navigate('documents');return false;"      data-page="documents"      class="nav-link text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors">서류체크</a>
+        <a href="#" onclick="navigate('ai-review');return false;"      data-page="ai-review"      class="nav-link text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors">AI검토</a>
+        <a href="#" onclick="navigate('resources');return false;"      data-page="resources"      class="nav-link text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors">자료실</a>
+        <a href="#" onclick="navigate('pricing');return false;"        data-page="pricing"        class="nav-link text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors">요금제</a>
+      </div>
+      <div class="hidden lg:flex items-center gap-3">
+        <a href="#" onclick="navigate('mypage');return false;" class="text-sm text-slate-600 hover:text-blue-700 transition-colors">마이페이지</a>
+        <a href="#" onclick="navigate('diagnosis');return false;" class="bg-blue-700 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-800 transition-colors font-medium">무료진단 시작</a>
+      </div>
+      <button onclick="toggleMobileMenu()" class="lg:hidden p-2 text-slate-600 hover:text-blue-700">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div id="mobile-menu" class="lg:hidden border-t border-slate-100">
+    <a href="#" onclick="navigate('home');return false;"           data-page="home"           class="mobile-nav-link block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">홈</a>
+    <a href="#" onclick="navigate('diagnosis');return false;"      data-page="diagnosis"      class="mobile-nav-link block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">무료진단</a>
+    <a href="#" onclick="navigate('rehabilitation');return false;" data-page="rehabilitation" class="mobile-nav-link block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">개인회생</a>
+    <a href="#" onclick="navigate('bankruptcy');return false;"     data-page="bankruptcy"     class="mobile-nav-link block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">개인파산</a>
+    <a href="#" onclick="navigate('documents');return false;"      data-page="documents"      class="mobile-nav-link block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">서류체크</a>
+    <a href="#" onclick="navigate('ai-review');return false;"      data-page="ai-review"      class="mobile-nav-link block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">AI검토</a>
+    <a href="#" onclick="navigate('resources');return false;"      data-page="resources"      class="mobile-nav-link block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">자료실</a>
+    <a href="#" onclick="navigate('pricing');return false;"        data-page="pricing"        class="mobile-nav-link block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50">요금제</a>
+    <div class="px-4 py-3 border-t border-slate-100 bg-slate-50">
+      <a href="#" onclick="navigate('mypage');return false;" class="block text-center py-2 text-sm text-slate-600 mb-2">마이페이지</a>
+      <a href="#" onclick="navigate('diagnosis');return false;" class="block w-full text-center bg-blue-700 text-white py-3 rounded-lg font-medium text-sm">무료진단 시작하기</a>
+    </div>
+  </div>
+</nav>
+<div id="p-home" class="page"><!-- ══ HERO ══ -->
+<section class="hero-gradient text-white">
+  <div class="max-w-5xl mx-auto px-4 py-20 text-center">
+    <div class="inline-block bg-white/10 text-white/90 text-sm font-semibold px-4 py-1.5 rounded-full mb-6 border border-white/20">
+      실제 개인회생 경험자가 만든 채무정리 정보 플랫폼
+    </div>
+    <h1 class="text-3xl md:text-5xl font-bold mb-5" style="line-height:1.25">
+      빚 정리, 어디서부터<br>시작해야 할지 모르겠다면
+    </h1>
+    <p class="text-base md:text-lg text-blue-100 mb-8 leading-relaxed">
+      3분 무료진단으로<br>
+      <span class="inline-block bg-white/20 text-white font-bold px-4 py-1.5 rounded-xl my-2 text-sm md:text-base tracking-wide">
+        개인회생 · 개인파산·면책 · 신용회복위원회
+      </span><br>
+      절차 중 <strong class="text-white font-bold">나에게 맞는 방향</strong>을 확인하세요.
+    </p>
+    <div class="flex flex-col sm:flex-row gap-3 justify-center">
+      <a href="#" onclick="navigate('diagnosis');return false;" class="bg-white text-blue-800 font-bold px-8 py-4 rounded-xl hover:bg-blue-50 transition-colors text-lg shadow-lg">
+        무료진단 시작하기 →
+      </a>
+      <a href="#compare" class="border border-white/40 text-white px-8 py-4 rounded-xl hover:bg-white/10 transition-colors text-lg">
+        절차 비교 보기
+      </a>
+    </div>
+    <p class="mt-6 text-blue-100 text-sm font-medium">
+      무료진단, 회원가입 없이 바로 시작해보세요.
+    </p>
+  </div>
+</section>
+
+<!-- ══ 서비스 소개 ══ -->
+<section class="section">
+  <div class="max-w-5xl mx-auto px-4">
+    <div class="text-center mb-12">
+      <h2 class="text-2xl md:text-3xl font-bold text-slate-800 mb-3">어떻게 도와드리나요?</h2>
+      <p class="text-slate-500">복잡한 절차를 단계별로, 막막함 없이 시작할 수 있도록</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 card-hover">
+        <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4">
+          <span class="text-2xl">🔍</span>
+        </div>
+        <h3 class="font-bold text-slate-800 mb-2 text-lg">① 무료 채무진단</h3>
+        <p class="text-slate-500 text-sm leading-relaxed text-left">소득·채무·재산 정보를 입력하면 개인회생·파산·신용회복위원회 중 어떤 절차가 맞는지 참고 방향을 알 수 있습니다.</p>
+        <a href="#" onclick="navigate('diagnosis');return false;" class="mt-4 inline-block text-blue-700 text-sm font-medium hover:underline">진단 시작 →</a>
+      </div>
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 card-hover">
+        <div class="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center mb-4">
+          <span class="text-2xl">📋</span>
+        </div>
+        <h3 class="font-bold text-slate-800 mb-2 text-lg">② 셀프 진행 가이드</h3>
+        <p class="text-slate-500 text-sm leading-relaxed text-left">단계별 체크리스트, 필요서류 목록, 작성예시를 통해 법원 절차를 스스로 준비할 수 있도록 돕습니다.</p>
+        <a href="#" onclick="navigate('rehabilitation');return false;" class="mt-4 inline-block text-blue-700 text-sm font-medium hover:underline">가이드 보기 →</a>
+      </div>
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 card-hover">
+        <div class="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center mb-4">
+          <span class="text-2xl">🤖</span>
+        </div>
+        <h3 class="font-bold text-slate-800 mb-2 text-lg">③ AI 서류 검토</h3>
+        <p class="text-slate-500 text-sm leading-relaxed text-left">직접 작성한 내용을 붙여넣으면 AI가 필수항목 누락·형식 미비·첨부서류 필요 여부를 참고 안내합니다.</p>
+        <a href="#" onclick="navigate('ai-review');return false;" class="mt-4 inline-block text-blue-700 text-sm font-medium hover:underline">AI 검토 →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 절차 비교 ══ -->
+<section id="compare" class="section bg-white">
+  <div class="max-w-5xl mx-auto px-4">
+    <div class="text-center mb-10">
+      <h2 class="text-2xl md:text-3xl font-bold text-slate-800 mb-3">3가지 채무조정 절차 비교</h2>
+      <p class="text-slate-500 text-sm">※ 아래 내용은 일반적인 참고 안내이며, 실제 적용 여부는 전문가 검토가 필요합니다.</p>
+    </div>
+    <div class="rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <table class="compare-table">
+        <colgroup>
+          <col style="width:17%">
+          <col style="width:27%">
+          <col style="width:27%">
+          <col style="width:29%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="p-3 md:p-4 text-left">구분</th>
+            <th class="p-3 md:p-4 text-center">개인회생</th>
+            <th class="p-3 md:p-4 text-center">개인파산·면책</th>
+            <th class="p-3 md:p-4 text-center">신용회복위원회</th>
+          </tr>
+        </thead>
+        <tbody class="text-slate-700">
+          <tr>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">기관</td>
+            <td class="p-3 md:p-4 text-center">법원</td>
+            <td class="p-3 md:p-4 text-center">법원</td>
+            <td class="p-3 md:p-4 text-center">신용회복위원회</td>
+          </tr>
+          <tr>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">주요 대상</td>
+            <td class="p-3 md:p-4 text-center">정기소득 있는 채무자</td>
+            <td class="p-3 md:p-4 text-center">소득·재산 없는 채무자</td>
+            <td class="p-3 md:p-4 text-center">연체 초기·소득 있는 채무자</td>
+          </tr>
+          <tr>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">기간</td>
+            <td class="p-3 md:p-4 text-center">변제기간 3~5년</td>
+            <td class="p-3 md:p-4 text-center">절차 6개월~1년 이상</td>
+            <td class="p-3 md:p-4 text-center">조정 후 최대 10년</td>
+          </tr>
+          <tr>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">채무 처리</td>
+            <td class="p-3 md:p-4 text-center">일부 변제 후 나머지 면책</td>
+            <td class="p-3 md:p-4 text-center">재산 정리 후 전부 면책</td>
+            <td class="p-3 md:p-4 text-center">이자 감면·분할 상환</td>
+          </tr>
+          <tr>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">비용</td>
+            <td class="p-3 md:p-4 text-center">인지대·송달료 등 소액</td>
+            <td class="p-3 md:p-4 text-center">인지대·송달료 등 소액</td>
+            <td class="p-3 md:p-4 text-center">무료</td>
+          </tr>
+          <tr>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">신용 영향</td>
+            <td class="p-3 md:p-4 text-center">신용불량 기록</td>
+            <td class="p-3 md:p-4 text-center">신용불량 기록</td>
+            <td class="p-3 md:p-4 text-center">협약 기간 제한</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-xs text-slate-400 text-center mt-3">참고용 안내이며 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다.</p>
+  </div>
+</section>
+
+<!-- ══ 운영자 스토리 ══ -->
+<section class="section bg-slate-50">
+  <div class="max-w-3xl mx-auto px-4">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 md:p-10">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-12 h-12 bg-blue-700 rounded-full flex items-center justify-center text-white font-bold text-lg">운</div>
+        <div>
+          <div class="font-bold text-slate-800">운영자 소개</div>
+          <div class="text-sm text-slate-400">개인회생 신청 → 면책 완료</div>
+        </div>
+      </div>
+
+      <h2 class="text-xl md:text-2xl font-bold text-slate-800 mb-6 leading-snug">
+        "제가 직접 겪었기에 만들었습니다"
+      </h2>
+
+      <div class="space-y-4 text-slate-600 leading-relaxed text-[15px]">
+        <p>저는 과거 개인회생을 신청해 면책까지 받았던 사람입니다.<br>
+        지금은 그 무거운 짐을 내려놓았지만, 그 과정은 결코 쉽지 않았습니다.</p>
+
+        <p>가장 힘들었던 건 빚 그 자체보다도,
+        <span class="story-highlight">무엇을 어떻게 해야 할지 알려주는 사람이 아무도 없었다</span>는 것이었습니다.
+        제 상황이 정확히 어떤 상태인지, 저에게 가장 맞는 제도가 무엇인지
+        제대로 진단받지 못한 채 막막하게 발을 들였습니다.</p>
+
+        <p>절차는 복잡했고, 준비해야 할 서류는 끝이 없었습니다.
+        결국 법무사에 맡기며 적지 않은 수임료를 치러야 했습니다.
+        <span class="story-highlight">돈이 없어 시작한 채무조정인데, 그 과정에서 또 큰돈을 내야 한다</span>는 사실이
+        저를 가장 비참하게 만들었습니다.</p>
+
+        <p>그때의 막막함과 외로움을 저는 또렷이 기억합니다.</p>
+
+        <p>그래서 같은 고민 앞에 선 누군가가, 적어도 저처럼 혼자 헤매지는 않기를 바라는 마음으로
+        이 플랫폼을 만들었습니다.</p>
+
+        <p class="text-slate-700 font-medium">
+          스스로 자신의 상황을 진단하고, 자신에게 꼭 맞는 채무조정 절차를 차분히 밟아갈 수 있도록 —<br>
+          <span class="story-highlight">제가 그때 절실히 필요로 했던 그 도움을, 이제 당신께 드리고 싶습니다.</span>
+        </p>
+      </div>
+
+      <div class="mt-8 pt-6 border-t border-slate-100 flex flex-col sm:flex-row gap-3">
+        <a href="#" onclick="navigate('diagnosis');return false;" class="bg-blue-700 text-white px-6 py-3 rounded-xl font-medium text-sm hover:bg-blue-800 transition-colors text-center">
+          지금 무료진단 시작하기
+        </a>
+        <a href="#" onclick="navigate('resources');return false;" class="border border-slate-200 text-slate-700 px-6 py-3 rounded-xl font-medium text-sm hover:bg-slate-50 transition-colors text-center">
+          절차 자세히 알아보기
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 유료 서비스 소개 ══ -->
+<section class="section bg-white">
+  <div class="max-w-5xl mx-auto px-4">
+    <div class="text-center mb-10">
+      <h2 class="text-2xl md:text-3xl font-bold text-slate-800 mb-3">유료 서비스</h2>
+      <p class="text-slate-500">무료진단 이후, 실제 절차 준비를 더 체계적으로 돕는 도구</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="border border-slate-200 rounded-2xl p-6 text-center">
+        <div class="text-3xl font-bold text-slate-800 mb-1">무료</div>
+        <div class="text-slate-400 text-sm mb-4">기본 이용</div>
+        <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
+          <li class="flex gap-2"><span class="text-green-500">✓</span> 채무 무료진단</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> 기본 절차 안내</li>
+        </ul>
+        <a href="#" onclick="navigate('diagnosis');return false;" class="block w-full py-2.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">진단 시작</a>
+      </div>
+
+      <div class="border border-slate-200 rounded-2xl p-6 text-center">
+        <div class="text-3xl font-bold text-slate-800 mb-1">9,900<span class="text-base font-normal">원</span></div>
+        <div class="text-slate-400 text-sm mb-4">베이직</div>
+        <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
+          <li class="flex gap-2"><span class="text-green-500">✓</span> 진행 로드맵</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> 서류 체크리스트</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> 작성예시 열람</li>
+        </ul>
+        <a href="#" onclick="navigate('pricing');return false;" class="block w-full py-2.5 border border-blue-300 rounded-lg text-sm font-medium text-blue-700 hover:bg-blue-50 transition-colors">구매하기</a>
+      </div>
+
+      <div class="border-2 border-blue-700 rounded-2xl p-6 text-center pricing-featured">
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs px-3 py-1 rounded-full font-semibold">추천</div>
+        <div class="text-3xl font-bold text-slate-800 mb-1">29,000<span class="text-base font-normal">원</span></div>
+        <div class="text-slate-400 text-sm mb-4">프리미엄</div>
+        <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
+          <li class="flex gap-2"><span class="text-green-500">✓</span> AI 서류 검토</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> 진행률 관리</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> PDF 체크리스트</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> 마이페이지 저장</li>
+        </ul>
+        <a href="#" onclick="navigate('pricing');return false;" class="block w-full py-2.5 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors">구매하기</a>
+      </div>
+    </div>
+
+    <div class="disclaimer-box mt-8">
+      <strong>⚠ 법률대리 아님 고지</strong><br>
+      본 서비스는 법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.
+      사용자가 직접 절차를 이해하고 준비할 수 있도록 돕는 정보 제공 및 서류 점검 보조 서비스입니다.
+      구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
+    </div>
+  </div>
+</section>
+
+<!-- ══ 자주 묻는 질문 (홈 미리보기) ══ -->
+<section class="section-sm bg-slate-50">
+  <div class="max-w-3xl mx-auto px-4 text-center">
+    <h2 class="text-xl font-bold text-slate-800 mb-2">더 궁금하신가요?</h2>
+    <p class="text-slate-500 text-sm mb-6">자주 묻는 질문과 상세 가이드를 자료실에서 확인하세요.</p>
+    <a href="#" onclick="navigate('resources');return false;" class="inline-block bg-white border border-slate-200 text-slate-700 px-6 py-3 rounded-xl font-medium text-sm hover:bg-slate-50 transition-colors shadow-sm">자료실 바로가기 →</a>
+  </div>
+</section></div><div id="p-diagnosis" class="page" style="display:none"><!-- 상단 안내 -->
+<section class="bg-blue-700 text-white py-8">
+  <div class="max-w-3xl mx-auto px-4 text-center">
+    <h1 class="text-2xl md:text-3xl font-bold mb-2">무료 채무 진단</h1>
+    <p class="text-blue-100 text-sm">입력하신 정보는 진단에만 활용되며 외부에 제공되지 않습니다.</p>
+  </div>
+</section>
+
+<!-- 진행 표시 -->
+<div class="bg-white border-b border-slate-200 sticky top-16 z-50 no-print">
+  <div class="max-w-3xl mx-auto px-4 py-4">
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center flex-1">
+        <div id="dot-1" class="step-dot active">1</div>
+        <div id="line-1" class="step-line pending"></div>
+        <div id="dot-2" class="step-dot pending">2</div>
+        <div id="line-2" class="step-line pending"></div>
+        <div id="dot-3" class="step-dot pending">3</div>
+        <div id="line-3" class="step-line pending"></div>
+        <div id="dot-4" class="step-dot pending">4</div>
+      </div>
+      <span id="progress-pct" class="ml-4 text-sm font-semibold text-blue-700">25%</span>
+    </div>
+    <div class="flex justify-between text-xs text-slate-400 step-label">
+      <span>채무현황</span><span>연체·법적현황</span><span>소득·생활비</span><span>재산·기타</span>
+    </div>
+    <div class="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+      <div id="progress-bar" class="progress-bar h-full bg-blue-600 rounded-full" style="width:25%"></div>
+    </div>
+  </div>
+</div>
+
+<div class="max-w-3xl mx-auto px-4 py-8">
+
+  <!-- ══ STEP 1: 채무현황 ══ -->
+  <div id="step-1" class="form-step active">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
+      <h2 class="text-xl font-bold text-slate-800 mb-1">1단계 · 채무 현황</h2>
+      <p class="text-slate-400 text-sm mb-6">보유한 채무의 종류와 규모를 입력해 주세요.</p>
+
+      <div class="space-y-6">
+
+        <!-- 채무 종류 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">
+            채무 종류 <span class="text-red-500">*</span>
+            <span class="text-slate-400 font-normal ml-1">(해당 항목 모두 선택)</span>
+          </label>
+          <p class="text-xs text-slate-400 mb-2">채무 종류에 따라 신청 가능한 제도가 달라집니다.</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 text-sm">
+              <input type="checkbox" name="debt-type" value="bank" class="accent-blue-700">
+              <span>
+                <strong class="text-slate-800">은행·카드사 대출</strong>
+                <span class="block text-xs text-slate-400">시중은행, 카드사 대출</span>
+              </span>
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 text-sm">
+              <input type="checkbox" name="debt-type" value="savings" class="accent-blue-700">
+              <span>
+                <strong class="text-slate-800">저축은행·캐피탈·상호금융</strong>
+                <span class="block text-xs text-slate-400">저축은행, 캐피탈, 신협, 새마을금고 등</span>
+              </span>
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 text-sm">
+              <input type="checkbox" name="debt-type" value="card" class="accent-blue-700">
+              <span>
+                <strong class="text-slate-800">카드론·현금서비스·리볼빙</strong>
+                <span class="block text-xs text-slate-400">신용카드 단기 이용 채무</span>
+              </span>
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 text-sm">
+              <input type="checkbox" name="debt-type" value="insurance" class="accent-blue-700">
+              <span>
+                <strong class="text-slate-800">보험약관대출</strong>
+                <span class="block text-xs text-slate-400">보험사 약관에 따른 대출</span>
+              </span>
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 text-sm">
+              <input type="checkbox" name="debt-type" value="private" class="accent-blue-700">
+              <span>
+                <strong class="text-slate-800">사채·개인 간 채무</strong>
+                <span class="block text-xs text-slate-400">사금융, 지인 간 차용금 등</span>
+              </span>
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50 text-sm">
+              <input type="checkbox" name="debt-type" value="tax" class="accent-blue-700">
+              <span>
+                <strong class="text-slate-800">세금·건강보험료·과태료</strong>
+                <span class="block text-xs text-slate-400">공과금 성격의 채무</span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 무담보 채무 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">
+            무담보(신용) 채무 총액 <span class="text-red-500">*</span>
+          </label>
+          <div class="relative">
+            <input id="unsecured-debt" type="number" min="0" placeholder="0"
+              class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-8">
+            <span class="absolute right-3 top-2.5 text-slate-400 text-sm">원</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">신용대출·카드론·사채 등 담보 없는 채무 합산 (없으면 0)</p>
+        </div>
+
+        <!-- 담보 채무 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">담보 채무 총액</label>
+          <div class="relative">
+            <input id="secured-debt" type="number" min="0" placeholder="0"
+              class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-8">
+            <span class="absolute right-3 top-2.5 text-slate-400 text-sm">원</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">주택담보대출·전세자금대출 등 (없으면 0)</p>
+        </div>
+
+        <!-- 채권자 수 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">
+            총 채권자(금융사) 수 <span class="text-red-500">*</span>
+          </label>
+          <input id="creditor-count" type="number" min="1" placeholder="예: 3"
+            class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm">
+          <p class="text-xs text-slate-400 mt-1">대출·카드 채무가 있는 금융기관 수</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ STEP 2: 연체·법적 현황 ══ -->
+  <div id="step-2" class="form-step">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
+      <h2 class="text-xl font-bold text-slate-800 mb-1">2단계 · 연체·법적 현황</h2>
+      <p class="text-slate-400 text-sm mb-6">연체 기간과 법적 조치 여부는 적합한 제도를 결정하는 핵심 기준입니다.</p>
+
+      <div class="space-y-6">
+
+        <!-- 현재 연체 여부 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            현재 연체 중이신가요? <span class="text-red-500">*</span>
+          </label>
+          <div class="flex gap-3">
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm flex-1">
+              <input type="radio" name="is-delinquent" value="yes" onchange="toggleArrearsFields(true)" class="accent-blue-700">
+              예, 연체 중입니다
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm flex-1">
+              <input type="radio" name="is-delinquent" value="no" onchange="toggleArrearsFields(false)" class="accent-blue-700">
+              아니오 (연체 없음)
+            </label>
+          </div>
+        </div>
+
+        <!-- 연체 세부 (조건부 표시) -->
+        <div id="arrears-details" class="hidden space-y-4 pl-1 border-l-4 border-amber-300">
+          <div class="pl-4">
+            <label class="block text-sm font-medium text-slate-700 mb-2">
+              연체 기간 <span class="text-red-500">*</span>
+            </label>
+            <select id="arrears-period" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white">
+              <option value="">선택해 주세요</option>
+              <option value="1">1개월 미만</option>
+              <option value="2">1개월 ~ 3개월</option>
+              <option value="5">3개월 ~ 6개월</option>
+              <option value="9">6개월 ~ 1년</option>
+              <option value="18">1년 이상</option>
+            </select>
+            <p class="text-xs text-slate-400 mt-1">가장 오래된 연체 기준</p>
+          </div>
+          <div class="pl-4">
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">연체 중인 금융사 수</label>
+            <input id="delinquent-creditor-count" type="number" min="1" placeholder="예: 2"
+              class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm">
+          </div>
+        </div>
+
+        <!-- 법적 조치 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            현재 법적 조치를 받고 있나요?
+            <span class="text-slate-400 font-normal ml-1">(복수 선택)</span>
+          </label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="legal-action" value="seizure" class="accent-blue-700"> 압류·추심
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="legal-action" value="provisional" class="accent-blue-700"> 가압류
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="legal-action" value="order" class="accent-blue-700"> 지급명령
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="legal-action" value="lawsuit" class="accent-blue-700"> 소송 진행 중
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="legal-action" value="auction" class="accent-blue-700"> 경매 진행 중
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="legal-action" value="none" id="legal-none" onchange="toggleLegalNone(this)" class="accent-blue-700"> 해당 없음
+            </label>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ STEP 3: 소득·생활비 ══ -->
+  <div id="step-3" class="form-step">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
+      <h2 class="text-xl font-bold text-slate-800 mb-1">3단계 · 소득·생활비</h2>
+      <p class="text-slate-400 text-sm mb-6">소득 유무와 월 필수 지출을 입력해 주세요. 개인회생 신청의 핵심 조건입니다.</p>
+
+      <div class="space-y-6">
+
+        <!-- 소득 유무 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            현재 소득이 있으신가요? <span class="text-red-500">*</span>
+          </label>
+          <div class="flex gap-3">
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm flex-1">
+              <input type="radio" name="has-income" value="yes" onchange="toggleIncomeFields(true)" class="accent-blue-700">
+              예, 있습니다
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm flex-1">
+              <input type="radio" name="has-income" value="no" onchange="toggleIncomeFields(false)" class="accent-blue-700">
+              아니오 (소득 없음)
+            </label>
+          </div>
+        </div>
+
+        <!-- 소득 세부 (조건부 표시) -->
+        <div id="income-details" class="hidden space-y-4 pl-1 border-l-4 border-blue-300">
+          <div class="pl-4">
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">
+              소득 유형 <span class="text-red-500">*</span>
+            </label>
+            <select id="income-type" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white">
+              <option value="">선택해 주세요</option>
+              <option value="employed">근로소득 (정규직·계약직)</option>
+              <option value="self">사업소득 (자영업·개인사업자)</option>
+              <option value="pension">연금·공적급여 (국민연금·기초수급 등)</option>
+              <option value="daily">일용직·프리랜서·단기 근로</option>
+            </select>
+          </div>
+          <div class="pl-4">
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">
+              월 평균 소득 (세후) <span class="text-red-500">*</span>
+            </label>
+            <div class="relative">
+              <input id="monthly-income" type="number" min="0" placeholder="0"
+                class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-8">
+              <span class="absolute right-3 top-2.5 text-slate-400 text-sm">원</span>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">최근 3개월 평균 세후 실수령액</p>
+          </div>
+        </div>
+
+        <!-- 부양가족 수 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">
+            부양가족 수 <span class="text-red-500">*</span>
+          </label>
+          <input id="dependents" type="number" min="0" placeholder="0"
+            class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm">
+          <p class="text-xs text-slate-400 mt-1">본인 제외 (배우자·자녀·부모 등 실제 부양 중인 가족 수)</p>
+        </div>
+
+        <!-- 월 필수 생활비 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">
+            월 필수 생활비 합계 <span class="text-red-500">*</span>
+          </label>
+          <div class="relative">
+            <input id="monthly-living" type="number" min="0" placeholder="0"
+              class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-8">
+            <span class="absolute right-3 top-2.5 text-slate-400 text-sm">원</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">주거비(월세·관리비) + 식비 + 교통비 + 의료비 등 필수 지출 합산</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ STEP 4: 재산·기타 ══ -->
+  <div id="step-4" class="form-step">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
+      <h2 class="text-xl font-bold text-slate-800 mb-1">4단계 · 재산·기타</h2>
+      <p class="text-slate-400 text-sm mb-6">보유 재산과 추가 정보를 입력해 주세요. 어림값도 괜찮습니다.</p>
+
+      <div class="space-y-6">
+
+        <!-- 보유 재산 현황 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-3">
+            보유 재산 현황
+            <span class="text-slate-400 font-normal ml-1">(없으면 0)</span>
+          </label>
+          <div class="space-y-3">
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-600 w-36 shrink-0">예금·현금</span>
+              <div class="relative flex-1">
+                <input id="cash-assets" type="number" min="0" placeholder="0"
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-8">
+                <span class="absolute right-3 top-2 text-slate-400 text-sm">원</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-600 w-36 shrink-0">부동산 (시가)</span>
+              <div class="relative flex-1">
+                <input id="property-value" type="number" min="0" placeholder="0"
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-8">
+                <span class="absolute right-3 top-2 text-slate-400 text-sm">원</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-600 w-36 shrink-0">차량 (시세)</span>
+              <div class="relative flex-1">
+                <input id="car-value" type="number" min="0" placeholder="0"
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-8">
+                <span class="absolute right-3 top-2 text-slate-400 text-sm">원</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-600 w-36 shrink-0">임차보증금</span>
+              <div class="relative flex-1">
+                <input id="deposit-value" type="number" min="0" placeholder="0"
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-8">
+                <span class="absolute right-3 top-2 text-slate-400 text-sm">원</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm text-slate-600 w-36 shrink-0">보험 해약환급금</span>
+              <div class="relative flex-1">
+                <input id="insurance-value" type="number" min="0" placeholder="0"
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-8">
+                <span class="absolute right-3 top-2 text-slate-400 text-sm">원</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 나이 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">
+            나이 (만 나이) <span class="text-red-500">*</span>
+          </label>
+          <input id="age" type="number" min="19" max="99" placeholder="예: 38"
+            class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm">
+        </div>
+
+        <!-- 건강 상태 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">건강 상태 (근로능력에 영향이 있나요?)</label>
+          <div class="flex gap-3">
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm flex-1">
+              <input type="radio" name="health" value="yes"
+                onchange="document.getElementById('has-health-issues').value='yes'" class="accent-blue-700">
+              있음 (질병·장애·고령 등)
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm flex-1">
+              <input type="radio" name="health" value="no" checked
+                onchange="document.getElementById('has-health-issues').value='no'" class="accent-blue-700">
+              없음
+            </label>
+          </div>
+          <input type="hidden" id="has-health-issues" value="no">
+        </div>
+
+        <!-- 채무 발생 원인 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            채무 발생 주요 원인
+            <span class="text-slate-400 font-normal ml-1">(복수 선택)</span>
+          </label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="debt-cause" value="business" class="accent-blue-700"> 사업 실패·폐업
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="debt-cause" value="medical" class="accent-blue-700"> 의료비·질병
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="debt-cause" value="living" class="accent-blue-700"> 생활비 부족
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="debt-cause" value="investment" class="accent-blue-700"> 투자 손실
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="debt-cause" value="unemployment" class="accent-blue-700"> 실직·소득 감소
+            </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
+              <input type="checkbox" name="debt-cause" value="guarantee" class="accent-blue-700"> 보증 채무
+            </label>
+          </div>
+        </div>
+
+        <!-- 이전 채무조정 이력 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">이전에 채무조정을 신청한 적이 있나요?</label>
+          <select id="prior-adjustment" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white">
+            <option value="none">없음 (처음 신청)</option>
+            <option value="ccrs">신용회복위원회 (완료·취소·진행 중)</option>
+            <option value="rehab">개인회생 (완료·취소·진행 중)</option>
+            <option value="bankrupt">개인파산 (완료·진행 중)</option>
+          </select>
+        </div>
+
+        <div class="disclaimer-box">
+          입력하신 내용은 진단 참고용으로만 활용되며, 법률상담이나 법적 결론을 제공하지 않습니다.
+          모든 결과는 참고용이며, 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다.
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 버튼 영역 -->
+  <div class="flex justify-between mt-6">
+    <button id="btn-prev" onclick="prevStep()"
+      class="hidden items-center gap-2 px-6 py-3 border border-slate-300 rounded-xl text-slate-700 font-medium text-sm hover:bg-slate-50 transition-colors" style="display:none">
+      ← 이전
+    </button>
+    <div class="flex-1"></div>
+    <button id="btn-next" onclick="nextStep()"
+      class="inline-flex items-center gap-2 bg-blue-700 text-white px-8 py-3 rounded-xl font-medium text-sm hover:bg-blue-800 transition-colors">
+      다음 →
+    </button>
+    <button id="btn-submit" onclick="submitDiagnosis()"
+      class="inline-flex items-center gap-2 bg-green-600 text-white px-8 py-3 rounded-xl font-medium text-sm hover:bg-green-700 transition-colors" style="display:none">
+      진단 결과 보기 ✓
+    </button>
+  </div>
+</div></div><div id="p-result" class="page" style="display:none"><section class="bg-blue-700 text-white py-8">
+  <div class="max-w-4xl mx-auto px-4 text-center">
+    <h1 class="text-2xl md:text-3xl font-bold mb-1">채무진단 결과</h1>
+    <p id="result-date" class="text-blue-200 text-sm"></p>
+  </div>
+</section>
+
+<div class="max-w-4xl mx-auto px-4 py-8">
+
+  <!-- 참고 안내 -->
+  <div class="disclaimer-box mb-6">
+    <strong>⚠ 참고용 안내</strong><br>
+    아래 결과는 입력하신 정보를 바탕으로 한 참고용 분석입니다.
+    법률상담·법률대리·결과 보장이 아니며, 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다.
+  </div>
+
+  <!-- 결과 카드 3개 -->
+  <div id="result-cards" class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+    <!-- JS로 렌더링 -->
+  </div>
+
+  <!-- 상세 섹션 -->
+  <div id="rehab-detail" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-5">
+    <!-- 개인회생 상세 (JS 렌더링) -->
+  </div>
+
+  <div id="bankrupt-detail" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-5">
+    <!-- 개인파산 상세 (JS 렌더링) -->
+  </div>
+
+  <div id="credit-detail" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-5">
+    <!-- 신용회복위원회 상세 (JS 렌더링) -->
+  </div>
+
+  <!-- 다음 단계 CTA -->
+  <div class="bg-blue-50 border border-blue-100 rounded-2xl p-6 mt-6">
+    <h3 class="font-bold text-slate-800 mb-3">이제 어떻게 할까요?</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <a href="#" onclick="navigate('rehabilitation');return false;" class="flex items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 hover:border-blue-300 transition-colors card-hover">
+        <span class="text-2xl">📋</span>
+        <div>
+          <div class="font-semibold text-slate-800 text-sm">개인회생 셀프 진행센터</div>
+          <div class="text-xs text-slate-400">단계별 체크리스트·서류 안내</div>
+        </div>
+      </a>
+      <a href="#" onclick="navigate('bankruptcy');return false;" class="flex items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 hover:border-blue-300 transition-colors card-hover">
+        <span class="text-2xl">⚖️</span>
+        <div>
+          <div class="font-semibold text-slate-800 text-sm">개인파산·면책 셀프 진행센터</div>
+          <div class="text-xs text-slate-400">단계별 체크리스트·서류 안내</div>
+        </div>
+      </a>
+      <a href="#" onclick="navigate('documents');return false;" class="flex items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 hover:border-blue-300 transition-colors card-hover">
+        <span class="text-2xl">📁</span>
+        <div>
+          <div class="font-semibold text-slate-800 text-sm">서류 체크센터</div>
+          <div class="text-xs text-slate-400">필요 서류 목록·발급처 안내</div>
+        </div>
+      </a>
+      <a href="#" onclick="navigate('ai-review');return false;" class="flex items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 hover:border-blue-300 transition-colors card-hover">
+        <span class="text-2xl">🤖</span>
+        <div>
+          <div class="font-semibold text-slate-800 text-sm">AI 서류 검토</div>
+          <div class="text-xs text-slate-400">작성한 내용 참고 검토</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- 재진단 버튼 -->
+  <div class="text-center mt-6">
+    <a href="#" onclick="navigate('diagnosis');return false;" class="inline-block text-slate-500 text-sm hover:text-blue-700 underline">
+      다시 진단하기
+    </a>
+  </div>
+</div></div><div id="p-rehabilitation" class="page" style="display:none"><section class="bg-blue-700 text-white py-8">
+  <div class="max-w-4xl mx-auto px-4">
+    <h1 class="text-2xl md:text-3xl font-bold mb-1">개인회생 셀프 진행센터</h1>
+    <p class="text-blue-200 text-sm">단계별 체크리스트·필요서류·작성예시를 통해 법원 절차를 스스로 준비하세요.</p>
+  </div>
+</section>
+
+<div class="max-w-4xl mx-auto px-4 py-8">
+
+  <!-- 전체 진행률 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
+    <div class="flex items-center justify-between mb-2">
+      <span class="font-semibold text-slate-700 text-sm">전체 진행률</span>
+      <span id="rehab-pct" class="text-blue-700 font-bold text-sm">0%</span>
+    </div>
+    <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+      <div id="rehab-bar" class="progress-bar h-full bg-blue-600 rounded-full" style="width:0%"></div>
+    </div>
+    <p class="text-xs text-slate-400 mt-2">각 단계의 항목을 체크하면 진행률이 업데이트됩니다.</p>
+  </div>
+
+  <!-- 면책 안내 -->
+  <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 text-sm text-blue-800">
+    <strong>개인회생이란?</strong> 정기적인 소득이 있는 채무자가 법원의 감독 하에 3~5년간 일부 채무를 변제하고 나머지를 면책받는 절차입니다.
+    총 채무한도: 담보채무 15억 원, 비담보채무 10억 원 이하.
+  </div>
+
+  <!-- 단계별 체크리스트 -->
+  <div id="steps-container" class="space-y-4"></div>
+
+  <div class="disclaimer-box mt-6">
+    <strong>⚠ 참고용 안내</strong><br>
+    본 서비스는 법률상담이 아닙니다. 모든 안내는 참고용이며 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다.
+    구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
+  </div>
+</div></div><div id="p-bankruptcy" class="page" style="display:none"><section class="bg-slate-700 text-white py-8">
+  <div class="max-w-4xl mx-auto px-4">
+    <h1 class="text-2xl md:text-3xl font-bold mb-1">개인파산·면책 셀프 진행센터</h1>
+    <p class="text-slate-300 text-sm">단계별 체크리스트·필요서류·면책 주의사항을 확인하며 법원 절차를 준비하세요.</p>
+  </div>
+</section>
+
+<div class="max-w-4xl mx-auto px-4 py-8">
+
+  <!-- 전체 진행률 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
+    <div class="flex items-center justify-between mb-2">
+      <span class="font-semibold text-slate-700 text-sm">전체 진행률</span>
+      <span id="bankrupt-pct" class="text-slate-700 font-bold text-sm">0%</span>
+    </div>
+    <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+      <div id="bankrupt-bar" class="progress-bar h-full bg-slate-600 rounded-full" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- 개인파산 개요 -->
+  <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6 text-sm text-slate-700">
+    <strong>개인파산·면책이란?</strong> 소득과 재산으로 채무를 변제할 수 없는 채무자가 법원에 파산 신청을 하고, 면책결정을 받아 채무 전부를 소멸시키는 절차입니다.
+    면책불허가 사유(도박·낭비·허위신고 등)가 없어야 면책이 가능합니다.
+  </div>
+
+  <!-- 면책불허가 주의 박스 -->
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+    <h3 class="font-bold text-amber-800 mb-2 text-sm">⚠ 면책불허가 사유 — 반드시 확인하세요</h3>
+    <ul class="text-xs text-amber-700 space-y-1 leading-relaxed">
+      <li>• 도박·낭비·사치로 채무가 발생한 경우</li>
+      <li>• 파산 전 2년 이내 채무 과다 부담 또는 허위 재산 감소 행위</li>
+      <li>• 특정 채권자에 대한 편파 변제</li>
+      <li>• 파산 신청 직전 신규 대출 또는 카드 사용</li>
+      <li>• 재산·수입 허위 진술 또는 은닉</li>
+      <li>• 장부 폐기·허위 기재</li>
+    </ul>
+    <p class="text-xs text-amber-600 mt-2">※ 위 사유가 있어도 법원이 재량으로 면책허가를 내릴 수 있으나, 해당 사유가 있다면 반드시 전문가 상담을 먼저 받으세요.</p>
+  </div>
+
+  <!-- 단계별 체크리스트 -->
+  <div id="steps-container" class="space-y-4"></div>
+
+  <div class="disclaimer-box mt-6">
+    <strong>⚠ 참고용 안내</strong><br>
+    본 서비스는 법률상담이 아닙니다. 면책 여부는 법원이 최종 결정하며, 본 안내는 결과를 보장하지 않습니다.
+    구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
+  </div>
+</div></div><div id="p-documents" class="page" style="display:none"><section class="bg-blue-700 text-white py-8">
+  <div class="max-w-5xl mx-auto px-4">
+    <h1 class="text-2xl md:text-3xl font-bold mb-1">서류 체크센터</h1>
+    <p class="text-blue-100 text-sm">필요한 서류를 카테고리별로 확인하고 준비 여부를 체크하세요.</p>
+  </div>
+</section>
+
+<div class="max-w-5xl mx-auto px-4 py-8">
+
+  <!-- 절차 선택 탭 -->
+  <div class="flex gap-2 mb-6 overflow-x-auto pb-1">
+    <button onclick="setTab('all')" id="tab-all" class="tab-btn bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap">전체</button>
+    <button onclick="setTab('common')" id="tab-common" class="tab-btn bg-white text-slate-600 border border-slate-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 whitespace-nowrap">공통서류</button>
+    <button onclick="setTab('rehab')" id="tab-rehab" class="tab-btn bg-white text-slate-600 border border-slate-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 whitespace-nowrap">개인회생</button>
+    <button onclick="setTab('bankrupt')" id="tab-bankrupt" class="tab-btn bg-white text-slate-600 border border-slate-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 whitespace-nowrap">개인파산·면책</button>
+    <button onclick="setTab('income')" id="tab-income" class="tab-btn bg-white text-slate-600 border border-slate-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 whitespace-nowrap">소득자료</button>
+    <button onclick="setTab('asset')" id="tab-asset" class="tab-btn bg-white text-slate-600 border border-slate-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 whitespace-nowrap">재산자료</button>
+    <button onclick="setTab('debt')" id="tab-debt" class="tab-btn bg-white text-slate-600 border border-slate-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 whitespace-nowrap">채무자료</button>
+  </div>
+
+  <!-- 준비 현황 -->
+  <div class="bg-white rounded-xl border border-slate-100 p-4 mb-6 flex items-center gap-6 shadow-sm">
+    <div class="text-center">
+      <div id="done-count" class="text-2xl font-bold text-blue-700">0</div>
+      <div class="text-xs text-slate-400">준비 완료</div>
+    </div>
+    <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+      <div id="docs-bar" class="progress-bar h-full bg-blue-600 rounded-full" style="width:0%"></div>
+    </div>
+    <div class="text-center">
+      <div id="total-count" class="text-2xl font-bold text-slate-700">0</div>
+      <div class="text-xs text-slate-400">전체 항목</div>
+    </div>
+  </div>
+
+  <!-- 서류 목록 -->
+  <div id="docs-container" class="space-y-4"></div>
+
+  <div class="disclaimer-box mt-6">
+    본 서류 목록은 일반적인 참고 안내입니다. 실제 제출 서류는 법원 및 담당 재판부의 안내에 따라 달라질 수 있습니다.
+  </div>
+</div></div><div id="p-ai-review" class="page" style="display:none"><section class="bg-purple-800 text-white py-8">
+  <div class="max-w-4xl mx-auto px-4">
+    <h1 class="text-2xl md:text-3xl font-bold mb-1">AI 서류 검토</h1>
+    <p class="text-purple-200 text-sm">직접 작성하신 내용을 붙여넣으면 AI가 필수항목 누락·형식 미비를 참고 안내합니다.</p>
+  </div>
+</section>
+
+<div class="max-w-4xl mx-auto px-4 py-8">
+
+  <!-- AI 기능 안내 -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <div class="bg-green-50 border border-green-100 rounded-xl p-4">
+      <h3 class="font-bold text-green-800 text-sm mb-2">✅ AI가 하는 것</h3>
+      <ul class="text-xs text-green-700 space-y-1">
+        <li>• 필수항목 누락 여부 확인</li>
+        <li>• 내용이 짧거나 불명확한 부분 안내</li>
+        <li>• 숫자 불일치 가능성 지적</li>
+        <li>• 채권자 정보 누락 가능성 안내</li>
+        <li>• 첨부서류 필요 가능성 안내</li>
+        <li>• 작성예시 제공</li>
+      </ul>
+    </div>
+    <div class="bg-red-50 border border-red-100 rounded-xl p-4">
+      <h3 class="font-bold text-red-800 text-sm mb-2">❌ AI가 하지 않는 것</h3>
+      <ul class="text-xs text-red-700 space-y-1">
+        <li>• 법률적 결론 제공</li>
+        <li>• 사건 결과 예측</li>
+        <li>• 면책 가능성 단정</li>
+        <li>• 신청서 자동 작성</li>
+        <li>• 문장 전체 대신 작성</li>
+        <li>• 법률 상담 대체</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 서류 유형 선택 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
+    <h3 class="font-semibold text-slate-800 mb-3">검토할 서류 유형을 선택하세요</h3>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50">
+        <input type="radio" name="doc-type" value="rehab-petition" checked class="accent-blue-700">
+        개인회생 신청서
+      </label>
+      <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50">
+        <input type="radio" name="doc-type" value="creditor-list" class="accent-blue-700">
+        채권자 목록
+      </label>
+      <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50">
+        <input type="radio" name="doc-type" value="asset-list" class="accent-blue-700">
+        재산목록
+      </label>
+      <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50">
+        <input type="radio" name="doc-type" value="income-expense" class="accent-blue-700">
+        수입·지출 명세서
+      </label>
+      <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50">
+        <input type="radio" name="doc-type" value="bankrupt-petition" class="accent-blue-700">
+        개인파산 신청서
+      </label>
+      <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50">
+        <input type="radio" name="doc-type" value="statement" class="accent-blue-700">
+        진술서(경위서)
+      </label>
+    </div>
+  </div>
+
+  <!-- 텍스트 입력 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-4">
+    <h3 class="font-semibold text-slate-800 mb-1">작성한 내용을 붙여넣으세요</h3>
+    <p class="text-xs text-slate-400 mb-3">개인정보(이름·주민번호 등)는 제거하거나 ○○으로 대체 후 입력하세요.</p>
+    <textarea id="doc-input" rows="10" placeholder="여기에 작성하신 내용을 붙여넣어 주세요.
+예시: 신청인 ○○○ (생년월일 ○○○○.○○.○○)
+주소: ○○시 ○○구 ○○로 ○○
+직업: 회사원
+월 소득: 약 2,350,000원
+..."
+      class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm resize-none leading-relaxed"></textarea>
+    <div class="flex items-center justify-between mt-2">
+      <span id="char-count" class="text-xs text-slate-400">0 / 5000자</span>
+      <button onclick="clearInput()" class="text-xs text-slate-400 hover:text-slate-600">초기화</button>
+    </div>
+  </div>
+
+  <!-- 파일 업로드 (MVP: mock) -->
+  <div class="bg-slate-50 border border-dashed border-slate-300 rounded-xl p-5 mb-6 text-center">
+    <div class="text-slate-400 text-sm mb-2">📎 파일 업로드 (준비 중)</div>
+    <p class="text-xs text-slate-400">HWP, PDF, DOC 파일 업로드 기능은 프리미엄 서비스 출시 예정입니다.</p>
+    <label class="mt-3 inline-block cursor-pointer">
+      <span class="text-xs text-slate-500 border border-slate-300 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">파일 선택 (미지원)</span>
+      <input type="file" class="hidden" disabled>
+    </label>
+  </div>
+
+  <!-- 검토 버튼 -->
+  <button onclick="runReview()" id="review-btn"
+    class="w-full bg-purple-700 text-white py-4 rounded-xl font-bold text-base hover:bg-purple-800 transition-colors">
+    AI 참고 검토 시작하기
+  </button>
+
+  <!-- 검토 결과 -->
+  <div id="review-result" class="mt-6" style="display:none">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div class="flex items-center gap-2 px-6 py-4 border-b border-slate-100 bg-purple-50">
+        <span class="text-purple-700 font-bold">🤖 AI 참고 검토 결과</span>
+        <span class="text-xs text-purple-500 ml-auto">참고용 안내 · 법률상담 아님</span>
+      </div>
+      <div id="review-content" class="p-6 space-y-4 text-sm"></div>
+      <div class="px-6 pb-6">
+        <div class="disclaimer-box">
+          본 AI 검토 결과는 입력하신 텍스트를 패턴 분석한 참고용 안내입니다.
+          법률상담·법률대리가 아니며, 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다.
+        </div>
+      </div>
+    </div>
+
+    <!-- 기록 저장 -->
+    <div class="mt-4 text-center">
+      <button onclick="saveRecord()" class="text-sm text-purple-700 hover:underline">검토 기록 저장 (마이페이지)</button>
+    </div>
+  </div>
+</div></div><div id="p-pricing" class="page" style="display:none"><section class="bg-blue-700 text-white py-8">
+  <div class="max-w-4xl mx-auto px-4 text-center">
+    <h1 class="text-2xl md:text-3xl font-bold mb-1">요금제</h1>
+    <p class="text-blue-100 text-sm">무료진단으로 시작하고, 필요한 만큼만 이용하세요.</p>
+  </div>
+</section>
+
+<div class="max-w-4xl mx-auto px-4 py-10">
+
+  <!-- 법률대리 아님 고지 (결제 페이지 상단) -->
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-8">
+    <p class="text-amber-800 font-bold text-sm mb-1">⚠ 구매 전 반드시 확인하세요</p>
+    <p class="text-amber-700 text-xs leading-relaxed">
+      본 서비스는 <strong>법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.</strong>
+      사용자가 직접 채무 정리 절차를 이해하고 준비할 수 있도록 돕는 <strong>정보 제공 및 서류 점검 보조 서비스</strong>입니다.
+      구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
+    </p>
+  </div>
+
+  <!-- 요금제 카드 -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+
+    <!-- 무료 -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+      <div class="text-center mb-6">
+        <div class="text-sm font-medium text-slate-500 mb-1">무료</div>
+        <div class="text-4xl font-bold text-slate-800">0원</div>
+        <div class="text-slate-400 text-xs mt-1">회원가입 없이 이용</div>
+      </div>
+      <ul class="space-y-3 text-sm mb-6">
+        <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">무료 채무 진단 (3분)</span></li>
+        <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">3가지 절차 비교 안내</span></li>
+        <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">진단 결과 참고 확인</span></li>
+        <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">자료실 FAQ 열람</span></li>
+        <li class="flex gap-2 items-start text-slate-300"><span class="font-bold mt-0.5">✗</span><span>서류 체크리스트</span></li>
+        <li class="flex gap-2 items-start text-slate-300"><span class="font-bold mt-0.5">✗</span><span>작성예시 열람</span></li>
+        <li class="flex gap-2 items-start text-slate-300"><span class="font-bold mt-0.5">✗</span><span>AI 서류 검토</span></li>
+      </ul>
+      <a href="#" onclick="navigate('diagnosis');return false;" class="block w-full text-center py-3 border border-slate-300 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+        무료 진단 시작
+      </a>
+    </div>
+
+    <!-- 베이직 -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+      <div class="text-center mb-6">
+        <div class="text-sm font-medium text-slate-500 mb-1">베이직</div>
+        <div class="text-4xl font-bold text-slate-800">9,900<span class="text-lg font-normal">원</span></div>
+        <div class="text-slate-400 text-xs mt-1">1회 결제 · 평생 이용</div>
+      </div>
+      <ul class="space-y-3 text-sm mb-6">
+        <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">무료 플랜 전체 포함</span></li>
+        <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">개인회생 진행 로드맵</span></li>
+        <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">개인파산 진행 로드맵</span></li>
+        <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">전체 서류 체크리스트</span></li>
+        <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">작성예시 열람 (전체)</span></li>
+        <li class="flex gap-2 items-start text-slate-300"><span class="font-bold mt-0.5">✗</span><span>AI 서류 검토</span></li>
+        <li class="flex gap-2 items-start text-slate-300"><span class="font-bold mt-0.5">✗</span><span>마이페이지 저장</span></li>
+      </ul>
+      <button onclick="mockPayment('베이직', 9900)"
+        class="block w-full text-center py-3 border border-blue-300 rounded-xl text-sm font-medium text-blue-700 hover:bg-blue-50 transition-colors">
+        구매하기
+      </button>
+    </div>
+
+    <!-- 프리미엄 -->
+    <div class="bg-white rounded-2xl border-2 border-blue-700 shadow-lg p-6 pricing-featured">
+      <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs px-4 py-1 rounded-full font-semibold">
+        가장 인기
+      </div>
+      <div class="text-center mb-6">
+        <div class="text-sm font-medium text-blue-600 mb-1">프리미엄</div>
+        <div class="text-4xl font-bold text-slate-800">29,000<span class="text-lg font-normal">원</span></div>
+        <div class="text-slate-400 text-xs mt-1">1회 결제 · 평생 이용</div>
+      </div>
+      <ul class="space-y-3 text-sm mb-6">
+        <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">베이직 플랜 전체 포함</span></li>
+        <li class="flex gap-2 items-start"><span class="text-blue-600 font-bold mt-0.5">✓</span><span class="text-slate-700 font-medium">AI 서류 참고 검토 (무제한)</span></li>
+        <li class="flex gap-2 items-start"><span class="text-blue-600 font-bold mt-0.5">✓</span><span class="text-slate-700 font-medium">진행률 관리 (마이페이지)</span></li>
+        <li class="flex gap-2 items-start"><span class="text-blue-600 font-bold mt-0.5">✓</span><span class="text-slate-700 font-medium">PDF 체크리스트 다운로드</span></li>
+        <li class="flex gap-2 items-start"><span class="text-blue-600 font-bold mt-0.5">✓</span><span class="text-slate-700 font-medium">마이페이지 저장·관리</span></li>
+        <li class="flex gap-2 items-start"><span class="text-blue-600 font-bold mt-0.5">✓</span><span class="text-slate-700 font-medium">AI 검토 기록 저장</span></li>
+      </ul>
+      <button onclick="mockPayment('프리미엄', 29000)"
+        class="block w-full text-center py-3 bg-blue-700 text-white rounded-xl text-sm font-medium hover:bg-blue-800 transition-colors">
+        구매하기
+      </button>
+    </div>
+  </div>
+
+  <!-- 기능 비교표 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-8">
+    <div class="px-6 py-4 border-b border-slate-100">
+      <h3 class="font-bold text-slate-800">기능 상세 비교</h3>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-slate-600 text-xs">
+          <tr>
+            <th class="text-left px-4 py-3 font-semibold">기능</th>
+            <th class="text-center px-3 py-3 font-semibold">무료</th>
+            <th class="text-center px-3 py-3 font-semibold">베이직</th>
+            <th class="text-center px-3 py-3 font-semibold text-blue-700">프리미엄</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-50">
+          <tr><td class="px-4 py-3 text-slate-700">무료 채무 진단</td><td class="text-center">✓</td><td class="text-center">✓</td><td class="text-center text-blue-700">✓</td></tr>
+          <tr class="bg-slate-25"><td class="px-4 py-3 text-slate-700">3가지 절차 비교 안내</td><td class="text-center">✓</td><td class="text-center">✓</td><td class="text-center text-blue-700">✓</td></tr>
+          <tr><td class="px-4 py-3 text-slate-700">진단 결과 확인</td><td class="text-center">✓</td><td class="text-center">✓</td><td class="text-center text-blue-700">✓</td></tr>
+          <tr class="bg-slate-25"><td class="px-4 py-3 text-slate-700">자료실 · FAQ</td><td class="text-center">✓</td><td class="text-center">✓</td><td class="text-center text-blue-700">✓</td></tr>
+          <tr><td class="px-4 py-3 text-slate-700">단계별 진행 로드맵</td><td class="text-center text-slate-300">✗</td><td class="text-center">✓</td><td class="text-center text-blue-700">✓</td></tr>
+          <tr class="bg-slate-25"><td class="px-4 py-3 text-slate-700">전체 서류 체크리스트</td><td class="text-center text-slate-300">✗</td><td class="text-center">✓</td><td class="text-center text-blue-700">✓</td></tr>
+          <tr><td class="px-4 py-3 text-slate-700">작성예시 열람</td><td class="text-center text-slate-300">✗</td><td class="text-center">✓</td><td class="text-center text-blue-700">✓</td></tr>
+          <tr class="bg-slate-25"><td class="px-4 py-3 text-slate-700">AI 서류 참고 검토</td><td class="text-center text-slate-300">✗</td><td class="text-center text-slate-300">✗</td><td class="text-center font-semibold text-blue-700">✓ 무제한</td></tr>
+          <tr><td class="px-4 py-3 text-slate-700">진행률 관리 (마이페이지)</td><td class="text-center text-slate-300">✗</td><td class="text-center text-slate-300">✗</td><td class="text-center text-blue-700">✓</td></tr>
+          <tr class="bg-slate-25"><td class="px-4 py-3 text-slate-700">PDF 체크리스트 다운로드</td><td class="text-center text-slate-300">✗</td><td class="text-center text-slate-300">✗</td><td class="text-center text-blue-700">✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 법률대리 아님 고지 하단 -->
+  <div class="disclaimer-box">
+    <strong>⚠ 법률대리 아님 고지</strong><br>
+    본 서비스는 법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.
+    사용자가 직접 절차를 이해하고 준비할 수 있도록 돕는 정보 제공 및 서류 점검 보조 서비스입니다.
+    구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
+  </div>
+</div>
+
+<!-- 결제 모달 (mock) -->
+<div id="pay-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" style="display:none!important">
+  <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+    <h3 class="font-bold text-slate-800 text-lg mb-1">결제 안내</h3>
+    <p class="text-slate-500 text-sm mb-4">서비스 준비 중</p>
+    <div id="pay-info" class="bg-slate-50 rounded-xl p-4 text-sm text-slate-700 mb-4"></div>
+    <p class="text-xs text-slate-400 mb-4">실제 결제 기능은 서비스 정식 출시 시 연동됩니다. 현재는 모든 기능을 체험해보실 수 있습니다.</p>
+    <div class="flex gap-3">
+      <button onclick="closePay()" class="flex-1 py-2.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">닫기</button>
+      <button onclick="mockComplete()" class="flex-1 py-2.5 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors">체험 시작</button>
+    </div>
+  </div>
+</div></div><div id="p-mypage" class="page" style="display:none"><section class="bg-slate-800 text-white py-8">
+  <div class="max-w-4xl mx-auto px-4">
+    <h1 class="text-2xl md:text-3xl font-bold mb-1">마이페이지</h1>
+    <p class="text-slate-400 text-sm">진단 결과 · 진행률 · AI 검토 기록을 확인하세요.</p>
+  </div>
+</section>
+
+<div class="max-w-4xl mx-auto px-4 py-8 space-y-6">
+
+  <!-- 진단 결과 요약 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6" id="diagnosis-summary">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-bold text-slate-800 text-lg">📊 내 진단 결과</h2>
+      <a href="#" onclick="navigate('diagnosis');return false;" class="text-xs text-blue-600 hover:underline">재진단</a>
+    </div>
+    <div id="diag-content">
+      <div class="text-center py-8 text-slate-400">
+        <p class="text-sm">아직 진단을 완료하지 않으셨습니다.</p>
+        <a href="#" onclick="navigate('diagnosis');return false;" class="mt-3 inline-block bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors">무료진단 시작하기</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 진행률 -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-slate-700 text-sm">📋 개인회생 진행률</h3>
+        <a href="#" onclick="navigate('rehabilitation');return false;" class="text-xs text-blue-600 hover:underline">이어서 진행</a>
+      </div>
+      <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-1">
+        <div id="rehab-prog-bar" class="progress-bar h-full bg-blue-600 rounded-full" style="width:0%"></div>
+      </div>
+      <div id="rehab-prog-text" class="text-xs text-slate-400">0% (0/0 항목)</div>
+    </div>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-slate-700 text-sm">⚖️ 개인파산 진행률</h3>
+        <a href="#" onclick="navigate('bankruptcy');return false;" class="text-xs text-blue-600 hover:underline">이어서 진행</a>
+      </div>
+      <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-1">
+        <div id="bankrupt-prog-bar" class="progress-bar h-full bg-slate-500 rounded-full" style="width:0%"></div>
+      </div>
+      <div id="bankrupt-prog-text" class="text-xs text-slate-400">0% (0/0 항목)</div>
+    </div>
+  </div>
+
+  <!-- 서류 준비 현황 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-bold text-slate-700">📁 서류 준비 현황</h3>
+      <a href="#" onclick="navigate('documents');return false;" class="text-xs text-blue-600 hover:underline">서류 체크센터</a>
+    </div>
+    <div id="docs-summary" class="text-slate-400 text-sm">서류 체크센터에서 준비한 서류가 없습니다.</div>
+  </div>
+
+  <!-- AI 검토 기록 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-bold text-slate-700">🤖 AI 검토 기록</h3>
+      <a href="#" onclick="navigate('ai-review');return false;" class="text-xs text-blue-600 hover:underline">AI 검토 하기</a>
+    </div>
+    <div id="ai-records" class="text-slate-400 text-sm">AI 검토 기록이 없습니다.</div>
+  </div>
+
+  <!-- 결제 상태 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-bold text-slate-700">💳 결제 상태</h3>
+      <a href="#" onclick="navigate('pricing');return false;" class="text-xs text-blue-600 hover:underline">요금제 보기</a>
+    </div>
+    <div id="plan-status"></div>
+  </div>
+
+  <!-- 데이터 초기화 -->
+  <div class="text-center">
+    <button onclick="confirmReset()" class="text-xs text-slate-400 hover:text-red-500 transition-colors">
+      저장된 데이터 전체 초기화
+    </button>
+  </div>
+</div></div><div id="p-resources" class="page" style="display:none"><section class="bg-blue-700 text-white py-8">
+  <div class="max-w-5xl mx-auto px-4">
+    <h1 class="text-2xl md:text-3xl font-bold mb-1">자료실 · FAQ</h1>
+    <p class="text-blue-100 text-sm">개인회생·파산 절차에 대한 안내와 자주 묻는 질문을 확인하세요.</p>
+  </div>
+</section>
+
+<div class="max-w-5xl mx-auto px-4 py-8">
+
+  <!-- 카테고리 탭 -->
+  <div class="flex gap-2 mb-6 overflow-x-auto pb-1 flex-wrap">
+    <button onclick="setTab('faq')" id="tab-faq" class="rtab bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap">자주 묻는 질문</button>
+    <button onclick="setTab('rehab')" id="tab-rehab" class="rtab bg-white text-slate-600 border border-slate-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 whitespace-nowrap">개인회생 가이드</button>
+    <button onclick="setTab('bankrupt')" id="tab-bankrupt" class="rtab bg-white text-slate-600 border border-slate-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 whitespace-nowrap">개인파산 가이드</button>
+    <button onclick="setTab('credit')" id="tab-credit" class="rtab bg-white text-slate-600 border border-slate-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 whitespace-nowrap">신용회복위원회</button>
+    <button onclick="setTab('checklist')" id="tab-checklist" class="rtab bg-white text-slate-600 border border-slate-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 whitespace-nowrap">제출 전 체크리스트</button>
+  </div>
+
+  <!-- 콘텐츠 영역 -->
+  <div id="resource-content"></div>
+
+  <div class="disclaimer-box mt-6">
+    본 자료실의 모든 내용은 일반적인 참고 안내입니다. 법률상담·법률대리가 아니며, 실제 절차는 법원 공고 및 전문가 안내를 우선으로 따르세요.
+  </div>
+</div></div>
+<footer class="bg-slate-800 text-slate-400 mt-16 no-print">
+  <div class="max-w-6xl mx-auto px-4 py-10">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+      <div>
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
+            <span class="text-white text-xs font-bold">채</span>
+          </div>
+          <span class="text-white font-bold">채무정리길잡이</span>
+        </div>
+        <p class="text-sm leading-relaxed">채무 정리 절차를 스스로 이해하고 준비할 수 있도록 돕는 정보 제공 플랫폼입니다.</p>
+      </div>
+      <div>
+        <h4 class="text-slate-300 font-semibold mb-3 text-sm">주요 서비스</h4>
+        <ul class="space-y-1.5 text-sm">
+          <li><a href="#" onclick="navigate('diagnosis');return false;" class="hover:text-white transition-colors">무료 채무진단</a></li>
+          <li><a href="#" onclick="navigate('rehabilitation');return false;" class="hover:text-white transition-colors">개인회생 셀프 진행센터</a></li>
+          <li><a href="#" onclick="navigate('bankruptcy');return false;" class="hover:text-white transition-colors">개인파산·면책 셀프 진행센터</a></li>
+          <li><a href="#" onclick="navigate('documents');return false;" class="hover:text-white transition-colors">서류 체크센터</a></li>
+          <li><a href="#" onclick="navigate('ai-review');return false;" class="hover:text-white transition-colors">AI 서류 검토</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="text-slate-300 font-semibold mb-3 text-sm">관련 공공기관</h4>
+        <ul class="space-y-1.5 text-sm">
+          <li><a href="https://www.scourt.go.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">대법원 전자소송</a></li>
+          <li><a href="https://www.ccrs.or.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">신용회복위원회</a></li>
+          <li><a href="https://www.klac.or.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">대한법률구조공단</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-slate-700 pt-6 space-y-3">
+      <div style="background:#334155;border:1px solid #475569;border-left:4px solid #64748b;border-radius:8px;padding:14px 18px;font-size:13px;color:#cbd5e1;line-height:1.7">
+        <strong style="color:#e2e8f0">&#9888; 법률대리 아님 고지</strong><br>
+        본 서비스는 법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.
+        구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
+      </div>
+      <p class="text-xs text-slate-500 text-center">&#169; 2025 채무정리길잡이. 본 사이트의 모든 정보는 참고용이며 법적 효력이 없습니다.</p>
+    </div>
+  </div>
+</footer>
+<script>
+/* ==============================
+   채무정리길잡이 - 공통 JS
+   ============================== */
+
+const SITE_NAME = '채무정리길잡이';
+
+const NAV_LINKS = [
+  { href: 'index.html',          label: '홈',        id: 'home' },
+  { href: 'diagnosis.html',      label: '무료진단',   id: 'diagnosis' },
+  { href: 'rehabilitation.html', label: '개인회생',   id: 'rehabilitation' },
+  { href: 'bankruptcy.html',     label: '개인파산',   id: 'bankruptcy' },
+  { href: 'documents.html',      label: '서류체크',   id: 'documents' },
+  { href: 'ai-review.html',      label: 'AI검토',    id: 'ai-review' },
+  { href: 'resources.html',      label: '자료실',     id: 'resources' },
+  { href: 'pricing.html',        label: '요금제',     id: 'pricing' },
+];
+
+/* ── Header ── */
+function renderHeader(activePage) {
+  const el = document.getElementById('header-placeholder');
+  if (!el) return;
+
+  const desktopLinks = NAV_LINKS.map(l => {
+    const active = activePage === l.id;
+    return `<a href="${l.href}" class="text-sm font-medium transition-colors ${
+      active ? 'text-blue-700 border-b-2 border-blue-700 pb-0.5' : 'text-slate-600 hover:text-blue-700'
+    }">${l.label}</a>`;
+  }).join('');
+
+  const mobileLinks = NAV_LINKS.map(l => {
+    const active = activePage === l.id;
+    return `<a href="${l.href}" class="block px-4 py-3 text-sm ${
+      active ? 'text-blue-700 bg-blue-50 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+    }">${l.label}</a>`;
+  }).join('');
+
+  el.innerHTML = `
+    <nav class="navbar-sticky bg-white border-b border-slate-200 no-print">
+      <div class="max-w-6xl mx-auto px-4">
+        <div class="flex items-center justify-between h-16">
+
+          <a href="index.html" class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center">
+              <span class="text-white font-bold text-sm">채</span>
+            </div>
+            <span class="font-bold text-slate-800 text-lg">${SITE_NAME}</span>
+          </a>
+
+          <div class="hidden lg:flex items-center gap-5">${desktopLinks}</div>
+
+          <div class="hidden lg:flex items-center gap-3">
+            <a href="mypage.html" class="text-sm text-slate-600 hover:text-blue-700 transition-colors">마이페이지</a>
+            <a href="diagnosis.html" class="bg-blue-700 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-800 transition-colors font-medium">무료진단 시작</a>
+          </div>
+
+          <button onclick="toggleMobileMenu()" class="lg:hidden p-2 text-slate-600 hover:text-blue-700">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="mobile-menu" class="lg:hidden border-t border-slate-100">
+        ${mobileLinks}
+        <div class="px-4 py-3 border-t border-slate-100 bg-slate-50">
+          <a href="mypage.html" class="block text-center py-2 text-sm text-slate-600 mb-2">마이페이지</a>
+          <a href="diagnosis.html" class="block w-full text-center bg-blue-700 text-white py-3 rounded-lg font-medium text-sm">무료진단 시작하기</a>
+        </div>
+      </div>
+    </nav>
+  `;
+}
+
+function toggleMobileMenu() {
+  const m = document.getElementById('mobile-menu');
+  if (m) m.classList.toggle('open');
+}
+
+/* ── Footer ── */
+function renderFooter() {
+  const el = document.getElementById('footer-placeholder');
+  if (!el) return;
+
+  el.innerHTML = `
+    <footer class="bg-slate-800 text-slate-400 mt-16 no-print">
+      <div class="max-w-6xl mx-auto px-4 py-10">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+
+          <div>
+            <div class="flex items-center gap-2 mb-3">
+              <div class="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
+                <span class="text-white text-xs font-bold">채</span>
+              </div>
+              <span class="text-white font-bold">${SITE_NAME}</span>
+            </div>
+            <p class="text-sm leading-relaxed">채무 정리 절차를 스스로 이해하고 준비할 수 있도록 돕는 정보 제공 플랫폼입니다.</p>
+          </div>
+
+          <div>
+            <h4 class="text-slate-300 font-semibold mb-3 text-sm">주요 서비스</h4>
+            <ul class="space-y-1.5 text-sm">
+              <li><a href="diagnosis.html" class="hover:text-white transition-colors">무료 채무진단</a></li>
+              <li><a href="rehabilitation.html" class="hover:text-white transition-colors">개인회생 셀프 진행센터</a></li>
+              <li><a href="bankruptcy.html" class="hover:text-white transition-colors">개인파산·면책 셀프 진행센터</a></li>
+              <li><a href="documents.html" class="hover:text-white transition-colors">서류 체크센터</a></li>
+              <li><a href="ai-review.html" class="hover:text-white transition-colors">AI 서류 검토</a></li>
+              <li><a href="resources.html" class="hover:text-white transition-colors">자료실 · FAQ</a></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 class="text-slate-300 font-semibold mb-3 text-sm">관련 공공기관</h4>
+            <ul class="space-y-1.5 text-sm">
+              <li><a href="https://www.scourt.go.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">대법원 전자소송</a></li>
+              <li><a href="https://www.ccrs.or.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">신용회복위원회</a></li>
+              <li><a href="https://www.klac.or.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">대한법률구조공단</a></li>
+              <li><a href="https://www.bok.or.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">한국은행 서민금융</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="border-t border-slate-700 pt-6 space-y-3">
+          <div class="disclaimer-box" style="background:#334155;border-color:#475569;border-left-color:#64748b;color:#cbd5e1;">
+            <strong class="text-slate-200">⚠ 법률대리 아님 고지</strong><br>
+            본 서비스는 법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.
+            사용자가 직접 절차를 이해하고 준비할 수 있도록 돕는 정보 제공 및 서류 점검 보조 서비스입니다.
+            구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
+          </div>
+          <p class="text-xs text-slate-500 text-center">© 2025 ${SITE_NAME}. 본 사이트의 모든 정보는 참고용이며 법적 효력이 없습니다.</p>
+        </div>
+      </div>
+    </footer>
+  `;
+}
+
+/* ── Inline disclaimer (for pages that need it in-body) ── */
+function renderDisclaimer(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = `
+    <div class="disclaimer-box mt-6">
+      <strong>⚠ 참고용 안내</strong><br>
+      본 서비스는 법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.
+      모든 결과는 입력값을 기반으로 한 참고용이며, 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다.
+      구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
+    </div>
+  `;
+}
+
+/* ── localStorage helpers ── */
+const Storage = {
+  save(key, data) {
+    try { localStorage.setItem('cdg_' + key, JSON.stringify(data)); } catch(e) {}
+  },
+  load(key) {
+    try { return JSON.parse(localStorage.getItem('cdg_' + key)); } catch(e) { return null; }
+  },
+  remove(key) {
+    try { localStorage.removeItem('cdg_' + key); } catch(e) {}
+  }
+};
+
+/* ── Toast ── */
+function showToast(msg, type = 'info') {
+  let t = document.getElementById('toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    document.body.appendChild(t);
+  }
+  const colors = { info: 'bg-blue-700', success: 'bg-green-600', error: 'bg-red-600', warn: 'bg-amber-600' };
+  t.className = (colors[type] || colors.info) + ' show';
+  t.textContent = msg;
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ── Number format ── */
+function formatWon(n) {
+  if (isNaN(n) || n === null) return '0원';
+  return Math.round(n).toLocaleString('ko-KR') + '원';
+}
+
+/* ── Scroll-to-top button ── */
+function initScrollTop() {
+  const btn = document.createElement('button');
+  btn.id = 'scroll-top-btn';
+  btn.title = '맨 위로';
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>`;
+  btn.onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+  document.body.appendChild(btn);
+
+  window.addEventListener('scroll', () => {
+    btn.classList.toggle('visible', window.scrollY > 300);
+  }, { passive: true });
+}
+
+/* ── Page init ── */
+function initPage(activePage) {
+  renderHeader(activePage);
+  renderFooter();
+  initScrollTop();
+}
+
+/* ==============================
+   채무정리길잡이 - 진단 로직
+   ============================== */
+
+// ── 단계 관리 ──
+let currentStep = 1;
+const TOTAL_STEPS = 4;
+const STEP_LABELS = ['채무현황', '연체·법적현황', '소득·생활비', '재산·기타'];
+
+function goStep(n) {
+  if (n < 1 || n > TOTAL_STEPS) return;
+
+  document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step-' + n).classList.add('active');
+
+  currentStep = n;
+  updateStepNav();
+  updateProgress();
+
+  const prevBtn   = document.getElementById('btn-prev');
+  const nextBtn   = document.getElementById('btn-next');
+  const submitBtn = document.getElementById('btn-submit');
+  if (prevBtn)   prevBtn.style.display   = n === 1            ? 'none' : 'inline-flex';
+  if (nextBtn)   nextBtn.style.display   = n === TOTAL_STEPS  ? 'none' : 'inline-flex';
+  if (submitBtn) submitBtn.style.display = n === TOTAL_STEPS  ? 'inline-flex' : 'none';
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function nextStep() {
+  if (!validateStep(currentStep)) return;
+  goStep(currentStep + 1);
+}
+
+function prevStep() {
+  goStep(currentStep - 1);
+}
+
+function updateStepNav() {
+  for (let i = 1; i <= TOTAL_STEPS; i++) {
+    const dot  = document.getElementById('dot-' + i);
+    const line = document.getElementById('line-' + i);
+    if (dot) {
+      dot.className  = 'step-dot ' + (i < currentStep ? 'done' : i === currentStep ? 'active' : 'pending');
+      dot.textContent = i < currentStep ? '✓' : String(i);
+    }
+    if (line) {
+      line.className = 'step-line ' + (i < currentStep ? 'done' : 'pending');
+    }
+  }
+}
+
+function updateProgress() {
+  const bar = document.getElementById('progress-bar');
+  const pct = document.getElementById('progress-pct');
+  const val = Math.round((currentStep / TOTAL_STEPS) * 100);
+  if (bar) bar.style.width = val + '%';
+  if (pct) pct.textContent = val + '%';
+}
+
+// ── 단계별 유효성 검사 ──
+function validateStep(step) {
+  const warn = msg => { showToast(msg, 'warn'); return false; };
+
+  if (step === 1) {
+    const checked = document.querySelectorAll('input[name="debt-type"]:checked');
+    if (checked.length === 0) return warn('채무 종류를 하나 이상 선택해 주세요.');
+
+    const unsecured = document.getElementById('unsecured-debt');
+    if (!unsecured || unsecured.value === '') {
+      unsecured && unsecured.focus();
+      return warn('무담보 채무 총액을 입력해 주세요. (없으면 0)');
+    }
+
+    const creditor = document.getElementById('creditor-count');
+    if (!creditor || !creditor.value) {
+      creditor && creditor.focus();
+      return warn('채권자(금융사) 수를 입력해 주세요.');
+    }
+  }
+
+  if (step === 2) {
+    const delinquent = document.querySelector('input[name="is-delinquent"]:checked');
+    if (!delinquent) return warn('연체 여부를 선택해 주세요.');
+
+    if (delinquent.value === 'yes') {
+      const period = document.getElementById('arrears-period');
+      if (!period || !period.value) return warn('연체 기간을 선택해 주세요.');
+    }
+  }
+
+  if (step === 3) {
+    const hasIncome = document.querySelector('input[name="has-income"]:checked');
+    if (!hasIncome) return warn('소득 여부를 선택해 주세요.');
+
+    if (hasIncome.value === 'yes') {
+      const incomeType = document.getElementById('income-type');
+      if (!incomeType || !incomeType.value) return warn('소득 유형을 선택해 주세요.');
+
+      const income = document.getElementById('monthly-income');
+      if (!income || !income.value) {
+        income && income.focus();
+        return warn('월 평균 소득을 입력해 주세요.');
+      }
+    }
+
+    const dependents = document.getElementById('dependents');
+    if (!dependents || dependents.value === '') {
+      dependents && dependents.focus();
+      return warn('부양가족 수를 입력해 주세요. (없으면 0)');
+    }
+
+    const living = document.getElementById('monthly-living');
+    if (!living || !living.value) {
+      living && living.focus();
+      return warn('월 필수 생활비를 입력해 주세요.');
+    }
+  }
+
+  if (step === 4) {
+    const age = document.getElementById('age');
+    if (!age || !age.value) {
+      age && age.focus();
+      return warn('나이를 입력해 주세요.');
+    }
+  }
+
+  return true;
+}
+
+// ── 폼 데이터 수집 ──
+function collectFormData() {
+  const getChecked = name =>
+    Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(el => el.value);
+  const num = id => {
+    const el = document.getElementById(id);
+    return el ? (parseFloat(String(el.value).replace(/[^0-9.]/g, '')) || 0) : 0;
+  };
+  const val = id => {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+  };
+  const radio = name => {
+    const el = document.querySelector(`input[name="${name}"]:checked`);
+    return el ? el.value : '';
+  };
+
+  const debtTypes    = getChecked('debt-type');
+  const legalActions = getChecked('legal-action');
+  const debtCauses   = getChecked('debt-cause');
+
+  const isDelinquent = radio('is-delinquent') === 'yes';
+  const arrearsMonths = isDelinquent ? (parseInt(val('arrears-period')) || 0) : 0;
+
+  const hasIncome    = radio('has-income') === 'yes';
+  const monthlyIncome = hasIncome ? num('monthly-income') : 0;
+
+  const cashAssets     = num('cash-assets');
+  const propertyValue  = num('property-value');
+  const carValue       = num('car-value');
+  const depositValue   = num('deposit-value');
+  const insuranceValue = num('insurance-value');
+  const totalAssets    = cashAssets + propertyValue + carValue + depositValue + insuranceValue;
+
+  const unsecuredDebt = num('unsecured-debt');
+  const securedDebt   = num('secured-debt');
+  const totalDebt     = unsecuredDebt + securedDebt;
+  const monthlyLiving = num('monthly-living');
+
+  return {
+    // 채무
+    debtTypes,
+    unsecuredDebt,
+    securedDebt,
+    totalDebt,
+    creditorCount:           num('creditor-count'),
+    // 연체·법적
+    isDelinquent,
+    arrearsMonths,
+    delinquentCreditorCount: num('delinquent-creditor-count'),
+    legalActions,
+    hasLegalAction:          legalActions.length > 0 && !legalActions.includes('none'),
+    // 소득
+    hasIncome,
+    incomeType:              val('income-type'),
+    monthlyIncome,
+    dependents:              num('dependents'),
+    monthlyLiving,
+    livingCost:              monthlyLiving,
+    // 재산
+    cashAssets,
+    propertyValue,
+    carValue,
+    depositValue,
+    insuranceValue,
+    totalAssets,
+    // 기타
+    age:                     val('age'),
+    hasHealthIssues:         document.getElementById('has-health-issues')?.value === 'yes',
+    debtCauses,
+    priorAdjustment:         val('prior-adjustment'),
+    // result.html 호환성
+    monthlyPayment:          0,
+    monthlyHousing:          0,
+    jobType:                 '',
+  };
+}
+
+// ── 진단 점수 계산 ──
+function calcScores(d) {
+  let rehab = 0, bankrupt = 0, credit = 0;
+
+  // 금융기관 채무 여부 (신복위 핵심 조건)
+  const hasFinanceDebt = d.debtTypes.some(t => ['bank', 'savings', 'card', 'insurance'].includes(t));
+
+  // ── 신용회복위원회 ──
+  if (hasFinanceDebt) credit += 35;
+  else credit -= 40;                // 사채·세금만 있으면 신복위 대상 아님
+
+  if (d.hasIncome) credit += 25;
+  else credit -= 20;                // 소득 없으면 변제능력 부족
+
+  if (d.unsecuredDebt <= 1_500_000_000) credit += 15; // 무담보 15억 이하 (신복위 한도)
+  else credit -= 30;
+
+  if (d.arrearsMonths === 0)       credit += 20; // 연체 없음 → 프리워크아웃
+  else if (d.arrearsMonths <= 3)   credit += 15; // 초기 연체
+  else if (d.arrearsMonths <= 6)   credit += 5;  // 중기 연체
+  else if (d.arrearsMonths <= 12)  credit -= 5;
+  else                             credit -= 15; // 1년 이상 장기 연체
+
+  if (!d.hasLegalAction) credit += 5;
+
+  // ── 개인회생 ──
+  if (d.hasIncome && d.monthlyIncome > 0) {
+    rehab += 40;                    // 소득 있음 (회생 필수 조건)
+    if (['employed', 'pension'].includes(d.incomeType)) rehab += 15;
+    else if (d.incomeType === 'self') rehab += 8;
+
+    const disposable = d.monthlyIncome - d.monthlyLiving;
+    if (disposable > 0) rehab += 20; // 가처분소득 양수 → 변제 가능
+    else rehab -= 10;
+  } else {
+    rehab -= 30;                    // 소득 없으면 회생 불가
+  }
+
+  if (d.unsecuredDebt > 1_500_000_000) rehab -= 50; // 무담보 15억 초과 → 회생 불가
+  if (d.securedDebt   > 2_000_000_000) rehab -= 30; // 담보 20억 초과 → 회생 불가
+
+  if (d.arrearsMonths > 0)  rehab += 10; // 연체 → 회생 필요성
+  if (d.hasLegalAction)     rehab += 5;  // 법적 조치 → 시급성
+
+  // ── 개인파산·면책 ──
+  if (!d.hasIncome || d.monthlyIncome === 0) {
+    bankrupt += 45;                 // 소득 없음 → 파산 가장 강력한 신호
+  } else if (d.monthlyIncome < d.monthlyLiving) {
+    bankrupt += 30;                 // 소득이 생활비도 안 됨
+  } else if (d.monthlyIncome < 1_000_000) {
+    bankrupt += 15;
+  }
+
+  if (d.totalAssets < d.totalDebt * 0.2) bankrupt += 20; // 채무초과 상태
+  if (d.totalAssets < 5_000_000)         bankrupt += 15; // 재산 거의 없음
+
+  if (d.arrearsMonths >= 18)       bankrupt += 20;
+  else if (d.arrearsMonths >= 9)   bankrupt += 10;
+  else if (d.arrearsMonths >= 5)   bankrupt += 5;
+
+  if (d.hasHealthIssues)           bankrupt += 10; // 근로능력 상실
+
+  // 정규화 (0~100)
+  rehab    = Math.max(0, Math.min(100, rehab));
+  bankrupt = Math.max(0, Math.min(100, bankrupt));
+  credit   = Math.max(0, Math.min(100, credit));
+
+  return { rehab, bankrupt, credit };
+}
+
+function scoreToLevel(s) {
+  if (s >= 60) return 'high';
+  if (s >= 30) return 'medium';
+  return 'low';
+}
+
+function levelLabel(l) {
+  if (l === 'high')   return '검토 가능성 높음';
+  if (l === 'medium') return '검토 가능성 보통';
+  return '검토 가능성 낮음';
+}
+
+// ── 개인회생 예상 변제금 계산 ──
+function calcRepayment(d) {
+  const monthly = Math.max(0, (d.monthlyIncome || 0) - (d.monthlyLiving || 0));
+  const total36 = monthly * 36;
+  const exempt  = Math.max(0, d.totalDebt - total36);
+  return { monthly, total36, exempt };
+}
+
+// ── 제출 처리 ──
+function submitDiagnosis() {
+  if (!validateStep(TOTAL_STEPS)) return;
+
+  const data    = collectFormData();
+  const scores  = calcScores(data);
+  const levels  = {
+    rehab:    scoreToLevel(scores.rehab),
+    bankrupt: scoreToLevel(scores.bankrupt),
+    credit:   scoreToLevel(scores.credit),
+  };
+  const repayment = calcRepayment(data);
+
+  Storage.save('diagnosis_data',   data);
+  Storage.save('diagnosis_scores', scores);
+  Storage.save('diagnosis_levels', levels);
+  Storage.save('diagnosis_repay',  repayment);
+  Storage.save('diagnosis_date',   new Date().toLocaleDateString('ko-KR'));
+
+  showToast('진단을 완료했습니다. 결과 페이지로 이동합니다.', 'success');
+  setTimeout(() => { window.location.href = 'result.html'; }, 900);
+}
+
+// == diagnosis ==goStep(1);
+
+  function toggleArrearsFields(show) {
+    document.getElementById('arrears-details').classList.toggle('hidden', !show);
+    if (!show) {
+      document.getElementById('arrears-period').value = '';
+      document.getElementById('delinquent-creditor-count').value = '';
+    }
+  }
+
+  function toggleIncomeFields(show) {
+    document.getElementById('income-details').classList.toggle('hidden', !show);
+    if (!show) {
+      document.getElementById('income-type').value = '';
+      document.getElementById('monthly-income').value = '';
+    }
+  }
+
+  function toggleLegalNone(cb) {
+    if (cb.checked) {
+      document.querySelectorAll('input[name="legal-action"]').forEach(c => {
+        if (c !== cb) c.checked = false;
+      });
+    }
+  }// == result ==const LEVEL_CONFIG = {
+    high:   { label: '검토 가능성 높음',  badge: 'badge-high',   card: 'result-high',   icon: '🟢' },
+    medium: { label: '검토 가능성 보통',  badge: 'badge-medium', card: 'result-medium', icon: '🟡' },
+    low:    { label: '검토 가능성 낮음',  badge: 'badge-low',    card: 'result-low',    icon: '⚪' },
+  };
+
+  function buildCard(title, levelKey, pros, cons, next) {
+    const c = LEVEL_CONFIG[levelKey] || LEVEL_CONFIG.low;
+    return `
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 ${c.card} card-hover">
+        <div class="flex items-start justify-between mb-3">
+          <h3 class="font-bold text-slate-800 text-base">${title}</h3>
+          <span class="text-lg">${c.icon}</span>
+        </div>
+        <span class="inline-block text-xs font-semibold px-2.5 py-1 rounded-full ${c.badge} mb-4">${c.label}</span>
+        <div class="space-y-3 text-sm">
+          <div>
+            <span class="text-green-700 font-semibold">장점</span>
+            <p class="text-slate-600 mt-0.5 leading-relaxed">${pros}</p>
+          </div>
+          <div>
+            <span class="text-amber-700 font-semibold">단점 · 주의</span>
+            <p class="text-slate-600 mt-0.5 leading-relaxed">${cons}</p>
+          </div>
+          <div class="pt-2 border-t border-slate-100">
+            <span class="text-blue-700 font-semibold">다음 단계</span>
+            <p class="text-slate-600 mt-0.5 leading-relaxed">${next}</p>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderResults() {
+    const levels = Storage.load('diagnosis_levels') || { rehab:'low', bankrupt:'low', credit:'low' };
+    const data   = Storage.load('diagnosis_data') || {};
+    const repay  = Storage.load('diagnosis_repay') || {};
+    const date   = Storage.load('diagnosis_date') || '';
+
+    document.getElementById('result-date').textContent = date ? `진단일: ${date}` : '';
+
+    // ── 결과 카드 3종 ──
+    const cardsHtml =
+      buildCard('개인회생', levels.rehab,
+        '정기 소득을 유지하면서 채무의 일부만 변제하고 나머지를 면책받을 수 있습니다.',
+        '3~5년간 변제계획을 이행해야 하며, 법원 신청·인가·변제 절차가 복잡합니다.',
+        '개인회생 셀프 진행센터에서 단계별 준비를 시작해 보세요.') +
+      buildCard('개인파산·면책', levels.bankrupt,
+        '소득·재산이 없어 변제가 불가능한 경우 재산 정리 후 채무 전부를 면책받을 수 있습니다.',
+        '면책불허가 사유(도박·낭비 등)가 있으면 면책이 거부될 수 있습니다.',
+        '개인파산·면책 셀프 진행센터에서 준비 사항을 확인해 보세요.') +
+      buildCard('신용회복위원회', levels.credit,
+        '법원 절차 없이 이자 감면·분할 상환으로 채무를 조정할 수 있습니다.',
+        '연체가 길거나 채무가 과다한 경우 조정이 어려울 수 있습니다.',
+        '신용회복위원회 공식 사이트(ccrs.or.kr)에서 접수 가능합니다.');
+
+    document.getElementById('result-cards').innerHTML = cardsHtml;
+
+    // ── 개인회생 상세 (예상 변제금) ──
+    const monthlyDisp = repay.monthly || 0;
+    const total36     = repay.total36 || 0;
+    const exempt      = repay.exempt  || 0;
+
+    document.getElementById('rehab-detail').innerHTML = `
+      <h3 class="font-bold text-slate-800 text-lg mb-1">📋 개인회생 · 예상 변제금 참고 계산</h3>
+      <p class="text-slate-500 text-sm mb-4">입력하신 정보 기준으로 정기적인 소득이 있고 총 채무액이 소득 대비 높은 편이므로 개인회생 절차를 검토해볼 수 있습니다.</p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+        <div class="bg-blue-50 rounded-xl p-4 text-center">
+          <div class="text-xs text-slate-500 mb-1">월 변제 가능 추정액</div>
+          <div class="text-xl font-bold text-blue-700">${formatWon(monthlyDisp)}</div>
+          <div class="text-xs text-slate-400 mt-1">소득 - 생계비</div>
+        </div>
+        <div class="bg-blue-50 rounded-xl p-4 text-center">
+          <div class="text-xs text-slate-500 mb-1">예상 총 변제금 (36개월)</div>
+          <div class="text-xl font-bold text-blue-700">${formatWon(total36)}</div>
+          <div class="text-xs text-slate-400 mt-1">월 변제액 × 36</div>
+        </div>
+        <div class="bg-green-50 rounded-xl p-4 text-center">
+          <div class="text-xs text-slate-500 mb-1">예상 면책 가능 채무액</div>
+          <div class="text-xl font-bold text-green-700">${formatWon(Math.max(0, exempt))}</div>
+          <div class="text-xs text-slate-400 mt-1">총 채무 - 총 변제금</div>
+        </div>
+      </div>
+
+      <div class="disclaimer-box">
+        예상 변제금은 입력값을 바탕으로 단순 계산한 참고용 금액입니다.
+        실제 변제금은 법원, 소득, 재산, 부양가족 수, 청산가치, 채권자 의견 등에 따라 달라질 수 있습니다.
+      </div>
+      <a href="rehabilitation.html" class="mt-4 inline-block bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors">개인회생 진행센터 →</a>
+    `;
+
+    // ── 개인파산 상세 ──
+    const income = data.monthlyIncome || 0;
+    const assets = data.totalAssets   || 0;
+    const debt   = data.totalDebt     || 0;
+    document.getElementById('bankrupt-detail').innerHTML = `
+      <h3 class="font-bold text-slate-800 text-lg mb-1">⚖️ 개인파산·면책 · 주요 검토 사항</h3>
+      <p class="text-slate-500 text-sm mb-4">입력하신 정보 기준으로 현재 소득과 재산만으로 채무를 변제하기 어려운 상태일 가능성이 있습니다.</p>
+
+      <div class="space-y-3">
+        <div class="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+          <span class="text-lg mt-0.5">${income < 500000 ? '🔴' : '🟡'}</span>
+          <div>
+            <div class="font-semibold text-sm text-slate-800">변제능력 부족 여부</div>
+            <p class="text-xs text-slate-500 mt-0.5">
+              ${income < 500000 ? '소득이 낮아 변제능력 부족 가능성이 있습니다.' : '소득이 있어 파산보다 회생 검토를 먼저 권장합니다.'}
+            </p>
+          </div>
+        </div>
+        <div class="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+          <span class="text-lg mt-0.5">${assets < debt * 0.3 ? '🔴' : '🟡'}</span>
+          <div>
+            <div class="font-semibold text-sm text-slate-800">재산 처분 가능성</div>
+            <p class="text-xs text-slate-500 mt-0.5">
+              파산 시 보유 재산(일정 한도 초과분)은 파산재단에 편입될 수 있습니다.
+              ${assets > 0 ? `보유 재산 약 ${formatWon(assets)} — 전문가 확인 권장` : '재산이 적어 처분 대상이 없을 수 있습니다.'}
+            </p>
+          </div>
+        </div>
+        <div class="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
+          <span class="text-lg mt-0.5">⚠️</span>
+          <div>
+            <div class="font-semibold text-sm text-slate-800">면책불허가 사유 확인 필요</div>
+            <p class="text-xs text-slate-500 mt-0.5">도박·낭비·허위 재산신고·최근 신규 대출 등은 면책불허가 사유가 될 수 있습니다. 채무 발생 경위를 정확히 정리해야 합니다.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="disclaimer-box mt-4">
+        면책 여부는 법원이 최종 결정합니다. 본 안내는 참고용이며 결과를 보장하지 않습니다.
+      </div>
+      <a href="bankruptcy.html" class="mt-4 inline-block bg-slate-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors">개인파산 진행센터 →</a>
+    `;
+
+    // ── 신용회복위원회 상세 ──
+    const arrears = data.arrearsMonths || 0;
+    document.getElementById('credit-detail').innerHTML = `
+      <h3 class="font-bold text-slate-800 text-lg mb-1">🏛️ 신용회복위원회 절차 안내</h3>
+      <p class="text-slate-500 text-sm mb-4">연체기간과 채무상태에 따라 신용회복위원회의 채무조정 절차를 먼저 검토할 수 있습니다.</p>
+
+      <div class="space-y-3">
+        <div class="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+          <span class="text-lg mt-0.5">${arrears <= 3 ? '🟢' : arrears <= 6 ? '🟡' : '🔴'}</span>
+          <div>
+            <div class="font-semibold text-sm text-slate-800">연체기간 기준 검토</div>
+            <p class="text-xs text-slate-500 mt-0.5">
+              ${arrears === 0 ? '연체 전·초기 단계로 신용회복위원회 사전채무조정이 가능할 수 있습니다.' :
+                arrears <= 3 ? '연체 초기로 채무조정 가능성이 높습니다.' :
+                arrears <= 6 ? '연체 중기로 조정 가능하나 조건에 따라 달라질 수 있습니다.' :
+                '연체 기간이 길어 법원 절차 병행 검토를 권장합니다.'}
+            </p>
+          </div>
+        </div>
+        <div class="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+          <span class="text-lg mt-0.5">ℹ️</span>
+          <div>
+            <div class="font-semibold text-sm text-slate-800">법원 절차 전 조정 가능성</div>
+            <p class="text-xs text-slate-500 mt-0.5">신용회복위원회는 법원 신청 없이 이용 가능한 민간 채무조정 기관입니다. 법원 절차보다 절차가 간소하나, 채권자 동의가 필요합니다.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="disclaimer-box mt-4">
+        신용회복위원회 절차는 법원 절차와 다르므로 공식 안내를 확인하는 것이 좋습니다.
+      </div>
+      <a href="https://www.ccrs.or.kr" target="_blank" rel="noopener"
+         class="mt-4 inline-block bg-teal-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors">
+        신용회복위원회 공식 사이트 →
+      </a>
+    `;
+  }
+
+  renderResults();// == rehabilitation ==const REHAB_STEPS = [
+    {
+      title: '1단계 · 기본정보 정리',
+      items: [
+        { id: 'r1-1', text: '주민등록등본 발급 확인', hint: '주민센터 또는 정부24' },
+        { id: 'r1-2', text: '가족관계증명서 발급 확인', hint: '주민센터 또는 대법원 전자가족관계등록시스템' },
+        { id: 'r1-3', text: '개인정보 및 주소 최신 업데이트 확인', hint: '주민등록등본 기준' },
+        { id: 'r1-4', text: '채무자 본인 서명 준비', hint: '인감 또는 자필 서명' },
+      ],
+      example: { title: '기본정보 정리 예시', content: '[주민등록등본]\n발급일: 2025년 ○월 ○일\n주소: ○○시 ○○구 ○○로 ○○\n세대구성: 본인 외 부양가족 ○명\n\n※ 신청일 기준 최근 3개월 이내 발급 권장' }
+    },
+    {
+      title: '2단계 · 채권자 목록 준비',
+      items: [
+        { id: 'r2-1', text: '전체 채권자(금융사) 목록 작성', hint: '은행·카드사·캐피탈·저축은행·대부업체 포함' },
+        { id: 'r2-2', text: '각 채권자별 채무금액 확인', hint: '최근 채무잔액증명서 또는 고객센터 문의' },
+        { id: 'r2-3', text: '채무 발생일·만기일 정리', hint: '계약서 또는 내역서 확인' },
+        { id: 'r2-4', text: '채무잔액증명서 또는 대출내역서 발급', hint: '각 금융사 고객센터·인터넷뱅킹' },
+        { id: 'r2-5', text: '사채·개인 간 채무 별도 정리', hint: '채권자 실명·금액·발생 경위 포함' },
+      ],
+      example: { title: '채권자 목록 작성 예시', content: '채권자명 | 채무종류 | 잔액 | 최초발생일\n○○은행 | 신용대출 | 15,000,000원 | 2022.03.15\n△△카드 | 카드론 | 8,500,000원 | 2021.11.20\n□□캐피탈 | 할부금융 | 5,200,000원 | 2023.01.05\n\n※ 누락된 채권자는 나중에 추가 불허 → 반드시 모두 포함' }
+    },
+    {
+      title: '3단계 · 소득자료 준비',
+      items: [
+        { id: 'r3-1', text: '최근 3개월 급여명세서 또는 근로소득원천징수영수증', hint: '회사 인사팀 또는 국세청 홈택스' },
+        { id: 'r3-2', text: '자영업자: 소득금액증명원 또는 부가가치세 과세표준증명원', hint: '국세청 홈택스' },
+        { id: 'r3-3', text: '근로소득 외 소득이 있는 경우 자료 준비', hint: '임대소득·프리랜서 수입 등 증빙' },
+        { id: 'r3-4', text: '평균 월 소득 산정 및 정리', hint: '최근 3~12개월 평균' },
+      ],
+      example: { title: '소득자료 예시', content: '[급여명세서 내용 정리]\n2025년 1월: 세전 2,800,000원 / 세후 실수령 2,350,000원\n2025년 2월: 세전 2,800,000원 / 세후 실수령 2,350,000원\n2025년 3월: 세전 2,800,000원 / 세후 실수령 2,350,000원\n\n3개월 평균 실수령: 2,350,000원\n\n※ 급여명세서 없는 경우 고용주 확인서 또는 계좌 입금내역으로 대체 가능' }
+    },
+    {
+      title: '4단계 · 재산자료 준비',
+      items: [
+        { id: 'r4-1', text: '예금잔액증명서 (전 금융기관)', hint: '각 은행 창구 또는 인터넷뱅킹' },
+        { id: 'r4-2', text: '부동산: 등기사항전부증명서', hint: '인터넷 등기소 또는 등기소 창구' },
+        { id: 'r4-3', text: '자동차: 차량등록증 사본', hint: '차량 내 보관 또는 자동차등록사업소' },
+        { id: 'r4-4', text: '보험해약환급금 조회 (전 보험사)', hint: '각 보험사 고객센터 또는 보험다모아' },
+        { id: 'r4-5', text: '임차보증금 임대차계약서 사본', hint: '계약 당시 서류 확인' },
+      ],
+      example: { title: '재산자료 정리 예시', content: '[재산 목록]\n① 예금: ○○은행 보통예금 잔액 850,000원 (잔액증명서 첨부)\n② 보증금: △△ 아파트 보증금 30,000,000원 (임대차계약서 첨부)\n③ 보험: □□생명 해약환급금 1,200,000원 (조회 결과 첨부)\n④ 기타: 특별 보유 재산 없음\n\n※ 모든 재산은 빠짐없이 신고 — 누락 시 회생 불허 가능' }
+    },
+    {
+      title: '5단계 · 수입·지출 정리',
+      items: [
+        { id: 'r5-1', text: '월 수입·지출 명세서 작성', hint: '법원 양식 기준' },
+        { id: 'r5-2', text: '생계비 항목별 정리 (주거·식비·교통·의료 등)', hint: '실제 지출 기준 작성' },
+        { id: 'r5-3', text: '부양가족 생활비 포함 여부 확인', hint: '부양가족 수 기준' },
+        { id: 'r5-4', text: '법원 인정 최저생계비 기준 확인', hint: '매년 법원 공고 기준 확인' },
+      ],
+      example: { title: '수입·지출 예시', content: '[월 수입·지출 명세]\n■ 수입\n - 근로소득(세후): 2,350,000원\n\n■ 지출\n - 주거비(월세+관리비): 450,000원\n - 식비: 350,000원\n - 교통비: 120,000원\n - 통신비: 80,000원\n - 의료비: 50,000원\n - 기타생활비: 150,000원\n\n지출 합계: 1,200,000원\n가처분소득(수입-지출): 1,150,000원\n\n※ 이 금액이 변제기준액에 영향을 미칩니다.' }
+    },
+    {
+      title: '6단계 · 신청서류 작성',
+      items: [
+        { id: 'r6-1', text: '개인회생 신청서 (법원 양식)', hint: '대법원 홈페이지에서 양식 다운로드' },
+        { id: 'r6-2', text: '채권자 목록 작성', hint: '양식에 맞게 전체 채권자 기재' },
+        { id: 'r6-3', text: '재산목록 작성', hint: '모든 재산 빠짐없이 기재' },
+        { id: 'r6-4', text: '수입·지출 명세서 작성', hint: '법원 양식 기준' },
+        { id: 'r6-5', text: '변제계획안 초안 작성', hint: '월 변제액 × 36~60개월' },
+        { id: 'r6-6', text: '진술서 또는 채무 발생 경위서 작성', hint: '자필로 성실하게 작성' },
+      ],
+      example: { title: '신청서 작성 주의사항', content: '[개인회생 신청서 주요 확인사항]\n✓ 채무자 인적사항 정확 기재\n✓ 채권자 전원 누락 없이 기재\n✓ 채무금액은 신청일 기준 최신 잔액\n✓ 재산은 과소 신고하지 않도록 주의\n✓ 수입·지출 명세는 실제 기준으로 작성\n✓ 변제계획안은 실제 변제 가능한 금액 기준\n✓ 모든 서류에 서명·날인\n\n※ 법원 양식은 대법원 전자소송 홈페이지에서 무료 다운로드 가능' }
+    },
+    {
+      title: '7단계 · 제출 전 최종 체크',
+      items: [
+        { id: 'r7-1', text: '모든 양식 서명·날인 확인', hint: '서명 누락 시 반려' },
+        { id: 'r7-2', text: '첨부서류 전체 목록 대조 확인', hint: '목록 작성 후 하나씩 대조' },
+        { id: 'r7-3', text: '서류 1부 복사 보관', hint: '제출 전 반드시 사본 보관' },
+        { id: 'r7-4', text: '인지대·송달료 금액 확인', hint: '법원 홈페이지 또는 접수창구 문의' },
+        { id: 'r7-5', text: '제출 법원 확인 (주소지 관할 법원)', hint: '대법원 관할법원 찾기 이용' },
+      ],
+      example: { title: '제출 전 최종 체크리스트', content: '[법원 접수 전 최종 점검]\n□ 개인회생 신청서 원본 1부\n□ 채권자 목록 (원본 1부 + 채권자 수만큼 부본)\n□ 재산목록 원본 1부\n□ 수입·지출 명세서 원본 1부\n□ 변제계획안 원본 1부\n□ 주민등록등본 1통\n□ 가족관계증명서 1통\n□ 소득증명서류\n□ 채무잔액증명서 (채권자별)\n□ 재산증명서류\n□ 인지대 납부 영수증\n□ 송달료 납부 영수증\n\n※ 법원에 따라 추가 서류 요청 가능' }
+    },
+    {
+      title: '8단계 · 법원 접수 후 보정 대응',
+      items: [
+        { id: 'r8-1', text: '접수증 수령 및 사건번호 확인', hint: '이후 모든 연락에 사건번호 필요' },
+        { id: 'r8-2', text: '보정명령 수신 여부 확인 (우편·전자소송)', hint: '정기적으로 확인 필수' },
+        { id: 'r8-3', text: '보정기한 내 추가자료 제출', hint: '기한 초과 시 신청 기각 가능' },
+        { id: 'r8-4', text: '개시결정 후 변제계획 인가 절차 진행', hint: '법원 안내에 따라 진행' },
+        { id: 'r8-5', text: '변제관리인 지정 및 변제 시작', hint: '인가 후 매월 변제 시작' },
+      ],
+      example: { title: '보정명령 대응 예시', content: '[보정명령이 왔을 때 대처 방법]\n\n1. 보정명령서에서 요구하는 항목 확인\n   예: "○○ 채권자 채무잔액증명서 제출 요망"\n\n2. 요구 자료를 기한 내에 준비\n   - 기한: 보통 2~4주 이내\n\n3. 보정서 양식에 사건번호·성명 기재 후 제출\n   - 법원 접수 창구 또는 전자소송으로 제출 가능\n\n※ 보정명령은 흔한 절차입니다. 당황하지 말고 차분히 대응하세요.' }
+    },
+  ];
+
+  function rehabRenderSteps() {
+    const saved = Storage.load('rehab_checks') || {};
+    let total = 0, done = 0;
+    const html = REHAB_STEPS.map((step, si) => {
+      const items = step.items.map(item => {
+        total++;
+        const checked = !!saved[item.id];
+        if (checked) done++;
+        return `
+          <div class="checklist-item flex items-start gap-3 py-2 ${checked ? 'completed' : ''}" id="wrap-${item.id}">
+            <input type="checkbox" id="${item.id}" ${checked ? 'checked' : ''}
+              onchange="toggleCheck('${item.id}')"
+              class="mt-0.5 w-4 h-4 accent-blue-700 flex-shrink-0 cursor-pointer">
+            <label for="${item.id}" class="cursor-pointer flex-1">
+              <span class="item-name text-sm font-medium text-slate-700">${item.text}</span>
+              <span class="block text-xs text-slate-400 mt-0.5">${item.hint}</span>
+            </label>
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div class="flex items-center justify-between p-5 border-b border-slate-100">
+            <h3 class="font-bold text-slate-800">${step.title}</h3>
+            <button onclick="showExample('${encodeURIComponent(step.example.title)}','${encodeURIComponent(step.example.content)}')"
+              class="text-xs text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors whitespace-nowrap ml-2">
+              작성예시
+            </button>
+          </div>
+          <div class="px-5 py-3 divide-y divide-slate-50">${items}</div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('steps-container').innerHTML = html;
+    rehabUpdateProgress(done, total);
+  }
+
+  function rehabToggleCheck(id) {
+    const saved = Storage.load('rehab_checks') || {};
+    const el = document.getElementById(id);
+    saved[id] = el.checked;
+    Storage.save('rehab_checks', saved);
+    const wrap = document.getElementById('wrap-' + id);
+    if (wrap) wrap.classList.toggle('completed', el.checked);
+
+    // recount
+    let total = 0, done = 0;
+    REHAB_STEPS.forEach(s => s.items.forEach(i => { total++; if (saved[i.id]) done++; }));
+    rehabUpdateProgress(done, total);
+    if (el.checked) showToast('항목을 완료했습니다.', 'success');
+  }
+
+  function rehabUpdateProgress(done, total) {
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    document.getElementById('rehab-bar').style.width = pct + '%';
+    document.getElementById('rehab-pct').textContent = pct + '% (' + done + '/' + total + ')';
+  }
+
+  function showExample(title, content) {
+    document.getElementById('modal-title').textContent = decodeURIComponent(title);
+    document.getElementById('modal-content').textContent = decodeURIComponent(content);
+    document.getElementById('example-modal').style.removeProperty('display');
+  }
+
+  function closeModal() {
+    document.getElementById('example-modal').style.setProperty('display', 'none', 'important');
+  }
+
+  rehabRenderSteps();// == bankruptcy ==const BANKRUPT_STEPS = [
+    {
+      title: '1단계 · 기본정보 정리',
+      items: [
+        { id: 'b1-1', text: '주민등록등본 발급', hint: '주민센터 또는 정부24' },
+        { id: 'b1-2', text: '가족관계증명서 발급', hint: '주민센터 또는 대법원 전자가족관계등록시스템' },
+        { id: 'b1-3', text: '인감증명서 또는 본인서명사실확인서', hint: '주민센터' },
+        { id: 'b1-4', text: '파산 신청 법원 관할 확인', hint: '주소지 관할 지방법원' },
+      ],
+      example: { title: '기본정보 준비 안내', content: '[파산 신청 기본서류]\n\n주민등록등본: 신청일 기준 3개월 이내 발급\n가족관계증명서: 부양가족 포함 여부 확인용\n인감증명서: 신청일 기준 3개월 이내 발급\n\n※ 관할 법원은 신청인의 주소지를 기준으로 합니다.\n   대법원 홈페이지 > 관할법원 찾기 이용' }
+    },
+    {
+      title: '2단계 · 채무 발생 경위 정리',
+      items: [
+        { id: 'b2-1', text: '채무 발생 원인·경위 상세 서술 작성', hint: '사업실패·의료비·실직 등 구체적으로 기술' },
+        { id: 'b2-2', text: '채무 발생 시기별 타임라인 정리', hint: '언제 어떤 이유로 채무가 증가했는지' },
+        { id: 'b2-3', text: '면책불허가 사유 해당 여부 자체 점검', hint: '도박·낭비·허위신고 등 해당 여부 확인' },
+        { id: 'b2-4', text: '채무 증가 관련 증빙자료 수집', hint: '입원확인서·사업관련 서류 등' },
+      ],
+      example: { title: '채무 발생 경위 작성 예시', content: '[채무 발생 경위 예시]\n\n2020년 10월: 코로나로 인한 사업 매출 급감\n2021년 3월: 직원 급여 지급을 위해 사업자 대출 2천만원 실행\n2021년 9월: 사업체 폐업 (매출 부재)\n2022년 1월~현재: 실직 상태로 생활비 충당을 위한 추가 대출\n\n현재 소득: 없음 (구직 활동 중)\n현재 채무: 약 ○천만원\n\n※ 사실에 기반하여 성실하게 작성해야 합니다.\n   허위 또는 과장 기재 시 면책불허가 사유가 됩니다.' }
+    },
+    {
+      title: '3단계 · 채권자 목록 준비',
+      items: [
+        { id: 'b3-1', text: '전체 채권자 목록 작성 (개인 포함)', hint: '금융기관·사채·개인 간 채무 모두 포함' },
+        { id: 'b3-2', text: '각 채권자 채무금액 최신 확인', hint: '채무잔액증명서 발급' },
+        { id: 'b3-3', text: '담보 채무 유무 확인 및 담보목적물 정리', hint: '담보물에 대한 별도 처리 필요' },
+        { id: 'b3-4', text: '세금·벌금 등 비면책 채무 별도 정리', hint: '세금·벌금·과태료는 면책 대상 아님' },
+      ],
+      example: { title: '파산 채권자 목록 예시', content: '[채권자 목록 예시]\n\n1. ○○은행 | 신용대출 | 잔액 15,000,000원\n2. △△카드 | 카드론 | 잔액 8,500,000원\n3. □□캐피탈 | 자동차할부 | 잔액 5,200,000원 (담보: 차량)\n4. ▽▽저축은행 | 신용대출 | 잔액 3,000,000원\n\n[비면책 채무 별도 정리]\n- 국세: ○○만원 (연도별 내역)\n- 지방세: ○○만원\n\n※ 세금·벌금 등은 파산·면책 후에도 소멸되지 않습니다.' }
+    },
+    {
+      title: '4단계 · 재산자료 준비',
+      items: [
+        { id: 'b4-1', text: '예금잔액증명서 (전 금융기관)', hint: '각 은행 창구 또는 인터넷뱅킹' },
+        { id: 'b4-2', text: '부동산 등기사항전부증명서', hint: '없으면 생략 (없음으로 기재)' },
+        { id: 'b4-3', text: '차량등록증 사본 (보유 시)', hint: '없으면 생략' },
+        { id: 'b4-4', text: '보험 해약환급금 조회', hint: '보험다모아 또는 각 보험사' },
+        { id: 'b4-5', text: '재산 처분 이력 확인 (2년 이내)', hint: '편파 변제·재산 은닉 해당 여부 확인' },
+      ],
+      example: { title: '파산 재산 신고 주의사항', content: '[재산 신고 주의]\n\n✓ 소액이라도 모든 재산 신고 필수\n✓ 신청일 기준 전 금융기관 예금 조회\n✓ 보험은 해약환급금 기준으로 신고\n✓ 2년 이내 처분 재산은 별도 서술 필요\n\n[파산재단 편입 제외 재산]\n- 생계에 필요한 의류·가구 등\n- 월 150만원 이하 급여 (법원 판단)\n- 퇴직금의 1/2 (법원 판단에 따라 상이)\n\n※ 재산 은닉·허위 신고는 파산 취소 및 형사 처벌 가능' }
+    },
+    {
+      title: '5단계 · 소득·생활상황 정리',
+      items: [
+        { id: 'b5-1', text: '최근 3개월 소득 현황 정리', hint: '없으면 없음으로 기재' },
+        { id: 'b5-2', text: '월 생활비 지출 내역 정리', hint: '주거·식비·의료비 등 실제 기준' },
+        { id: 'b5-3', text: '부양가족 현황 정리', hint: '가족관계증명서 기준' },
+        { id: 'b5-4', text: '취업 가능성·건강상태 기술', hint: '현재 상태를 솔직하게 기재' },
+      ],
+      example: { title: '소득·생활상황 작성 예시', content: '[현재 소득 및 생활상황]\n\n■ 소득: 없음 (2023년 ○월 퇴직 후 미취업 중)\n   - 구직급여 수령 중: 월 약 ○○만원 (종료 예정 ○○○○.○○)\n\n■ 월 생활비:\n   - 주거비 (보증금 전세): 0원\n   - 식비: 300,000원\n   - 의료비: 80,000원 (고혈압 지속 치료)\n   - 통신비: 50,000원\n   - 기타: 70,000원\n   합계: 500,000원\n\n■ 건강상태: 고혈압·당뇨 (지속 치료 중)\n\n※ 실제 상황을 있는 그대로 기재해야 합니다.' }
+    },
+    {
+      title: '6단계 · 파산 및 면책 신청서류 작성',
+      items: [
+        { id: 'b6-1', text: '파산 신청서 작성 (법원 양식)', hint: '대법원 홈페이지 양식 다운로드' },
+        { id: 'b6-2', text: '면책 신청서 작성 (동시 신청)', hint: '파산 신청 시 면책 동시 신청 권장' },
+        { id: 'b6-3', text: '채권자 목록 완성', hint: '누락 없이 전체 기재' },
+        { id: 'b6-4', text: '재산목록 완성', hint: '모든 재산 신고' },
+        { id: 'b6-5', text: '채무자 심문 사항(진술서) 작성', hint: '채무 발생 경위·면책불허가 사유 없음 진술' },
+      ],
+      example: { title: '파산·면책 신청서 체크사항', content: '[파산·면책 신청서 작성 체크]\n\n✓ 파산 신청서 + 면책 신청서 동시 제출 (별도 신청 가능하나 동시 권장)\n✓ 모든 채권자 빠짐없이 기재 (누락 시 해당 채무 면책 불가)\n✓ 채무 발생 경위 성실 기재\n✓ 면책불허가 사유 해당 없음 여부 명확히 진술\n✓ 신청서에 서명·날인\n\n[법원 제출 서류 목록]\n□ 파산 신청서 1부\n□ 면책 신청서 1부\n□ 채권자 목록\n□ 재산목록\n□ 수입·지출 명세서\n□ 진술서(채무자 심문사항)\n□ 첨부 증빙서류 일체' }
+    },
+    {
+      title: '7단계 · 제출 전 최종 체크',
+      items: [
+        { id: 'b7-1', text: '서류 전체 서명·날인 확인', hint: '서명 누락 시 반려' },
+        { id: 'b7-2', text: '첨부서류 목록 대조', hint: '목록 작성 후 하나씩 확인' },
+        { id: 'b7-3', text: '서류 사본 1부 별도 보관', hint: '제출 전 반드시 복사 보관' },
+        { id: 'b7-4', text: '인지대·예납금 확인', hint: '파산은 회생보다 비용이 적을 수 있음' },
+        { id: 'b7-5', text: '관할 법원 접수 방법 확인', hint: '직접 방문 또는 전자소송' },
+      ],
+      example: { title: '파산 제출 전 최종 체크리스트', content: '[파산 접수 최종 체크]\n□ 파산 신청서 (원본 1부)\n□ 면책 신청서 (원본 1부)\n□ 채권자 목록 (부본 포함)\n□ 재산목록\n□ 수입·지출 명세서\n□ 진술서\n□ 주민등록등본\n□ 가족관계증명서\n□ 인감증명서\n□ 소득증명 서류 (없으면 무소득 확인서)\n□ 재산관련 증빙서류\n□ 채무잔액증명서 (채권자별)\n□ 인지대 납부 영수증\n\n※ 법원에 따라 추가 제출 서류 요청 가능' }
+    },
+    {
+      title: '8단계 · 법원 접수 후 보정 대응',
+      items: [
+        { id: 'b8-1', text: '접수증 및 사건번호 수령', hint: '이후 모든 절차에 사건번호 사용' },
+        { id: 'b8-2', text: '파산관재인 선임 여부 확인', hint: '소액파산은 선임 안 될 수 있음' },
+        { id: 'b8-3', text: '보정명령 수신 확인 및 기한 내 제출', hint: '기한 초과 시 기각 가능' },
+        { id: 'b8-4', text: '채무자 심문기일 출석', hint: '법원 통지 기일에 반드시 출석' },
+        { id: 'b8-5', text: '면책 결정 후 이의신청 기간 확인', hint: '채권자 이의신청 기간 경과 후 면책 확정' },
+      ],
+      example: { title: '파산 접수 후 절차 안내', content: '[파산 접수 후 주요 절차]\n\n① 접수 → 사건번호 부여\n② 파산관재인 선임 (소액파산 제외 가능)\n③ 채무자 심문기일 출석 → 법원 질의응답\n④ 파산선고 결정\n⑤ 파산채권자 신고기간\n⑥ 재산환가(처분) 절차\n⑦ 배당\n⑧ 면책 신청 심리\n⑨ 면책결정 (또는 불허가)\n⑩ 면책 확정\n\n[심문기일 준비 팁]\n- 채무 발생 경위를 간결하게 말할 수 있도록 준비\n- 질문에 솔직하게 답변\n- 추가 서류 요청 시 기한 내 제출' }
+    },
+  ];
+
+  function bankruptRenderSteps() {
+    const saved = Storage.load('bankrupt_checks') || {};
+    let total = 0, done = 0;
+    const html = BANKRUPT_STEPS.map((step) => {
+      const items = step.items.map(item => {
+        total++;
+        const checked = !!saved[item.id];
+        if (checked) done++;
+        return `
+          <div class="checklist-item flex items-start gap-3 py-2 ${checked ? 'completed' : ''}" id="wrap-${item.id}">
+            <input type="checkbox" id="${item.id}" ${checked ? 'checked' : ''}
+              onchange="toggleCheck('${item.id}')"
+              class="mt-0.5 w-4 h-4 accent-slate-700 flex-shrink-0 cursor-pointer">
+            <label for="${item.id}" class="cursor-pointer flex-1">
+              <span class="item-name text-sm font-medium text-slate-700">${item.text}</span>
+              <span class="block text-xs text-slate-400 mt-0.5">${item.hint}</span>
+            </label>
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div class="flex items-center justify-between p-5 border-b border-slate-100">
+            <h3 class="font-bold text-slate-800">${step.title}</h3>
+            <button onclick="showExample('${encodeURIComponent(step.example.title)}','${encodeURIComponent(step.example.content)}')"
+              class="text-xs text-slate-600 border border-slate-300 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors whitespace-nowrap ml-2">
+              작성예시
+            </button>
+          </div>
+          <div class="px-5 py-3 divide-y divide-slate-50">${items}</div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('steps-container').innerHTML = html;
+    bankruptUpdateProgress(done, total);
+  }
+
+  function bankruptToggleCheck(id) {
+    const saved = Storage.load('bankrupt_checks') || {};
+    const el = document.getElementById(id);
+    saved[id] = el.checked;
+    Storage.save('bankrupt_checks', saved);
+    const wrap = document.getElementById('wrap-' + id);
+    if (wrap) wrap.classList.toggle('completed', el.checked);
+    let total = 0, done = 0;
+    BANKRUPT_STEPS.forEach(s => s.items.forEach(i => { total++; if (saved[i.id]) done++; }));
+    bankruptUpdateProgress(done, total);
+    if (el.checked) showToast('항목을 완료했습니다.', 'success');
+  }
+
+  function bankruptUpdateProgress(done, total) {
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    document.getElementById('bankrupt-bar').style.width = pct + '%';
+    document.getElementById('bankrupt-pct').textContent = pct + '% (' + done + '/' + total + ')';
+  }
+
+  function showExample(title, content) {
+    document.getElementById('modal-title').textContent = decodeURIComponent(title);
+    document.getElementById('modal-content').textContent = decodeURIComponent(content);
+    document.getElementById('example-modal').style.removeProperty('display');
+  }
+
+  function closeModal() {
+    document.getElementById('example-modal').style.setProperty('display', 'none', 'important');
+  }
+
+  bankruptRenderSteps();// == documents ==const ALL_DOCS = [
+    // 공통
+    { id: 'd-c1', cat: 'common', name: '주민등록등본', reason: '본인 인적사항·세대 확인', where: '주민센터 / 정부24', example: '발급일 기준 3개월 이내 발급 권장. 세대 전원이 기재된 것으로 발급.' },
+    { id: 'd-c2', cat: 'common', name: '가족관계증명서', reason: '부양가족 확인', where: '주민센터 / 대법원 전자가족관계등록시스템', example: '본인 기준 발급. 부양가족 수 확인용.' },
+    { id: 'd-c3', cat: 'common', name: '인감증명서 또는 본인서명사실확인서', reason: '본인 확인 및 서명 인증', where: '주민센터', example: '신청일 기준 3개월 이내 발급.' },
+
+    // 개인회생 전용
+    { id: 'd-r1', cat: 'rehab', name: '개인회생 신청서 (법원 양식)', reason: '회생 신청의 핵심 서류', where: '대법원 홈페이지 다운로드', example: '법원 양식을 반드시 사용. 자필 작성 후 서명·날인 필요.' },
+    { id: 'd-r2', cat: 'rehab', name: '변제계획안', reason: '월 변제액·기간 제시', where: '직접 작성 (법원 양식 참고)', example: '월 변제금 × 변제기간(36~60개월) 기재.\n변제금은 실제 가능한 금액으로 작성.' },
+    { id: 'd-r3', cat: 'rehab', name: '수입·지출 명세서 (법원 양식)', reason: '변제 가능액 산정', where: '법원 양식 다운로드 후 직접 작성', example: '실제 수입·지출 기준으로 작성. 항목별 증빙 필요.' },
+
+    // 개인파산·면책 전용
+    { id: 'd-b1', cat: 'bankrupt', name: '파산 신청서 (법원 양식)', reason: '파산 신청의 핵심 서류', where: '대법원 홈페이지 다운로드', example: '법원 양식 사용. 면책 신청서와 동시 제출 권장.' },
+    { id: 'd-b2', cat: 'bankrupt', name: '면책 신청서', reason: '채무 면책 신청', where: '대법원 홈페이지 다운로드', example: '파산 신청서와 함께 제출. 별도 접수도 가능하나 동시 신청 권장.' },
+    { id: 'd-b3', cat: 'bankrupt', name: '채무자 심문사항 진술서', reason: '채무 발생 경위 진술', where: '법원 양식 또는 자유 형식', example: '채무 발생 원인, 재산 처분 내역, 면책불허가 사유 해당 없음 진술 포함.' },
+
+    // 소득자료
+    { id: 'd-i1', cat: 'income', name: '근로소득원천징수영수증', reason: '연간 소득 확인', where: '회사 인사팀 / 국세청 홈택스', example: '최근 1~2년치 발급 권장.' },
+    { id: 'd-i2', cat: 'income', name: '최근 3개월 급여명세서', reason: '월 소득 확인', where: '회사 인사팀', example: '급여 지급일·금액·세후 실수령액 확인.' },
+    { id: 'd-i3', cat: 'income', name: '소득금액증명원', reason: '자영업·프리랜서 소득 확인', where: '국세청 홈택스 / 세무서', example: '사업소득이 있는 경우 반드시 준비.' },
+    { id: 'd-i4', cat: 'income', name: '고용보험 피보험자격 이력', reason: '취업 이력 및 실직 확인', where: '고용보험 홈페이지 / 고용센터', example: '무직 기간 입증 자료로 활용.' },
+
+    // 재산자료
+    { id: 'd-a1', cat: 'asset', name: '예금잔액증명서 (전 금융기관)', reason: '예금·저축 현황 확인', where: '각 은행 창구 / 인터넷뱅킹', example: '신청일 기준 전 금융기관 잔액. 금융결제원 통합 조회 이용 가능.' },
+    { id: 'd-a2', cat: 'asset', name: '부동산 등기사항전부증명서', reason: '부동산 보유 여부 확인', where: '인터넷 등기소(http://iros.go.kr)', example: '없으면 불필요. 담보대출이 있는 경우 근저당 설정 내용 확인.' },
+    { id: 'd-a3', cat: 'asset', name: '차량등록증 사본', reason: '차량 보유 여부 확인', where: '차량 내 보관 / 자동차등록사업소', example: '없으면 불필요. 차량 시세(중고차 시세)도 함께 정리.' },
+    { id: 'd-a4', cat: 'asset', name: '보험 해약환급금 조회 결과', reason: '보험 자산 확인', where: '보험다모아 / 각 보험사 고객센터', example: '생명보험·손해보험 모두 확인. 해약환급금이 있는 경우 금액 기재.' },
+    { id: 'd-a5', cat: 'asset', name: '임대차계약서 사본', reason: '임차보증금 확인', where: '계약 당시 보관 서류', example: '보증금 금액·계약기간 확인.' },
+
+    // 채무자료
+    { id: 'd-d1', cat: 'debt', name: '채무잔액증명서 (채권자별)', reason: '각 채권자별 현재 채무액 확인', where: '각 금융기관 고객센터 / 창구', example: '신청 시점 기준 잔액 확인. 이자 포함 여부 확인.' },
+    { id: 'd-d2', cat: 'debt', name: '대출약정서 또는 계약서', reason: '대출 조건·발생일 확인', where: '각 금융기관 보관 또는 재발급', example: '분실한 경우 해당 금융기관 고객센터에 재발급 요청.' },
+    { id: 'd-d3', cat: 'debt', name: '지급명령·압류 관련 서류', reason: '법적 채무 현황 확인', where: '법원 송달 서류 보관', example: '압류·추심·소송 중인 경우 관련 서류 모두 정리.' },
+  ];
+
+  let currentTab = 'all';
+  const savedChecks = Storage.load('docs_checks') || {};
+
+  function docsSetTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.className = b.id === 'tab-' + tab
+        ? 'tab-btn bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap'
+        : 'tab-btn bg-white text-slate-600 border border-slate-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 whitespace-nowrap';
+    });
+    renderDocs();
+  }
+
+  const CAT_LABELS = {
+    common: '공통서류',
+    rehab: '개인회생',
+    bankrupt: '개인파산·면책',
+    income: '소득자료',
+    asset: '재산자료',
+    debt: '채무자료',
+  };
+  const CAT_COLORS = {
+    common: 'bg-blue-100 text-blue-700',
+    rehab: 'bg-green-100 text-green-700',
+    bankrupt: 'bg-slate-100 text-slate-700',
+    income: 'bg-purple-100 text-purple-700',
+    asset: 'bg-amber-100 text-amber-700',
+    debt: 'bg-red-100 text-red-700',
+  };
+
+  function renderDocs() {
+    const docs = currentTab === 'all' ? ALL_DOCS : ALL_DOCS.filter(d => d.cat === currentTab);
+    let total = docs.length, done = docs.filter(d => savedChecks[d.id]).length;
+
+    const grouped = {};
+    docs.forEach(d => {
+      if (!grouped[d.cat]) grouped[d.cat] = [];
+      grouped[d.cat].push(d);
+    });
+
+    let html = '';
+    for (const [cat, items] of Object.entries(grouped)) {
+      const rows = items.map(doc => {
+        const checked = !!savedChecks[doc.id];
+        return `
+          <div class="checklist-item flex items-start gap-3 py-3 border-b border-slate-50 last:border-0 ${checked ? 'completed' : ''}" id="wrap-${doc.id}">
+            <input type="checkbox" id="${doc.id}" ${checked ? 'checked' : ''}
+              onchange="toggleDoc('${doc.id}')"
+              class="mt-0.5 w-4 h-4 accent-blue-700 flex-shrink-0 cursor-pointer">
+            <div class="flex-1 min-w-0">
+              <label for="${doc.id}" class="cursor-pointer">
+                <span class="item-name text-sm font-semibold text-slate-800 block">${doc.name}</span>
+                <span class="text-xs text-slate-500">${doc.reason}</span>
+              </label>
+            </div>
+            <div class="text-right text-xs text-slate-400 shrink-0 hidden sm:block max-w-32">${doc.where}</div>
+            <button onclick="showExample('${encodeURIComponent(doc.name)}','${encodeURIComponent(doc.where + '\n\n' + doc.example)}')"
+              class="shrink-0 text-xs text-blue-600 border border-blue-200 px-2 py-1 rounded hover:bg-blue-50 transition-colors whitespace-nowrap">
+              예시
+            </button>
+          </div>`;
+      }).join('');
+
+      html += `
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-4">
+          <div class="flex items-center gap-2 px-5 py-4 border-b border-slate-100">
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${CAT_COLORS[cat]}">${CAT_LABELS[cat]}</span>
+            <span class="text-xs text-slate-400">${grouped[cat].filter(d => savedChecks[d.id]).length} / ${grouped[cat].length} 준비</span>
+          </div>
+          <div class="px-5">${rows}</div>
+        </div>`;
+    }
+
+    document.getElementById('docs-container').innerHTML = html;
+    document.getElementById('done-count').textContent = done;
+    document.getElementById('total-count').textContent = total;
+    document.getElementById('docs-bar').style.width = (total > 0 ? Math.round(done/total*100) : 0) + '%';
+  }
+
+  function toggleDoc(id) {
+    const el = document.getElementById(id);
+    savedChecks[id] = el.checked;
+    Storage.save('docs_checks', savedChecks);
+    const wrap = document.getElementById('wrap-' + id);
+    if (wrap) wrap.classList.toggle('completed', el.checked);
+    const docs = currentTab === 'all' ? ALL_DOCS : ALL_DOCS.filter(d => d.cat === currentTab);
+    const done = docs.filter(d => savedChecks[d.id]).length;
+    document.getElementById('done-count').textContent = done;
+    document.getElementById('docs-bar').style.width = (docs.length > 0 ? Math.round(done/docs.length*100) : 0) + '%';
+    if (el.checked) showToast('서류를 준비 완료로 표시했습니다.', 'success');
+  }
+
+  function showExample(title, content) {
+    document.getElementById('modal-title').textContent = decodeURIComponent(title);
+    document.getElementById('modal-content').textContent = decodeURIComponent(content);
+    document.getElementById('example-modal').style.removeProperty('display');
+  }
+
+  function closeModal() {
+    document.getElementById('example-modal').style.setProperty('display', 'none', 'important');
+  }
+
+  renderDocs();// == ai-review ==const textarea = document.getElementById('doc-input');
+  textarea.addEventListener('input', () => {
+    const l = textarea.value.length;
+    document.getElementById('char-count').textContent = l + ' / 5000자';
+    if (l > 5000) textarea.value = textarea.value.substring(0, 5000);
+  });
+
+  function clearInput() {
+    textarea.value = '';
+    document.getElementById('char-count').textContent = '0 / 5000자';
+    document.getElementById('review-result').style.display = 'none';
+  }
+
+  // 서류 유형별 필수 항목 정의
+  const DOC_RULES = {
+    'rehab-petition': {
+      label: '개인회생 신청서',
+      required: ['이름', '주민', '주소', '직업', '소득', '채권자', '채무', '변제', '부양'],
+      optional: ['부동산', '자동차', '보험', '예금'],
+      tips: [
+        '변제계획안의 월 변제액이 구체적으로 기재되어 있는지 확인하세요.',
+        '채권자 목록이 별도 서류로 첨부되어야 합니다.',
+        '수입·지출 명세서도 별도 제출이 필요합니다.',
+      ]
+    },
+    'creditor-list': {
+      label: '채권자 목록',
+      required: ['채권자', '금액', '발생', '금융'],
+      optional: ['이자율', '만기', '연체'],
+      tips: [
+        '채권자명은 정확한 금융기관 명칭을 기재해야 합니다.',
+        '채무금액은 신청일 기준 최신 잔액으로 기재해야 합니다.',
+        '사채·개인 간 채무가 있다면 빠짐없이 포함해야 합니다.',
+      ]
+    },
+    'asset-list': {
+      label: '재산목록',
+      required: ['예금', '보험', '재산'],
+      optional: ['부동산', '자동차', '임차', '보증금'],
+      tips: [
+        '모든 금융기관의 예금·적금·펀드를 포함해야 합니다.',
+        '자동차가 있다면 차량번호·시가를 기재해야 합니다.',
+        '임차보증금이 있다면 금액을 정확히 기재해야 합니다.',
+      ]
+    },
+    'income-expense': {
+      label: '수입·지출 명세서',
+      required: ['수입', '지출', '소득', '생활비'],
+      optional: ['주거비', '의료', '교육', '교통'],
+      tips: [
+        '수입과 지출의 합계 금액이 일치하는지 확인하세요.',
+        '지출 항목은 실제 지출 기준으로 작성해야 합니다.',
+        '부양가족이 있는 경우 부양가족 생활비를 포함해야 합니다.',
+      ]
+    },
+    'bankrupt-petition': {
+      label: '개인파산 신청서',
+      required: ['이름', '주민', '주소', '채무', '채권자', '소득', '재산'],
+      optional: ['부양', '건강', '취업'],
+      tips: [
+        '면책 신청서를 함께 제출하는 것이 권장됩니다.',
+        '채무 발생 경위를 별도 진술서로 첨부해야 합니다.',
+        '재산은 소액이라도 빠짐없이 신고해야 합니다.',
+      ]
+    },
+    'statement': {
+      label: '진술서(경위서)',
+      required: ['채무', '발생', '원인', '경위'],
+      optional: ['사업', '실직', '의료', '현재'],
+      tips: [
+        '채무 발생 시기를 구체적으로 기재해야 합니다.',
+        '면책불허가 사유(도박·낭비 등) 해당 여부를 명확히 기재해야 합니다.',
+        '현재 상황(소득·건강·취업 전망 등)도 기술하는 것이 좋습니다.',
+      ]
+    },
+  };
+
+  function runReview() {
+    const text = textarea.value.trim();
+    if (text.length < 30) {
+      showToast('검토할 내용을 좀 더 입력해 주세요 (최소 30자 이상).', 'warn');
+      return;
+    }
+
+    const docType = document.querySelector('input[name="doc-type"]:checked').value;
+    const rules = DOC_RULES[docType];
+    const btn = document.getElementById('review-btn');
+    btn.disabled = true;
+    btn.textContent = '검토 중...';
+
+    setTimeout(() => {
+      const issues = [];
+      const ok = [];
+
+      // 필수 항목 체크
+      rules.required.forEach(keyword => {
+        if (text.includes(keyword)) {
+          ok.push(keyword + ' 관련 내용 확인됨');
+        } else {
+          issues.push({ level: 'error', msg: `'${keyword}' 관련 항목이 누락되었거나 불명확할 수 있습니다.` });
+        }
+      });
+
+      // 숫자 패턴 체크
+      const numbers = text.match(/\d{1,3}(,\d{3})*/g) || [];
+      if (numbers.length === 0) {
+        issues.push({ level: 'warn', msg: '금액이나 숫자 정보가 보이지 않습니다. 채무금액·소득금액 등을 구체적으로 기재해야 합니다.' });
+      }
+
+      // 텍스트 길이 체크
+      if (text.length < 200) {
+        issues.push({ level: 'warn', msg: '내용이 다소 짧습니다. 좀 더 구체적으로 작성하면 법원 심사에 도움이 됩니다.' });
+      }
+
+      // 개인정보 포함 여부 경고
+      if (/\d{6}-[1-4]\d{6}/.test(text)) {
+        issues.push({ level: 'error', msg: '주민등록번호가 포함된 것 같습니다. 개인정보는 ○○으로 대체 후 입력해 주세요.' });
+      }
+
+      // 결과 렌더링
+      let html = '';
+
+      // 문제 항목
+      if (issues.length > 0) {
+        html += '<div>';
+        html += '<h4 class="font-bold text-slate-800 mb-2">📋 확인이 필요한 항목</h4>';
+        html += issues.map(i => `
+          <div class="flex gap-2 p-3 rounded-lg mb-2 ${i.level === 'error' ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}">
+            <span class="shrink-0">${i.level === 'error' ? '🔴' : '🟡'}</span>
+            <span class="${i.level === 'error' ? 'text-red-700' : 'text-amber-700'}">${i.msg}</span>
+          </div>`).join('');
+        html += '</div>';
+      }
+
+      // 확인 항목
+      if (ok.length > 0) {
+        html += '<div>';
+        html += '<h4 class="font-bold text-slate-800 mb-2">✅ 확인된 항목</h4>';
+        html += ok.map(o => `
+          <div class="flex gap-2 p-2 text-green-700 text-sm">
+            <span>✓</span><span>${o}</span>
+          </div>`).join('');
+        html += '</div>';
+      }
+
+      // 팁
+      html += '<div class="bg-blue-50 rounded-xl p-4 mt-2">';
+      html += '<h4 class="font-bold text-blue-800 mb-2">💡 작성 팁 — ' + rules.label + '</h4>';
+      html += rules.tips.map(t => `<p class="text-blue-700 text-xs mb-1">• ${t}</p>`).join('');
+      html += '</div>';
+
+      document.getElementById('review-content').innerHTML = html;
+      document.getElementById('review-result').style.display = 'block';
+      document.getElementById('review-result').scrollIntoView({ behavior: 'smooth' });
+
+      btn.disabled = false;
+      btn.textContent = 'AI 참고 검토 시작하기';
+    }, 1200);
+  }
+
+  function saveRecord() {
+    const records = Storage.load('ai_records') || [];
+    records.unshift({
+      date: new Date().toLocaleDateString('ko-KR'),
+      docType: document.querySelector('input[name="doc-type"]:checked').value,
+      preview: textarea.value.substring(0, 80) + '...',
+    });
+    Storage.save('ai_records', records.slice(0, 10));
+    showToast('검토 기록이 마이페이지에 저장되었습니다.', 'success');
+  }// == pricing ==function mockPayment(plan, price) {
+    document.getElementById('pay-info').innerHTML =
+      `<strong>${plan} 플랜</strong><br>금액: ${price.toLocaleString()}원<br><span class="text-slate-400">※ 현재 체험 모드로 운영 중입니다.</span>`;
+    document.getElementById('pay-modal').style.removeProperty('display');
+  }
+
+  function closePay() {
+    document.getElementById('pay-modal').style.setProperty('display', 'none', 'important');
+  }
+
+  function mockComplete() {
+    Storage.save('plan', 'premium');
+    closePay();
+    showToast('프리미엄 체험 모드가 활성화되었습니다.', 'success');
+    setTimeout(() => { window.location.href = 'mypage.html'; }, 1200);
+  }// == mypage ==// 개인회생 총 항목 수
+  const REHAB_TOTAL  = 8 * 5; // 8단계 × 약 5항목 (대략)
+  const BANKRUPT_TOTAL = 8 * 5;
+
+  function calcChecks(key) {
+    const saved = Storage.load(key) || {};
+    return Object.values(saved).filter(Boolean).length;
+  }
+
+  function renderPage() {
+    // ── 진단 결과 ──
+    const levels = Storage.load('diagnosis_levels');
+    const data   = Storage.load('diagnosis_data');
+    const repay  = Storage.load('diagnosis_repay');
+    const date   = Storage.load('diagnosis_date');
+
+    if (levels && data) {
+      const LEVEL_LABEL = { high: '검토 가능성 높음', medium: '검토 가능성 보통', low: '검토 가능성 낮음' };
+      const LEVEL_COLOR = { high: 'badge-high', medium: 'badge-medium', low: 'badge-low' };
+
+      document.getElementById('diag-content').innerHTML = `
+        <div class="text-xs text-slate-400 mb-3">진단일: ${date || '-'}</div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          ${['rehab', 'bankrupt', 'credit'].map((k, i) => {
+            const titles = ['개인회생', '개인파산·면책', '신용회복위원회'];
+            return `<div class="p-3 bg-slate-50 rounded-xl text-center">
+              <div class="text-xs text-slate-500 mb-1">${titles[i]}</div>
+              <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${LEVEL_COLOR[levels[k]]}">${LEVEL_LABEL[levels[k]]}</span>
+            </div>`;
+          }).join('')}
+        </div>
+        ${repay ? `<div class="bg-blue-50 rounded-xl p-3 text-sm">
+          <span class="text-slate-600">개인회생 예상 월 변제액:</span>
+          <strong class="text-blue-700 ml-2">${formatWon(repay.monthly)}</strong>
+          <span class="text-slate-400 text-xs ml-2">(참고용)</span>
+        </div>` : ''}
+        <a href="result.html" class="mt-3 inline-block text-blue-600 text-sm hover:underline">결과 상세 보기 →</a>
+      `;
+    }
+
+    // ── 진행률 ──
+    function calcProgress(key, totalItems) {
+      const saved = Storage.load(key) || {};
+      const done  = Object.values(saved).filter(Boolean).length;
+      return { done, total: totalItems };
+    }
+
+    // 실제 항목 수로 계산
+    const rehabItems = 4+5+4+5+4+6+5+5; // 각 단계 항목수 합
+    const bankruptItems = 4+4+4+5+4+5+5+5;
+
+    const rp = calcProgress('rehab_checks', rehabItems);
+    const bp = calcProgress('bankrupt_checks', bankruptItems);
+
+    const rPct = Math.round(rp.done / rp.total * 100);
+    const bPct = Math.round(bp.done / bp.total * 100);
+
+    document.getElementById('rehab-prog-bar').style.width = rPct + '%';
+    document.getElementById('rehab-prog-text').textContent = `${rPct}% (${rp.done}/${rp.total} 항목)`;
+
+    document.getElementById('bankrupt-prog-bar').style.width = bPct + '%';
+    document.getElementById('bankrupt-prog-text').textContent = `${bPct}% (${bp.done}/${bp.total} 항목)`;
+
+    // ── 서류 현황 ──
+    const docsDone = calcChecks('docs_checks');
+    document.getElementById('docs-summary').innerHTML = docsDone > 0
+      ? `<div class="text-slate-700"><strong class="text-blue-700">${docsDone}개</strong> 서류를 준비 완료로 표시하셨습니다. <a href="documents.html" class="text-blue-600 hover:underline">이어서 체크하기</a></div>`
+      : `<div class="text-slate-400 text-sm">서류 체크센터에서 준비한 서류가 없습니다. <a href="documents.html" class="text-blue-600 hover:underline">서류 체크 시작</a></div>`;
+
+    // ── AI 검토 기록 ──
+    const records = Storage.load('ai_records') || [];
+    const DOC_LABELS = {
+      'rehab-petition': '개인회생 신청서',
+      'creditor-list': '채권자 목록',
+      'asset-list': '재산목록',
+      'income-expense': '수입·지출 명세서',
+      'bankrupt-petition': '개인파산 신청서',
+      'statement': '진술서',
+    };
+    if (records.length > 0) {
+      document.getElementById('ai-records').innerHTML = records.map(r => `
+        <div class="flex items-start gap-3 py-2.5 border-b border-slate-50 last:border-0">
+          <span class="text-2xl shrink-0">🤖</span>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium text-slate-700">${DOC_LABELS[r.docType] || r.docType}</div>
+            <div class="text-xs text-slate-400 truncate mt-0.5">${r.preview}</div>
+          </div>
+          <div class="text-xs text-slate-400 shrink-0">${r.date}</div>
+        </div>`).join('');
+    }
+
+    // ── 결제 상태 ──
+    const plan = Storage.load('plan');
+    document.getElementById('plan-status').innerHTML = plan === 'premium'
+      ? `<span class="inline-block bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full">프리미엄 이용 중</span>`
+      : `<div class="flex items-center justify-between">
+          <span class="text-slate-500 text-sm">무료 플랜 이용 중</span>
+          <a href="pricing.html" class="text-sm text-blue-600 font-medium hover:underline">업그레이드</a>
+        </div>`;
+  }
+
+  function confirmReset() {
+    if (confirm('저장된 모든 데이터(진단결과·진행률·검토기록)를 삭제하시겠습니까?')) {
+      ['diagnosis_data','diagnosis_scores','diagnosis_levels','diagnosis_repay','diagnosis_date',
+       'rehab_checks','bankrupt_checks','docs_checks','ai_records','plan'].forEach(k => Storage.remove(k));
+      showToast('모든 데이터가 초기화되었습니다.', 'info');
+      setTimeout(() => renderPage(), 500);
+    }
+  }
+
+  renderPage();// == resources ==const TABS = {
+    faq: renderFAQ,
+    rehab: renderRehabGuide,
+    bankrupt: renderBankruptGuide,
+    credit: renderCreditGuide,
+    checklist: renderChecklist,
+  };
+
+  function resourcesSetTab(tab) {
+    document.querySelectorAll('.rtab').forEach(b => {
+      b.className = b.id === 'tab-' + tab
+        ? 'rtab bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap'
+        : 'rtab bg-white text-slate-600 border border-slate-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50 whitespace-nowrap';
+    });
+    TABS[tab]();
+  }
+
+  // ── FAQ ──
+  const FAQS = [
+    { q: '개인회생과 개인파산의 차이가 무엇인가요?', a: '개인회생은 정기적인 소득이 있는 채무자가 3~5년간 일부 채무를 변제하고 나머지를 면책받는 절차입니다. 개인파산은 소득과 재산이 없어 변제 자체가 불가능한 채무자가 재산을 정리하고 채무 전부를 면책받는 절차입니다. 소득 유무와 변제 가능성이 핵심 구분 기준입니다.' },
+    { q: '개인회생 신청 시 변호사나 법무사가 꼭 필요한가요?', a: '법원은 채무자 본인이 직접 신청할 수 있도록 하고 있습니다. 다만 절차가 복잡하므로 스스로 준비하기 어려울 경우 법무사나 변호사 도움을 받을 수 있습니다. 대한법률구조공단에서는 법률구조 요건을 충족하면 무료 지원도 받을 수 있습니다.' },
+    { q: '개인회생 신청 중에 직장이나 은행 거래가 영향을 받나요?', a: '개인회생 신청 사실이 고용주에게 직접 통보되지는 않습니다. 다만 금융거래(대출·신규 카드 발급 등)는 신용정보 등록으로 인해 제한될 수 있습니다. 재직 중 압류·추심이 있었다면 이미 고용주가 알 수 있는 상황일 수 있습니다.' },
+    { q: '개인파산을 하면 직장을 잃게 되나요?', a: '파산선고 자체가 자동으로 해고 사유가 되지는 않습니다. 다만 법령에 따라 일부 직종(공무원, 금융업 임직원 등)은 결격 사유가 될 수 있으므로 해당 직종 종사자는 반드시 전문가 상담을 받으세요.' },
+    { q: '면책불허가가 되면 어떻게 되나요?', a: '면책불허가 결정이 나면 채무는 소멸되지 않습니다. 다만 법원에 즉시항고가 가능하며, 면책불허가 이후에도 개인회생 신청 등 다른 방법을 검토할 수 있습니다. 면책불허가 사유에 해당하는지 사전에 반드시 확인하세요.' },
+    { q: '신용회복위원회 절차는 법원 절차와 다른가요?', a: '네, 신용회복위원회는 법원이 아닌 민간 기관(은행연합회 산하)입니다. 채권자 동의를 기반으로 이자 감면·분할 상환을 조정하는 절차이며, 법원 절차보다 간소합니다. 다만 채권자 전원 동의가 필요해 일부 채권자가 거부하면 조정이 어려울 수 있습니다.' },
+    { q: '개인회생 신청 후 변제기간 동안 어떤 제한이 있나요?', a: '변제기간 중에는 법원의 허가 없이 고액 재산 처분, 신규 차입 등이 제한됩니다. 매월 변제금을 변제관리인에게 납입해야 하며, 소득이 크게 증가한 경우 변제금이 증가할 수 있습니다. 변제 기간 동안 성실히 이행해야 면책이 가능합니다.' },
+    { q: '채무 발생 원인이 도박인 경우 파산 면책이 안 되나요?', a: '도박·낭비·사치로 채무가 발생한 경우 면책불허가 사유에 해당합니다. 다만 법원은 재량으로 면책을 허가할 수 있으며, 도박 이후 장기간 성실하게 변제 노력을 한 경우 등이 참작될 수 있습니다. 이 경우 반드시 전문가 상담을 먼저 받으세요.' },
+    { q: '개인회생 변제금은 어떻게 계산되나요?', a: '법원은 채무자의 월 가처분소득(소득 - 법원 인정 생계비)을 기준으로 변제금을 산정합니다. 여기에 보유 재산의 청산가치도 고려됩니다. 저희 사이트의 예상 변제금은 단순 참고용이며, 실제 금액은 법원이 소득·재산·부양가족 등을 종합하여 결정합니다.' },
+    { q: '개인파산 후 재산은 어떻게 되나요?', a: '파산선고 시 일정 한도 이상의 재산은 파산재단에 편입되어 채권자에게 배당됩니다. 다만 생계에 필수적인 의류·가구, 월 150만원 이하의 급여(법원 판단), 퇴직금의 일부 등은 보호됩니다. 소액 파산의 경우 처분할 재산이 없으면 배당 절차 없이 진행됩니다.' },
+  ];
+
+  function renderFAQ() {
+    const html = FAQS.map((item, i) => `
+      <div class="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden mb-3">
+        <button onclick="toggleFaq(${i})" class="w-full flex items-center justify-between p-5 text-left hover:bg-slate-50 transition-colors">
+          <span class="font-semibold text-slate-800 text-sm pr-4">Q. ${item.q}</span>
+          <span id="faq-icon-${i}" class="faq-icon text-slate-400 text-xl shrink-0">+</span>
+        </button>
+        <div id="faq-ans-${i}" class="faq-answer px-5 pb-5">
+          <div class="bg-blue-50 rounded-xl p-4 text-sm text-slate-700 leading-relaxed border-l-4 border-blue-200">
+            A. ${item.a}
+          </div>
+        </div>
+      </div>`).join('');
+    document.getElementById('resource-content').innerHTML = html;
+  }
+
+  function toggleFaq(i) {
+    const ans = document.getElementById('faq-ans-' + i);
+    const icon = document.getElementById('faq-icon-' + i);
+    ans.classList.toggle('open');
+    icon.classList.toggle('open');
+    icon.textContent = ans.classList.contains('open') ? '−' : '+';
+  }
+
+  // ── 개인회생 가이드 ──
+  function renderRehabGuide() {
+    document.getElementById('resource-content').innerHTML = `
+      <div class="space-y-4">
+        ${guideCard('개인회생이란?', '정기적인 소득이 있는 채무자가 법원의 감독 하에 3~5년간 일부 채무를 변제하고 나머지를 면책받는 절차입니다.',
+          ['담보채무 15억 원, 비담보채무 10억 원 이하 채무자','정기적인 소득이 있어야 함 (근로·사업·연금 등)','변제기간: 보통 3년, 최대 5년','변제 완료 후 나머지 채무 전액 면책'])}
+        ${guideCard('신청 절차', '개인회생 신청부터 면책까지의 주요 단계를 안내합니다.',
+          ['① 신청서·첨부서류 준비 → 관할 법원 제출','② 개시결정 → 변제계획 인가 절차','③ 채권자집회 또는 서면 의결','④ 변제계획 인가결정','⑤ 매월 변제관리인에게 변제금 납입 (3~5년)','⑥ 변제 완료 → 면책결정'])}
+        ${guideCard('주요 비용', '개인회생 절차에 필요한 비용을 안내합니다.',
+          ['인지대: 10,000원~20,000원 수준','송달료: 20만원~40만원 수준 (채권자 수에 따라 상이)','변제관리인 비용: 변제금의 일부 (법원 고시 기준)','※ 본인 직접 신청 시 법무사·변호사 수임료 불필요'])}
+        <div class="bg-blue-50 rounded-xl p-4 text-sm text-blue-800">
+          <strong>더 자세한 정보:</strong>
+          <a href="rehabilitation.html" class="text-blue-600 hover:underline ml-1">개인회생 셀프 진행센터 →</a>
+        </div>
+      </div>`;
+  }
+
+  // ── 개인파산 가이드 ──
+  function renderBankruptGuide() {
+    document.getElementById('resource-content').innerHTML = `
+      <div class="space-y-4">
+        ${guideCard('개인파산·면책이란?', '소득과 재산으로 채무를 변제할 수 없는 채무자가 재산을 정리하고 채무 전부를 면책받는 법원 절차입니다.',
+          ['소득이 없거나 변제 능력이 없는 채무자','재산 전부를 파산재단에 편입 후 채권자 배당','면책 후 채무 전액 소멸 (면책불허가 사유 없는 경우)','면책불허가 사유: 도박·낭비·허위신고 등'])}
+        ${guideCard('신청 절차', '개인파산·면책 신청부터 면책 확정까지의 주요 단계입니다.',
+          ['① 파산·면책 신청서 준비 → 관할 법원 제출 (동시 신청)','② 파산관재인 선임 (소액파산은 생략 가능)','③ 채무자 심문기일 출석','④ 파산선고 결정','⑤ 재산 환가·배당 (재산이 없으면 생략)','⑥ 면책 심리 → 면책결정 또는 불허가','⑦ 이의신청 기간 경과 후 면책 확정'])}
+        ${guideCard('면책 후 제한사항', '면책 이후에도 주의해야 할 사항이 있습니다.',
+          ['신용불량 정보 등록 (일정 기간)','일부 직종 결격 사유 (공무원·금융업 임직원 등)','비면책 채무는 소멸 안 됨: 세금·벌금·양육비·고의 불법행위 채무 등','면책 이후 7년 내 재파산 신청 제한'])}
+        <div class="bg-slate-50 rounded-xl p-4 text-sm text-slate-700">
+          <strong>더 자세한 정보:</strong>
+          <a href="bankruptcy.html" class="text-blue-600 hover:underline ml-1">개인파산 셀프 진행센터 →</a>
+        </div>
+      </div>`;
+  }
+
+  // ── 신용회복위원회 ──
+  function renderCreditGuide() {
+    document.getElementById('resource-content').innerHTML = `
+      <div class="space-y-4">
+        ${guideCard('신용회복위원회란?', '은행연합회 산하 기관으로, 연체 채무자와 금융기관 간 채무조정을 중재하는 비법원 기관입니다.',
+          ['연체기간이 짧거나 법원 절차 전 단계에 적합','이자 감면·원금 일부 감면·분할 상환 조정','법원 절차보다 간소하나 채권자 동의 필요','신청: 신용회복위원회 공식 홈페이지 또는 지점 방문'])}
+        ${guideCard('주요 프로그램', '신용회복위원회의 주요 채무조정 프로그램을 안내합니다.',
+          ['사전채무조정: 연체 전 또는 30일 미만 연체 시','채무조정(워크아웃): 3개월 이상 연체 시','개인워크아웃: 총 채무 15억 이하, 연체 3개월 이상'])}
+        ${guideCard('신청 방법', '신용회복위원회 채무조정 신청 방법을 안내합니다.',
+          ['공식 사이트(ccrs.or.kr) 온라인 신청','전국 지점 방문 신청','콜센터(1600-5500) 문의 후 상담 예약','무료 이용 가능 (별도 비용 없음)'])}
+        <div class="flex gap-3">
+          <a href="https://www.ccrs.or.kr" target="_blank" rel="noopener"
+            class="flex-1 text-center bg-teal-600 text-white px-4 py-3 rounded-xl text-sm font-medium hover:bg-teal-700 transition-colors">
+            신용회복위원회 공식 사이트 →
+          </a>
+        </div>
+      </div>`;
+  }
+
+  // ── 제출 전 체크리스트 ──
+  function renderChecklist() {
+    const rehabList = ['개인회생 신청서 (법원 양식, 서명·날인)','변제계획안','채권자 목록 (부본 포함)','재산목록','수입·지출 명세서','주민등록등본 (3개월 이내)','가족관계증명서','소득증명서류 (급여명세서·원천징수영수증)','채무잔액증명서 (채권자별)','예금잔액증명서','인지대·송달료 납부 영수증'];
+    const bankruptList = ['파산 신청서 (법원 양식, 서명·날인)','면책 신청서','채무자 심문사항 진술서','채권자 목록','재산목록','수입·지출 명세서','주민등록등본','가족관계증명서','인감증명서','소득증명 (없으면 무소득 확인서)','채무잔액증명서','재산 증빙서류 일체','인지대 납부 영수증'];
+
+    document.getElementById('resource-content').innerHTML = `
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><span class="text-green-600">📋</span> 개인회생 제출 전 체크리스트</h3>
+          ${rehabList.map((item, i) => `
+            <div class="flex items-start gap-2 py-2 border-b border-slate-50 last:border-0">
+              <span class="text-slate-300 font-bold text-sm shrink-0">${i+1}.</span>
+              <span class="text-sm text-slate-700">${item}</span>
+            </div>`).join('')}
+          <a href="rehabilitation.html" class="mt-4 block text-center text-sm text-blue-600 hover:underline">개인회생 진행센터에서 체크하기</a>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><span class="text-slate-600">⚖️</span> 개인파산 제출 전 체크리스트</h3>
+          ${bankruptList.map((item, i) => `
+            <div class="flex items-start gap-2 py-2 border-b border-slate-50 last:border-0">
+              <span class="text-slate-300 font-bold text-sm shrink-0">${i+1}.</span>
+              <span class="text-sm text-slate-700">${item}</span>
+            </div>`).join('')}
+          <a href="bankruptcy.html" class="mt-4 block text-center text-sm text-blue-600 hover:underline">개인파산 진행센터에서 체크하기</a>
+        </div>
+      </div>
+      <div class="bg-amber-50 border border-amber-100 rounded-xl p-4 mt-4 text-xs text-amber-700">
+        ※ 법원에 따라 추가 서류를 요청할 수 있습니다. 접수 전 관할 법원에 최종 확인하는 것을 권장합니다.
+      </div>`;
+  }
+
+  function guideCard(title, desc, items) {
+    return `
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+        <h3 class="font-bold text-slate-800 mb-1">${title}</h3>
+        <p class="text-slate-500 text-sm mb-3">${desc}</p>
+        <ul class="space-y-1.5">
+          ${items.map(i => `<li class="flex gap-2 text-sm text-slate-700"><span class="text-blue-500 shrink-0">•</span>${i}</li>`).join('')}
+        </ul>
+      </div>`;
+  }
+
+  // 기본: FAQ
+  renderFAQ();
+
+function navigate(id) {
+    document.querySelectorAll('.page').forEach(function(p) { p.style.display = 'none'; });
+    var pg = document.getElementById('p-' + id);
+    if (pg) pg.style.display = 'block';
+    window.scrollTo(0, 0);
+    document.querySelectorAll('.nav-link').forEach(function(a) {
+        var isActive = a.dataset.page === id;
+        a.classList.toggle('text-blue-700', isActive);
+        a.classList.toggle('border-b-2', isActive);
+        a.classList.toggle('border-blue-700', isActive);
+        a.classList.toggle('pb-0.5', isActive);
+        a.classList.toggle('text-slate-600', !isActive);
+    });
+    document.querySelectorAll('.mobile-nav-link').forEach(function(a) {
+        var isActive = a.dataset.page === id;
+        a.classList.toggle('text-blue-700', isActive);
+        a.classList.toggle('bg-blue-50', isActive);
+        a.classList.toggle('font-semibold', isActive);
+    });
+    var inits = {
+        'result':         function() { if (typeof renderResults       === 'function') renderResults(); },
+        'rehabilitation': function() { if (typeof rehabRenderSteps    === 'function') rehabRenderSteps(); },
+        'bankruptcy':     function() { if (typeof bankruptRenderSteps === 'function') bankruptRenderSteps(); },
+        'documents':      function() { if (typeof renderDocs          === 'function') renderDocs(); },
+        'mypage':         function() { if (typeof renderPage          === 'function') renderPage(); },
+        'resources':      function() { if (typeof renderFAQ           === 'function') renderFAQ(); }
+    };
+    if (inits[id]) inits[id]();
+}
+function showExample(title, content) {
+    document.getElementById('modal-title').textContent   = decodeURIComponent(title);
+    document.getElementById('modal-content').textContent = decodeURIComponent(content);
+    document.getElementById('example-modal').style.removeProperty('display');
+}
+function closeModal() {
+    document.getElementById('example-modal').style.setProperty('display','none','important');
+}
+navigate('home');
+
+</script>
+</body>
+</html>

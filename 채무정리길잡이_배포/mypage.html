@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>마이페이지 | 채무정리길잡이</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-slate-50">
+<div id="header-placeholder"></div>
+
+<section class="bg-slate-800 text-white py-8">
+  <div class="max-w-4xl mx-auto px-4">
+    <h1 class="text-2xl md:text-3xl font-bold mb-1">마이페이지</h1>
+    <p class="text-slate-400 text-sm">진단 결과 · 진행률 · AI 검토 기록을 확인하세요.</p>
+  </div>
+</section>
+
+<div class="max-w-4xl mx-auto px-4 py-8 space-y-6">
+
+  <!-- 진단 결과 요약 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6" id="diagnosis-summary">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-bold text-slate-800 text-lg">📊 내 진단 결과</h2>
+      <a href="diagnosis.html" class="text-xs text-blue-600 hover:underline">재진단</a>
+    </div>
+    <div id="diag-content">
+      <div class="text-center py-8 text-slate-400">
+        <p class="text-sm">아직 진단을 완료하지 않으셨습니다.</p>
+        <a href="diagnosis.html" class="mt-3 inline-block bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors">무료진단 시작하기</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 진행률 -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-slate-700 text-sm">📋 개인회생 진행률</h3>
+        <a href="rehabilitation.html" class="text-xs text-blue-600 hover:underline">이어서 진행</a>
+      </div>
+      <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-1">
+        <div id="rehab-prog-bar" class="progress-bar h-full bg-blue-600 rounded-full" style="width:0%"></div>
+      </div>
+      <div id="rehab-prog-text" class="text-xs text-slate-400">0% (0/0 항목)</div>
+    </div>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-slate-700 text-sm">⚖️ 개인파산 진행률</h3>
+        <a href="bankruptcy.html" class="text-xs text-blue-600 hover:underline">이어서 진행</a>
+      </div>
+      <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-1">
+        <div id="bankrupt-prog-bar" class="progress-bar h-full bg-slate-500 rounded-full" style="width:0%"></div>
+      </div>
+      <div id="bankrupt-prog-text" class="text-xs text-slate-400">0% (0/0 항목)</div>
+    </div>
+  </div>
+
+  <!-- 서류 준비 현황 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-bold text-slate-700">📁 서류 준비 현황</h3>
+      <a href="documents.html" class="text-xs text-blue-600 hover:underline">서류 체크센터</a>
+    </div>
+    <div id="docs-summary" class="text-slate-400 text-sm">서류 체크센터에서 준비한 서류가 없습니다.</div>
+  </div>
+
+  <!-- AI 검토 기록 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-bold text-slate-700">🤖 AI 검토 기록</h3>
+      <a href="ai-review.html" class="text-xs text-blue-600 hover:underline">AI 검토 하기</a>
+    </div>
+    <div id="ai-records" class="text-slate-400 text-sm">AI 검토 기록이 없습니다.</div>
+  </div>
+
+  <!-- 결제 상태 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-bold text-slate-700">💳 결제 상태</h3>
+      <a href="pricing.html" class="text-xs text-blue-600 hover:underline">요금제 보기</a>
+    </div>
+    <div id="plan-status"></div>
+  </div>
+
+  <!-- 데이터 초기화 -->
+  <div class="text-center">
+    <button onclick="confirmReset()" class="text-xs text-slate-400 hover:text-red-500 transition-colors">
+      저장된 데이터 전체 초기화
+    </button>
+  </div>
+</div>
+
+<div id="footer-placeholder"></div>
+<div id="toast"></div>
+
+<script src="js/main.js"></script>
+<script>
+  initPage('home');
+
+  // 개인회생 총 항목 수
+  const REHAB_TOTAL  = 8 * 5; // 8단계 × 약 5항목 (대략)
+  const BANKRUPT_TOTAL = 8 * 5;
+
+  function calcChecks(key) {
+    const saved = Storage.load(key) || {};
+    return Object.values(saved).filter(Boolean).length;
+  }
+
+  function renderPage() {
+    // ── 진단 결과 ──
+    const levels = Storage.load('diagnosis_levels');
+    const data   = Storage.load('diagnosis_data');
+    const repay  = Storage.load('diagnosis_repay');
+    const date   = Storage.load('diagnosis_date');
+
+    if (levels && data) {
+      const LEVEL_LABEL = { high: '검토 가능성 높음', medium: '검토 가능성 보통', low: '검토 가능성 낮음' };
+      const LEVEL_COLOR = { high: 'badge-high', medium: 'badge-medium', low: 'badge-low' };
+
+      document.getElementById('diag-content').innerHTML = `
+        <div class="text-xs text-slate-400 mb-3">진단일: ${date || '-'}</div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          ${['rehab', 'bankrupt', 'credit'].map((k, i) => {
+            const titles = ['개인회생', '개인파산·면책', '신용회복위원회'];
+            return `<div class="p-3 bg-slate-50 rounded-xl text-center">
+              <div class="text-xs text-slate-500 mb-1">${titles[i]}</div>
+              <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${LEVEL_COLOR[levels[k]]}">${LEVEL_LABEL[levels[k]]}</span>
+            </div>`;
+          }).join('')}
+        </div>
+        ${repay ? `<div class="bg-blue-50 rounded-xl p-3 text-sm">
+          <span class="text-slate-600">개인회생 예상 월 변제액:</span>
+          <strong class="text-blue-700 ml-2">${formatWon(repay.monthly)}</strong>
+          <span class="text-slate-400 text-xs ml-2">(참고용)</span>
+        </div>` : ''}
+        <a href="result.html" class="mt-3 inline-block text-blue-600 text-sm hover:underline">결과 상세 보기 →</a>
+      `;
+    }
+
+    // ── 진행률 ──
+    function calcProgress(key, totalItems) {
+      const saved = Storage.load(key) || {};
+      const done  = Object.values(saved).filter(Boolean).length;
+      return { done, total: totalItems };
+    }
+
+    // 실제 항목 수로 계산
+    const rehabItems = 4+5+4+5+4+6+5+5; // 각 단계 항목수 합
+    const bankruptItems = 4+4+4+5+4+5+5+5;
+
+    const rp = calcProgress('rehab_checks', rehabItems);
+    const bp = calcProgress('bankrupt_checks', bankruptItems);
+
+    const rPct = Math.round(rp.done / rp.total * 100);
+    const bPct = Math.round(bp.done / bp.total * 100);
+
+    document.getElementById('rehab-prog-bar').style.width = rPct + '%';
+    document.getElementById('rehab-prog-text').textContent = `${rPct}% (${rp.done}/${rp.total} 항목)`;
+
+    document.getElementById('bankrupt-prog-bar').style.width = bPct + '%';
+    document.getElementById('bankrupt-prog-text').textContent = `${bPct}% (${bp.done}/${bp.total} 항목)`;
+
+    // ── 서류 현황 ──
+    const docsDone = calcChecks('docs_checks');
+    document.getElementById('docs-summary').innerHTML = docsDone > 0
+      ? `<div class="text-slate-700"><strong class="text-blue-700">${docsDone}개</strong> 서류를 준비 완료로 표시하셨습니다. <a href="documents.html" class="text-blue-600 hover:underline">이어서 체크하기</a></div>`
+      : `<div class="text-slate-400 text-sm">서류 체크센터에서 준비한 서류가 없습니다. <a href="documents.html" class="text-blue-600 hover:underline">서류 체크 시작</a></div>`;
+
+    // ── AI 검토 기록 ──
+    const records = Storage.load('ai_records') || [];
+    const DOC_LABELS = {
+      'rehab-petition': '개인회생 신청서',
+      'creditor-list': '채권자 목록',
+      'asset-list': '재산목록',
+      'income-expense': '수입·지출 명세서',
+      'bankrupt-petition': '개인파산 신청서',
+      'statement': '진술서',
+    };
+    if (records.length > 0) {
+      document.getElementById('ai-records').innerHTML = records.map(r => `
+        <div class="flex items-start gap-3 py-2.5 border-b border-slate-50 last:border-0">
+          <span class="text-2xl shrink-0">🤖</span>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium text-slate-700">${DOC_LABELS[r.docType] || r.docType}</div>
+            <div class="text-xs text-slate-400 truncate mt-0.5">${r.preview}</div>
+          </div>
+          <div class="text-xs text-slate-400 shrink-0">${r.date}</div>
+        </div>`).join('');
+    }
+
+    // ── 결제 상태 ──
+    const plan = Storage.load('plan');
+    document.getElementById('plan-status').innerHTML = plan === 'premium'
+      ? `<span class="inline-block bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full">프리미엄 이용 중</span>`
+      : `<div class="flex items-center justify-between">
+          <span class="text-slate-500 text-sm">무료 플랜 이용 중</span>
+          <a href="pricing.html" class="text-sm text-blue-600 font-medium hover:underline">업그레이드</a>
+        </div>`;
+  }
+
+  function confirmReset() {
+    if (confirm('저장된 모든 데이터(진단결과·진행률·검토기록)를 삭제하시겠습니까?')) {
+      ['diagnosis_data','diagnosis_scores','diagnosis_levels','diagnosis_repay','diagnosis_date',
+       'rehab_checks','bankrupt_checks','docs_checks','ai_records','plan'].forEach(k => Storage.remove(k));
+      showToast('모든 데이터가 초기화되었습니다.', 'info');
+      setTimeout(() => renderPage(), 500);
+    }
+  }
+
+  renderPage();
+</script>
+</body>
+</html>
