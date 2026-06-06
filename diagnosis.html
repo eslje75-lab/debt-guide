@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>무료 채무진단 | 채무정리길잡이</title>
+  <title>채무진단 | 챔로드</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -20,25 +20,28 @@
 </section>
 
 <!-- 진행 표시 -->
-<div class="bg-white border-b border-slate-200 sticky top-16 z-50 no-print">
+<div class="bg-white border-b border-slate-200 no-print">
   <div class="max-w-3xl mx-auto px-4 py-4">
-    <div class="flex items-center justify-between mb-3">
-      <div class="flex items-center flex-1">
+    <div class="flex items-start">
+      <div class="flex flex-col items-center flex-shrink-0">
         <div id="dot-1" class="step-dot active">1</div>
-        <div id="line-1" class="step-line pending"></div>
-        <div id="dot-2" class="step-dot pending">2</div>
-        <div id="line-2" class="step-line pending"></div>
-        <div id="dot-3" class="step-dot pending">3</div>
-        <div id="line-3" class="step-line pending"></div>
-        <div id="dot-4" class="step-dot pending">4</div>
+        <span class="text-xs text-slate-400 mt-1.5 text-center">채무현황</span>
       </div>
-      <span id="progress-pct" class="ml-4 text-sm font-semibold text-blue-700">25%</span>
-    </div>
-    <div class="flex justify-between text-xs text-slate-400 step-label">
-      <span>채무현황</span><span>연체·법적현황</span><span>소득·생활비</span><span>재산·기타</span>
-    </div>
-    <div class="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-      <div id="progress-bar" class="progress-bar h-full bg-blue-600 rounded-full" style="width:25%"></div>
+      <div id="line-1" class="step-line pending" style="margin-top:16px"></div>
+      <div class="flex flex-col items-center flex-shrink-0">
+        <div id="dot-2" class="step-dot pending">2</div>
+        <span class="text-xs text-slate-400 mt-1.5 text-center">연체·법적현황</span>
+      </div>
+      <div id="line-2" class="step-line pending" style="margin-top:16px"></div>
+      <div class="flex flex-col items-center flex-shrink-0">
+        <div id="dot-3" class="step-dot pending">3</div>
+        <span class="text-xs text-slate-400 mt-1.5 text-center">소득·생활비</span>
+      </div>
+      <div id="line-3" class="step-line pending" style="margin-top:16px"></div>
+      <div class="flex flex-col items-center flex-shrink-0">
+        <div id="dot-4" class="step-dot pending">4</div>
+        <span class="text-xs text-slate-400 mt-1.5 text-center">재산·기타</span>
+      </div>
     </div>
   </div>
 </div>
@@ -57,7 +60,7 @@
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1.5">
             채무 종류 <span class="text-red-500">*</span>
-            <span class="text-slate-400 font-normal ml-1">(해당 항목 모두 선택)</span>
+            <span class="text-slate-400 font-normal ml-1">(복수 선택 가능)</span>
           </label>
           <p class="text-xs text-slate-400 mb-2">채무 종류에 따라 신청 가능한 제도가 달라집니다.</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -112,22 +115,22 @@
             무담보(신용) 채무 총액 <span class="text-red-500">*</span>
           </label>
           <div class="relative">
-            <input id="unsecured-debt" type="number" min="0" placeholder="0"
-              class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-8">
-            <span class="absolute right-3 top-2.5 text-slate-400 text-sm">원</span>
+            <input id="unsecured-debt" type="number" min="0" placeholder=""
+              class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-14">
+            <span class="absolute right-3 top-2.5 text-slate-400 text-sm">만원</span>
           </div>
-          <p class="text-xs text-slate-400 mt-1">신용대출·카드론·사채 등 담보 없는 채무 합산 (없으면 0)</p>
+          <p class="text-xs text-slate-400 mt-1">신용대출·카드론·사채 등 담보 없는 채무 합산 (없으면 0 입력, 만 원 단위)</p>
         </div>
 
         <!-- 담보 채무 -->
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1.5">담보 채무 총액</label>
           <div class="relative">
-            <input id="secured-debt" type="number" min="0" placeholder="0"
-              class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-8">
-            <span class="absolute right-3 top-2.5 text-slate-400 text-sm">원</span>
+            <input id="secured-debt" type="number" min="0" placeholder=""
+              class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-14">
+            <span class="absolute right-3 top-2.5 text-slate-400 text-sm">만원</span>
           </div>
-          <p class="text-xs text-slate-400 mt-1">주택담보대출·전세자금대출 등 (없으면 0)</p>
+          <p class="text-xs text-slate-400 mt-1">주택담보대출·전세자금대출 등 (없으면 0 입력, 만 원 단위)</p>
         </div>
 
         <!-- 채권자 수 -->
@@ -196,7 +199,7 @@
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-2">
             현재 법적 조치를 받고 있나요?
-            <span class="text-slate-400 font-normal ml-1">(복수 선택)</span>
+            <span class="text-slate-400 font-normal ml-1">(복수 선택 가능)</span>
           </label>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
@@ -257,10 +260,11 @@
             </label>
             <select id="income-type" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white">
               <option value="">선택해 주세요</option>
-              <option value="employed">근로소득 (정규직·계약직)</option>
+              <option value="employed_insured">4대보험 가입 근로자 (정규직·계약직)</option>
+              <option value="employed_uninsured">4대보험 미적용 근로 (편의점·식당 파트타임, 일용직 등)</option>
+              <option value="freelance">프리랜서·특수고용 (배달·학습지·유튜버 등, 3.3% 원천징수)</option>
               <option value="self">사업소득 (자영업·개인사업자)</option>
-              <option value="pension">연금·공적급여 (국민연금·기초수급 등)</option>
-              <option value="daily">일용직·프리랜서·단기 근로</option>
+              <option value="pension">연금·공적급여 (국민연금·기초수급·장애연금 등)</option>
             </select>
           </div>
           <div class="pl-4">
@@ -268,11 +272,11 @@
               월 평균 소득 (세후) <span class="text-red-500">*</span>
             </label>
             <div class="relative">
-              <input id="monthly-income" type="number" min="0" placeholder="0"
-                class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-8">
-              <span class="absolute right-3 top-2.5 text-slate-400 text-sm">원</span>
+              <input id="monthly-income" type="number" min="0" placeholder=""
+                class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-14">
+              <span class="absolute right-3 top-2.5 text-slate-400 text-sm">만원</span>
             </div>
-            <p class="text-xs text-slate-400 mt-1">최근 3개월 평균 세후 실수령액</p>
+            <p class="text-xs text-slate-400 mt-1">최근 3개월 평균 세후 실수령액 (만 원 단위)</p>
           </div>
         </div>
 
@@ -292,11 +296,12 @@
             월 필수 생활비 합계 <span class="text-red-500">*</span>
           </label>
           <div class="relative">
-            <input id="monthly-living" type="number" min="0" placeholder="0"
-              class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-8">
-            <span class="absolute right-3 top-2.5 text-slate-400 text-sm">원</span>
+            <input id="monthly-living" type="number" min="0" placeholder=""
+              class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-14">
+            <span class="absolute right-3 top-2.5 text-slate-400 text-sm">만원</span>
           </div>
-          <p class="text-xs text-slate-400 mt-1">주거비(월세·관리비) + 식비 + 교통비 + 의료비 등 필수 지출 합산</p>
+          <p class="text-xs text-slate-400 mt-1">주거비(월세·관리비) + 식비 + 교통비 + 의료비 등 실생활 필수 지출 합산 (만 원 단위)</p>
+          <p class="text-xs text-amber-600 mt-0.5">※ 대출이자·원금 상환액은 포함하지 마세요 — 변제금 계산 시 별도 처리됩니다</p>
         </div>
 
       </div>
@@ -321,41 +326,41 @@
             <div class="flex items-center gap-3">
               <span class="text-sm text-slate-600 w-36 shrink-0">예금·현금</span>
               <div class="relative flex-1">
-                <input id="cash-assets" type="number" min="0" placeholder="0"
-                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-8">
-                <span class="absolute right-3 top-2 text-slate-400 text-sm">원</span>
+                <input id="cash-assets" type="number" min="0" placeholder=""
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-14">
+                <span class="absolute right-3 top-2 text-slate-400 text-sm">만원</span>
               </div>
             </div>
             <div class="flex items-center gap-3">
               <span class="text-sm text-slate-600 w-36 shrink-0">부동산 (시가)</span>
               <div class="relative flex-1">
-                <input id="property-value" type="number" min="0" placeholder="0"
-                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-8">
-                <span class="absolute right-3 top-2 text-slate-400 text-sm">원</span>
+                <input id="property-value" type="number" min="0" placeholder=""
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-14">
+                <span class="absolute right-3 top-2 text-slate-400 text-sm">만원</span>
               </div>
             </div>
             <div class="flex items-center gap-3">
               <span class="text-sm text-slate-600 w-36 shrink-0">차량 (시세)</span>
               <div class="relative flex-1">
-                <input id="car-value" type="number" min="0" placeholder="0"
-                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-8">
-                <span class="absolute right-3 top-2 text-slate-400 text-sm">원</span>
+                <input id="car-value" type="number" min="0" placeholder=""
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-14">
+                <span class="absolute right-3 top-2 text-slate-400 text-sm">만원</span>
               </div>
             </div>
             <div class="flex items-center gap-3">
               <span class="text-sm text-slate-600 w-36 shrink-0">임차보증금</span>
               <div class="relative flex-1">
-                <input id="deposit-value" type="number" min="0" placeholder="0"
-                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-8">
-                <span class="absolute right-3 top-2 text-slate-400 text-sm">원</span>
+                <input id="deposit-value" type="number" min="0" placeholder=""
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-14">
+                <span class="absolute right-3 top-2 text-slate-400 text-sm">만원</span>
               </div>
             </div>
             <div class="flex items-center gap-3">
               <span class="text-sm text-slate-600 w-36 shrink-0">보험 해약환급금</span>
               <div class="relative flex-1">
-                <input id="insurance-value" type="number" min="0" placeholder="0"
-                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-8">
-                <span class="absolute right-3 top-2 text-slate-400 text-sm">원</span>
+                <input id="insurance-value" type="number" min="0" placeholder=""
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-14">
+                <span class="absolute right-3 top-2 text-slate-400 text-sm">만원</span>
               </div>
             </div>
           </div>
@@ -392,7 +397,7 @@
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-2">
             채무 발생 주요 원인
-            <span class="text-slate-400 font-normal ml-1">(복수 선택)</span>
+            <span class="text-slate-400 font-normal ml-1">(복수 선택 가능)</span>
           </label>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
@@ -413,18 +418,127 @@
             <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
               <input type="checkbox" name="debt-cause" value="guarantee" class="accent-blue-700"> 보증 채무
             </label>
+            <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm col-span-1 sm:col-span-2 border-amber-200 bg-amber-50">
+              <input type="checkbox" name="debt-cause" value="gambling" class="accent-amber-600">
+              <span>
+                도박·사행성 채무
+                <span class="block text-xs text-amber-700 mt-0.5">도박 관련 채무는 개인파산 면책불허가 사유에 해당할 수 있습니다 (법 제564조)</span>
+              </span>
+            </label>
           </div>
+        </div>
+
+        <!-- 개인사업자 여부 -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            개인사업자(자영업자)로 사업을 운영하신 적이 있나요?
+            <span class="block text-xs text-slate-400 font-normal mt-0.5">신용회복위원회 개인사업자 채무조정 대상 여부 확인용</span>
+          </label>
+          <div class="space-y-2">
+            <label class="flex items-center gap-2.5 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm transition-colors">
+              <input type="radio" name="business-status" value="none" checked
+                onchange="document.getElementById('business-status').value='none'" class="accent-blue-700">
+              해당 없음
+            </label>
+            <label class="flex items-center gap-2.5 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm transition-colors">
+              <input type="radio" name="business-status" value="current"
+                onchange="document.getElementById('business-status').value='current'" class="accent-blue-700">
+              현재 사업 운영 중
+            </label>
+            <label class="flex items-center gap-2.5 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm transition-colors">
+              <input type="radio" name="business-status" value="closed"
+                onchange="document.getElementById('business-status').value='closed'" class="accent-blue-700">
+              폐업했으며 사업 관련 채무가 남아 있음
+            </label>
+          </div>
+          <input type="hidden" id="business-status" value="none">
         </div>
 
         <!-- 이전 채무조정 이력 -->
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1.5">이전에 채무조정을 신청한 적이 있나요?</label>
-          <select id="prior-adjustment" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white">
-            <option value="none">없음 (처음 신청)</option>
-            <option value="ccrs">신용회복위원회 (완료·취소·진행 중)</option>
-            <option value="rehab">개인회생 (완료·취소·진행 중)</option>
-            <option value="bankrupt">개인파산 (완료·진행 중)</option>
-          </select>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            이전에 채무조정을 신청한 적이 있나요?
+            <span class="text-slate-400 font-normal ml-1">(복수 선택 가능)</span>
+          </label>
+          <div class="space-y-2.5">
+
+            <!-- 없음 -->
+            <label class="flex items-center gap-2.5 px-3 py-2.5 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+              <input type="checkbox" name="prior-adj" value="none" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="togglePriorNone(this)" checked>
+              <span class="text-sm font-medium text-slate-700">없음 (처음 신청)</span>
+            </label>
+
+            <!-- 신용회복위원회 -->
+            <div class="border border-slate-200 rounded-lg overflow-hidden">
+              <div class="px-3 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 border-b border-slate-100">신용회복위원회</div>
+              <div class="divide-y divide-slate-100">
+                <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
+                  <input type="checkbox" name="prior-adj" value="ccrs-done" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="uncheckPriorNone(this)">
+                  <span class="text-sm text-slate-700">완료</span>
+                </label>
+                <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
+                  <input type="checkbox" name="prior-adj" value="ccrs-cancel" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="uncheckPriorNone(this)">
+                  <span class="text-sm text-slate-700">중도 취소</span>
+                </label>
+                <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
+                  <input type="checkbox" name="prior-adj" value="ccrs-ongoing" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="uncheckPriorNone(this)">
+                  <span class="text-sm text-slate-700">현재 진행 중</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 개인회생 -->
+            <div class="border border-slate-200 rounded-lg overflow-hidden">
+              <div class="px-3 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 border-b border-slate-100">개인회생 <span class="font-normal">(면책 확정 후 5년 경과 시 재신청 가능)</span></div>
+              <div class="divide-y divide-slate-100">
+                <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
+                  <input type="checkbox" name="prior-adj" value="rehab-done-recent" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="uncheckPriorNone(this)">
+                  <span class="text-sm text-slate-700">면책 확정 후 5년 미경과 <span class="text-xs text-red-500 ml-1">(재신청 불가)</span></span>
+                </label>
+                <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
+                  <input type="checkbox" name="prior-adj" value="rehab-done-ok" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="uncheckPriorNone(this)">
+                  <span class="text-sm text-slate-700">면책 확정 후 5년 이상 경과 <span class="text-xs text-green-600 ml-1">(재신청 가능)</span></span>
+                </label>
+                <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
+                  <input type="checkbox" name="prior-adj" value="rehab-cancel" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="uncheckPriorNone(this)">
+                  <span class="text-sm text-slate-700">인가 취소·기각·폐지</span>
+                </label>
+                <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
+                  <input type="checkbox" name="prior-adj" value="rehab-ongoing" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="uncheckPriorNone(this)">
+                  <span class="text-sm text-slate-700">현재 진행 중</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 개인파산 -->
+            <div class="border border-slate-200 rounded-lg overflow-hidden">
+              <div class="px-3 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 border-b border-slate-100">개인파산 <span class="font-normal">(면책 확정 후 7년 경과 시 재신청 가능)</span></div>
+              <div class="divide-y divide-slate-100">
+                <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
+                  <input type="checkbox" name="prior-adj" value="bankrupt-done-recent" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="uncheckPriorNone(this)">
+                  <span class="text-sm text-slate-700">면책 확정 후 7년 미경과 <span class="text-xs text-red-500 ml-1">(재신청 불가)</span></span>
+                </label>
+                <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
+                  <input type="checkbox" name="prior-adj" value="bankrupt-done-ok" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="uncheckPriorNone(this)">
+                  <span class="text-sm text-slate-700">면책 확정 후 7년 이상 경과 <span class="text-xs text-green-600 ml-1">(재신청 가능)</span></span>
+                </label>
+                <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
+                  <input type="checkbox" name="prior-adj" value="bankrupt-denied" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="uncheckPriorNone(this)">
+                  <span class="text-sm text-slate-700">면책불허가 결정 <span class="text-xs text-amber-600 ml-1">(재신청은 가능하나 불리)</span></span>
+                </label>
+                <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
+                  <input type="checkbox" name="prior-adj" value="bankrupt-cancel" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="uncheckPriorNone(this)">
+                  <span class="text-sm text-slate-700">파산선고 취소·기각</span>
+                </label>
+                <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
+                  <input type="checkbox" name="prior-adj" value="bankrupt-ongoing" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="uncheckPriorNone(this)">
+                  <span class="text-sm text-slate-700">현재 진행 중</span>
+                </label>
+              </div>
+            </div>
+
+          </div>
+          <p class="text-xs text-slate-400 mt-2">해당되는 항목을 모두 선택해 주세요. 재신청 가능 여부에 따라 적합한 절차가 달라집니다.</p>
         </div>
 
         <div class="disclaimer-box">
@@ -486,6 +600,31 @@
       });
     }
   }
+
+  // ── 이전 채무조정 체크박스 ──
+  function togglePriorNone(cb) {
+    if (cb.checked) {
+      document.querySelectorAll('input[name="prior-adj"]').forEach(c => {
+        if (c !== cb) c.checked = false;
+      });
+    }
+  }
+
+  function uncheckPriorNone(cb) {
+    if (cb.checked) {
+      const noneCb = document.querySelector('input[name="prior-adj"][value="none"]');
+      if (noneCb) noneCb.checked = false;
+    }
+  }
+
+  // 바깥 클릭 시 닫기 (스크롤에는 반응 안 함)
+  document.addEventListener('click', function(e) {
+    const container = document.getElementById('prior-adj-container');
+    if (container && !container.contains(e.target)) {
+      document.getElementById('prior-adj-dropdown').classList.add('hidden');
+      document.getElementById('prior-adj-chevron').style.transform = '';
+    }
+  });
 </script>
 </body>
 </html>

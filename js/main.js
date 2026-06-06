@@ -1,8 +1,8 @@
 /* ==============================
-   채무정리길잡이 - 공통 JS
+   챔로드 - 공통 JS
    ============================== */
 
-const SITE_NAME = '채무정리길잡이';
+const SITE_NAME = '챔로드';
 
 const NAV_LINKS = [
   { href: 'index.html',          label: '홈',        id: 'home' },
@@ -11,8 +11,9 @@ const NAV_LINKS = [
   { href: 'bankruptcy.html',     label: '개인파산',   id: 'bankruptcy' },
   { href: 'documents.html',      label: '서류체크',   id: 'documents' },
   { href: 'ai-review.html',      label: 'AI검토',    id: 'ai-review' },
-  { href: 'resources.html',      label: '자료실',     id: 'resources' },
+  { href: 'resources.html',      label: 'FAQ',        id: 'resources' },
   { href: 'pricing.html',        label: '요금제',     id: 'pricing' },
+  { href: 'about.html',          label: '소개글',     id: 'about' },
 ];
 
 /* ── Header ── */
@@ -40,10 +41,14 @@ function renderHeader(activePage) {
         <div class="flex items-center justify-between h-16">
 
           <a href="index.html" class="flex items-center gap-2">
-            <div class="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center">
-              <span class="text-white font-bold text-sm">채</span>
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#1e40af,#3b82f6)">
+              <svg class="w-5 h-5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 18L10 5L18 18" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <line x1="10" y1="8.5" x2="10" y2="11.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="10" y1="14" x2="10" y2="17" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
             </div>
-            <span class="font-bold text-slate-800 text-lg">${SITE_NAME}</span>
+            <span class="font-bold text-slate-800 text-lg tracking-tight">${SITE_NAME}</span>
           </a>
 
           <div class="hidden lg:flex items-center gap-5">${desktopLinks}</div>
@@ -89,8 +94,12 @@ function renderFooter() {
 
           <div>
             <div class="flex items-center gap-2 mb-3">
-              <div class="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
-                <span class="text-white text-xs font-bold">채</span>
+              <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#1e40af,#3b82f6)">
+                <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M2 18L10 5L18 18" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  <line x1="10" y1="8.5" x2="10" y2="11.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                  <line x1="10" y1="14" x2="10" y2="17" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
               </div>
               <span class="text-white font-bold">${SITE_NAME}</span>
             </div>
@@ -101,33 +110,24 @@ function renderFooter() {
             <h4 class="text-slate-300 font-semibold mb-3 text-sm">주요 서비스</h4>
             <ul class="space-y-1.5 text-sm">
               <li><a href="diagnosis.html" class="hover:text-white transition-colors">무료 채무진단</a></li>
-              <li><a href="rehabilitation.html" class="hover:text-white transition-colors">개인회생 셀프 진행센터</a></li>
-              <li><a href="bankruptcy.html" class="hover:text-white transition-colors">개인파산·면책 셀프 진행센터</a></li>
-              <li><a href="documents.html" class="hover:text-white transition-colors">서류 체크센터</a></li>
-              <li><a href="ai-review.html" class="hover:text-white transition-colors">AI 서류 검토</a></li>
-              <li><a href="resources.html" class="hover:text-white transition-colors">자료실 · FAQ</a></li>
+              <li><a href="rehabilitation.html" class="hover:text-white transition-colors">개인회생 셀프 진행가이드</a></li>
+              <li><a href="bankruptcy.html" class="hover:text-white transition-colors">개인파산·면책 셀프 진행가이드</a></li>
+              <li><a href="resources.html" class="hover:text-white transition-colors">FAQ</a></li>
             </ul>
           </div>
 
           <div>
             <h4 class="text-slate-300 font-semibold mb-3 text-sm">관련 공공기관</h4>
             <ul class="space-y-1.5 text-sm">
-              <li><a href="https://www.scourt.go.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">대법원 전자소송</a></li>
+              <li><a href="https://ecfs.scourt.go.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">대법원 전자소송</a></li>
               <li><a href="https://www.ccrs.or.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">신용회복위원회</a></li>
-              <li><a href="https://www.klac.or.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">대한법률구조공단</a></li>
-              <li><a href="https://www.bok.or.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">한국은행 서민금융</a></li>
             </ul>
           </div>
         </div>
 
         <div class="border-t border-slate-700 pt-6 space-y-3">
-          <div class="disclaimer-box" style="background:#334155;border-color:#475569;border-left-color:#64748b;color:#cbd5e1;">
-            <strong class="text-slate-200">⚠ 법률대리 아님 고지</strong><br>
-            본 서비스는 법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.
-            사용자가 직접 절차를 이해하고 준비할 수 있도록 돕는 정보 제공 및 서류 점검 보조 서비스입니다.
-            구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
-          </div>
-          <p class="text-xs text-slate-500 text-center">© 2025 ${SITE_NAME}. 본 사이트의 모든 정보는 참고용이며 법적 효력이 없습니다.</p>
+          <p class="text-xs text-slate-500 text-center">© 2026 ${SITE_NAME} · 본 사이트는 법률대리 사이트가 아님을 고지하며, 법률상담·법률대리·사건 수임 또는 결과 보장을 제공하지 않습니다.</p>
+          <p class="text-xs text-slate-500 text-center mt-1">사용자가 직접 절차를 이해하고 준비할 수 있도록 돕는 정보 제공 및 서류 점검 보조 서비스입니다.</p>
         </div>
       </div>
     </footer>
@@ -140,7 +140,7 @@ function renderDisclaimer(containerId) {
   if (!el) return;
   el.innerHTML = `
     <div class="disclaimer-box mt-6">
-      <strong>⚠ 참고용 안내</strong><br>
+      <strong>⚠️ 참고용 안내</strong><br>
       본 서비스는 법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.
       모든 결과는 입력값을 기반으로 한 참고용이며, 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다.
       구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
@@ -179,7 +179,19 @@ function showToast(msg, type = 'info') {
 /* ── Number format ── */
 function formatWon(n) {
   if (isNaN(n) || n === null) return '0원';
-  return Math.round(n).toLocaleString('ko-KR') + '원';
+  n = Math.round(n);
+  if (n === 0) return '0원';
+
+  const uk  = Math.floor(n / 100_000_000);
+  const man = Math.floor((n % 100_000_000) / 10_000);
+  const won = n % 10_000;
+
+  const parts = [];
+  if (uk  > 0) parts.push(uk.toLocaleString('ko-KR')  + '억');
+  if (man > 0) parts.push(man.toLocaleString('ko-KR') + '만');
+  if (won > 0) parts.push(won.toLocaleString('ko-KR'));
+
+  return (parts.length ? parts.join(' ') : '0') + '원';
 }
 
 /* ── Scroll-to-top button ── */

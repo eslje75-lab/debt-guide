@@ -1,5 +1,5 @@
 /* ==============================
-   채무정리길잡이 - 진단 로직
+   챔로드 - 진단 로직
    ============================== */
 
 // ── 단계 관리 ──
@@ -136,6 +136,8 @@ function collectFormData() {
     const el = document.getElementById(id);
     return el ? (parseFloat(String(el.value).replace(/[^0-9.]/g, '')) || 0) : 0;
   };
+  // 만원 단위 입력 → 원 단위로 변환
+  const money = id => num(id) * 10000;
   const val = id => {
     const el = document.getElementById(id);
     return el ? el.value.trim() : '';
@@ -153,19 +155,19 @@ function collectFormData() {
   const arrearsMonths = isDelinquent ? (parseInt(val('arrears-period')) || 0) : 0;
 
   const hasIncome    = radio('has-income') === 'yes';
-  const monthlyIncome = hasIncome ? num('monthly-income') : 0;
+  const monthlyIncome = hasIncome ? money('monthly-income') : 0;
 
-  const cashAssets     = num('cash-assets');
-  const propertyValue  = num('property-value');
-  const carValue       = num('car-value');
-  const depositValue   = num('deposit-value');
-  const insuranceValue = num('insurance-value');
+  const cashAssets     = money('cash-assets');
+  const propertyValue  = money('property-value');
+  const carValue       = money('car-value');
+  const depositValue   = money('deposit-value');
+  const insuranceValue = money('insurance-value');
   const totalAssets    = cashAssets + propertyValue + carValue + depositValue + insuranceValue;
 
-  const unsecuredDebt = num('unsecured-debt');
-  const securedDebt   = num('secured-debt');
+  const unsecuredDebt = money('unsecured-debt');
+  const securedDebt   = money('secured-debt');
   const totalDebt     = unsecuredDebt + securedDebt;
-  const monthlyLiving = num('monthly-living');
+  const monthlyLiving = money('monthly-living');
 
   return {
     // 채무
@@ -198,7 +200,8 @@ function collectFormData() {
     age:                     val('age'),
     hasHealthIssues:         document.getElementById('has-health-issues')?.value === 'yes',
     debtCauses,
-    priorAdjustment:         val('prior-adjustment'),
+    businessStatus:          val('business-status'),
+    priorAdjustments:        getChecked('prior-adj').filter(v => v !== 'none'),
     // result.html 호환성
     monthlyPayment:          0,
     monthlyHousing:          0,
@@ -210,17 +213,17 @@ function collectFormData() {
 function calcScores(d) {
   let rehab = 0, bankrupt = 0, credit = 0;
 
-  // 금융기관 채무 여부 (신복위 핵심 조건)
+  // 금융기관 채무 여부 (신용회복위원회 핵심 조건)
   const hasFinanceDebt = d.debtTypes.some(t => ['bank', 'savings', 'card', 'insurance'].includes(t));
 
   // ── 신용회복위원회 ──
   if (hasFinanceDebt) credit += 35;
-  else credit -= 40;                // 사채·세금만 있으면 신복위 대상 아님
+  else credit -= 40;                // 사채·세금만 있으면 신용회복위원회 대상 아님
 
   if (d.hasIncome) credit += 25;
   else credit -= 20;                // 소득 없으면 변제능력 부족
 
-  if (d.unsecuredDebt <= 1_500_000_000) credit += 15; // 무담보 15억 이하 (신복위 한도)
+  if (d.unsecuredDebt <= 1_500_000_000) credit += 15; // 무담보 15억 이하 (신용회복위원회 한도)
   else credit -= 30;
 
   if (d.arrearsMonths === 0)       credit += 20; // 연체 없음 → 프리워크아웃
@@ -234,8 +237,9 @@ function calcScores(d) {
   // ── 개인회생 ──
   if (d.hasIncome && d.monthlyIncome > 0) {
     rehab += 40;                    // 소득 있음 (회생 필수 조건)
-    if (['employed', 'pension'].includes(d.incomeType)) rehab += 15;
-    else if (d.incomeType === 'self') rehab += 8;
+    if (['employed_insured', 'pension'].includes(d.incomeType)) rehab += 15; // 소득 안정·증빙 용이
+    else if (['freelance', 'self'].includes(d.incomeType)) rehab += 8;       // 일부 증빙 가능
+    else if (d.incomeType === 'employed_uninsured') rehab += 5;              // 증빙 어려움
 
     const disposable = d.monthlyIncome - d.monthlyLiving;
     if (disposable > 0) rehab += 20; // 가처분소득 양수 → 변제 가능
@@ -268,6 +272,30 @@ function calcScores(d) {
 
   if (d.hasHealthIssues)           bankrupt += 10; // 근로능력 상실
 
+  // ── 도박·사행성 채무 (면책불허가 위험 반영) ──
+  if (d.debtCauses.includes('gambling')) {
+    bankrupt -= 30; // 법 제564조 면책불허가 사유 해당 가능성
+    rehab    += 10; // 파산보다 회생이 상대적으로 유리
+    credit   -= 10; // 신용회복위원회도 감점
+  }
+
+  // ── 이전 채무조정 이력 반영 (복수 선택, 각 조건 독립 적용) ──
+  const priors = d.priorAdjustments;
+  // 재신청 불가 (절차별 독립 차단)
+  if (priors.includes('rehab-done-recent'))    rehab    -= 60;  // 개인회생 5년 미경과
+  if (priors.includes('bankrupt-done-recent')) bankrupt -= 60;  // 개인파산 7년 미경과
+  // 법원 절차 진행 중 → 동일 법원 절차 간 중복 신청 불가
+  if (priors.includes('rehab-ongoing'))    { rehab -= 40; bankrupt -= 30; }
+  if (priors.includes('bankrupt-ongoing')) { bankrupt -= 40; rehab -= 30; }
+  // 신용회복위원회 진행 중 → 신용회복 재신청 불가
+  if (priors.includes('ccrs-ongoing'))     { credit -= 40; }
+  // 면책불허가 이력 → 파산 재신청 시 불리
+  if (priors.includes('bankrupt-denied'))  bankrupt -= 20;
+  // 취소·기각 이력 → 소폭 감점
+  if (priors.includes('rehab-cancel'))     rehab    -= 10;
+  if (priors.includes('bankrupt-cancel'))  bankrupt -= 10;
+  if (priors.includes('ccrs-cancel'))      credit   -= 5;
+
   // 정규화 (0~100)
   rehab    = Math.max(0, Math.min(100, rehab));
   bankrupt = Math.max(0, Math.min(100, bankrupt));
@@ -288,12 +316,24 @@ function levelLabel(l) {
   return '검토 가능성 낮음';
 }
 
-// ── 개인회생 예상 변제금 계산 ──
+// ── 2026년 기준중위소득 (원 단위, 보건복지부 고시) ──
+const MEDIAN_INCOME_2026 = [0, 2503534, 4118195, 5262306, 6381798, 7436994, 8443420];
+// 인덱스: [미사용, 1인, 2인, 3인, 4인, 5인, 6인 이상]
+
+function getStandardLiving(householdSize) {
+  const idx = Math.min(Math.max(householdSize, 1), 6);
+  return Math.round(MEDIAN_INCOME_2026[idx] * 0.6); // 기준중위소득 60% = 법원 표준생계비
+}
+
+// ── 개인회생 예상 변제금 계산 (2026 표준생계비 기준) ──
 function calcRepayment(d) {
-  const monthly = Math.max(0, (d.monthlyIncome || 0) - (d.monthlyLiving || 0));
-  const total36 = monthly * 36;
-  const exempt  = Math.max(0, d.totalDebt - total36);
-  return { monthly, total36, exempt };
+  const householdSize   = 1 + (parseInt(d.dependents) || 0);        // 본인 + 부양가족
+  const standardLiving  = getStandardLiving(householdSize);          // 법원 표준생계비
+  const effectiveLiving = Math.max(d.monthlyLiving || 0, standardLiving); // 실제 공제액 (둘 중 큰 값)
+  const monthly  = Math.max(0, (d.monthlyIncome || 0) - effectiveLiving);
+  const total36  = monthly * 36;
+  const exempt   = Math.max(0, d.totalDebt - total36);
+  return { monthly, total36, exempt, standardLiving, effectiveLiving, householdSize };
 }
 
 // ── 제출 처리 ──

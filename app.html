@@ -1,14 +1,14 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>채무정리길잡이 - 개인회생·파산 셀프 진행 지원</title>
+  <title>챔로드 - 개인회생·파산 셀프 진행 지원</title>
   <meta name="description" content="개인회생, 개인파산·면책, 신용회복위원회 절차를 혼자 준비할 수 있도록 돕는 무료 채무진단 플랫폼">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
 /* ==============================
-   채무정리길잡이 - 공통 스타일
+   챔로드 - 공통 스타일
    ============================== */
 
 :root {
@@ -244,10 +244,14 @@ input:focus, select:focus, textarea:focus {
   <div class="max-w-6xl mx-auto px-4">
     <div class="flex items-center justify-between h-16">
       <a href="#" onclick="navigate('home');return false;" class="flex items-center gap-2">
-        <div class="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center">
-          <span class="text-white font-bold text-sm">채</span>
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#1e40af,#3b82f6)">
+          <svg class="w-5 h-5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2 18L10 5L18 18" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="10" y1="8.5" x2="10" y2="11.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="10" y1="14" x2="10" y2="17" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
         </div>
-        <span class="font-bold text-slate-800 text-lg">채무정리길잡이</span>
+        <span class="font-bold text-slate-800 text-lg tracking-tight">챔로드</span>
       </a>
       <div class="hidden lg:flex items-center gap-5">
         <a href="#" onclick="navigate('home');return false;"           data-page="home"           class="nav-link text-sm font-medium text-slate-600 hover:text-blue-700 transition-colors">홈</a>
@@ -289,17 +293,14 @@ input:focus, select:focus, textarea:focus {
 <section class="hero-gradient text-white">
   <div class="max-w-5xl mx-auto px-4 py-20 text-center">
     <div class="inline-block bg-white/10 text-white/90 text-sm font-semibold px-4 py-1.5 rounded-full mb-6 border border-white/20">
-      실제 개인회생 경험자가 만든 채무정리 정보 플랫폼
+      개인회생 경험자가 만든 '채무조정 안내' 플랫폼
     </div>
-    <h1 class="text-3xl md:text-5xl font-bold mb-5" style="line-height:1.25">
-      빚 정리, 어디서부터<br>시작해야 할지 모르겠다면
+    <h1 class="text-3xl md:text-5xl font-bold mb-5" style="line-height:1.35">
+      빚 정리, 어디서부터<br>시작할지 모르겠다면
     </h1>
-    <p class="text-base md:text-lg text-blue-100 mb-8 leading-relaxed">
+    <p class="text-base md:text-xl text-blue-100 mb-8 leading-relaxed">
       3분 무료진단으로<br>
-      <span class="inline-block bg-white/20 text-white font-bold px-4 py-1.5 rounded-xl my-2 text-sm md:text-base tracking-wide">
-        개인회생 · 개인파산·면책 · 신용회복위원회
-      </span><br>
-      절차 중 <strong class="text-white font-bold">나에게 맞는 방향</strong>을 확인하세요.
+      <strong class="text-white font-bold">나에게 맞는 채무조정 절차</strong>를 확인하세요
     </p>
     <div class="flex flex-col sm:flex-row gap-3 justify-center">
       <a href="#" onclick="navigate('diagnosis');return false;" class="bg-white text-blue-800 font-bold px-8 py-4 rounded-xl hover:bg-blue-50 transition-colors text-lg shadow-lg">
@@ -327,7 +328,7 @@ input:focus, select:focus, textarea:focus {
         <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4">
           <span class="text-2xl">🔍</span>
         </div>
-        <h3 class="font-bold text-slate-800 mb-2 text-lg">① 무료 채무진단</h3>
+        <h3 class="font-bold text-slate-800 mb-2 text-lg">① 채무진단</h3>
         <p class="text-slate-500 text-sm leading-relaxed text-left">소득·채무·재산 정보를 입력하면 개인회생·파산·신용회복위원회 중 어떤 절차가 맞는지 참고 방향을 알 수 있습니다.</p>
         <a href="#" onclick="navigate('diagnosis');return false;" class="mt-4 inline-block text-blue-700 text-sm font-medium hover:underline">진단 시작 →</a>
       </div>
@@ -368,7 +369,7 @@ input:focus, select:focus, textarea:focus {
         </colgroup>
         <thead>
           <tr>
-            <th class="p-3 md:p-4 text-left">구분</th>
+            <th class="p-3 md:p-4 text-center">구분</th>
             <th class="p-3 md:p-4 text-center">개인회생</th>
             <th class="p-3 md:p-4 text-center">개인파산·면책</th>
             <th class="p-3 md:p-4 text-center">신용회복위원회</th>
@@ -376,37 +377,37 @@ input:focus, select:focus, textarea:focus {
         </thead>
         <tbody class="text-slate-700">
           <tr>
-            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">기관</td>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600 text-center">기관</td>
             <td class="p-3 md:p-4 text-center">법원</td>
             <td class="p-3 md:p-4 text-center">법원</td>
             <td class="p-3 md:p-4 text-center">신용회복위원회</td>
           </tr>
           <tr>
-            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">주요 대상</td>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600 text-center">주요 대상</td>
             <td class="p-3 md:p-4 text-center">정기소득 있는 채무자</td>
             <td class="p-3 md:p-4 text-center">소득·재산 없는 채무자</td>
             <td class="p-3 md:p-4 text-center">연체 초기·소득 있는 채무자</td>
           </tr>
           <tr>
-            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">기간</td>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600 text-center">기간</td>
             <td class="p-3 md:p-4 text-center">변제기간 3~5년</td>
             <td class="p-3 md:p-4 text-center">절차 6개월~1년 이상</td>
             <td class="p-3 md:p-4 text-center">조정 후 최대 10년</td>
           </tr>
           <tr>
-            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">채무 처리</td>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600 text-center">채무 처리</td>
             <td class="p-3 md:p-4 text-center">일부 변제 후 나머지 면책</td>
             <td class="p-3 md:p-4 text-center">재산 정리 후 전부 면책</td>
             <td class="p-3 md:p-4 text-center">이자 감면·분할 상환</td>
           </tr>
           <tr>
-            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">비용</td>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600 text-center">비용</td>
             <td class="p-3 md:p-4 text-center">인지대·송달료 등 소액</td>
             <td class="p-3 md:p-4 text-center">인지대·송달료 등 소액</td>
             <td class="p-3 md:p-4 text-center">무료</td>
           </tr>
           <tr>
-            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600">신용 영향</td>
+            <td class="p-3 md:p-4 font-semibold bg-slate-50 text-slate-600 text-center">신용 영향</td>
             <td class="p-3 md:p-4 text-center">신용불량 기록</td>
             <td class="p-3 md:p-4 text-center">신용불량 기록</td>
             <td class="p-3 md:p-4 text-center">협약 기간 제한</td>
@@ -475,10 +476,10 @@ input:focus, select:focus, textarea:focus {
 <section class="section bg-white">
   <div class="max-w-5xl mx-auto px-4">
     <div class="text-center mb-10">
-      <h2 class="text-2xl md:text-3xl font-bold text-slate-800 mb-3">유료 서비스</h2>
-      <p class="text-slate-500">무료진단 이후, 실제 절차 준비를 더 체계적으로 돕는 도구</p>
+      <h2 class="text-2xl md:text-3xl font-bold text-slate-800 mb-3">챔로드 서비스</h2>
+      <p class="text-slate-500">혼자 채무조정을 진행할 수 있도록 돕는 서비스입니다.</p>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div class="border border-slate-200 rounded-2xl p-6 text-center">
         <div class="text-3xl font-bold text-slate-800 mb-1">무료</div>
         <div class="text-slate-400 text-sm mb-4">기본 이용</div>
@@ -489,26 +490,15 @@ input:focus, select:focus, textarea:focus {
         <a href="#" onclick="navigate('diagnosis');return false;" class="block w-full py-2.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">진단 시작</a>
       </div>
 
-      <div class="border border-slate-200 rounded-2xl p-6 text-center">
-        <div class="text-3xl font-bold text-slate-800 mb-1">9,900<span class="text-base font-normal">원</span></div>
-        <div class="text-slate-400 text-sm mb-4">베이직</div>
-        <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
-          <li class="flex gap-2"><span class="text-green-500">✓</span> 진행 로드맵</li>
-          <li class="flex gap-2"><span class="text-green-500">✓</span> 서류 체크리스트</li>
-          <li class="flex gap-2"><span class="text-green-500">✓</span> 작성예시 열람</li>
-        </ul>
-        <a href="#" onclick="navigate('pricing');return false;" class="block w-full py-2.5 border border-blue-300 rounded-lg text-sm font-medium text-blue-700 hover:bg-blue-50 transition-colors">구매하기</a>
-      </div>
-
       <div class="border-2 border-blue-700 rounded-2xl p-6 text-center pricing-featured">
         <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs px-3 py-1 rounded-full font-semibold">추천</div>
-        <div class="text-3xl font-bold text-slate-800 mb-1">29,000<span class="text-base font-normal">원</span></div>
+        <div class="text-3xl font-bold text-slate-800 mb-1">100,000<span class="text-base font-normal">원</span></div>
         <div class="text-slate-400 text-sm mb-4">프리미엄</div>
         <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
-          <li class="flex gap-2"><span class="text-green-500">✓</span> AI 서류 검토</li>
-          <li class="flex gap-2"><span class="text-green-500">✓</span> 진행률 관리</li>
-          <li class="flex gap-2"><span class="text-green-500">✓</span> PDF 체크리스트</li>
-          <li class="flex gap-2"><span class="text-green-500">✓</span> 마이페이지 저장</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> 단계별 진행절차 안내</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> 필요서류 작성 가이드 제공</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> AI 서류검토 기능 제공</li>
+          <li class="flex gap-2"><span class="text-green-500">✓</span> 체크리스트로 제출서류 최종 검토</li>
         </ul>
         <a href="#" onclick="navigate('pricing');return false;" class="block w-full py-2.5 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors">구매하기</a>
       </div>
@@ -518,7 +508,7 @@ input:focus, select:focus, textarea:focus {
       <strong>⚠ 법률대리 아님 고지</strong><br>
       본 서비스는 법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.
       사용자가 직접 절차를 이해하고 준비할 수 있도록 돕는 정보 제공 및 서류 점검 보조 서비스입니다.
-      구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
+      구체적인 법률 판단이 필요한 경우 변호사, 법무사 등 전문가 상담을 권장합니다.
     </div>
   </div>
 </section>
@@ -982,7 +972,7 @@ input:focus, select:focus, textarea:focus {
 
   <!-- 참고 안내 -->
   <div class="disclaimer-box mb-6">
-    <strong>⚠ 참고용 안내</strong><br>
+    <strong>⚠️ 참고용 안내</strong><br>
     아래 결과는 입력하신 정보를 바탕으로 한 참고용 분석입니다.
     법률상담·법률대리·결과 보장이 아니며, 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다.
   </div>
@@ -1077,7 +1067,7 @@ input:focus, select:focus, textarea:focus {
   <div id="steps-container" class="space-y-4"></div>
 
   <div class="disclaimer-box mt-6">
-    <strong>⚠ 참고용 안내</strong><br>
+    <strong>⚠️ 참고용 안내</strong><br>
     본 서비스는 법률상담이 아닙니다. 모든 안내는 참고용이며 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다.
     구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
   </div>
@@ -1125,7 +1115,7 @@ input:focus, select:focus, textarea:focus {
   <div id="steps-container" class="space-y-4"></div>
 
   <div class="disclaimer-box mt-6">
-    <strong>⚠ 참고용 안내</strong><br>
+    <strong>⚠️ 참고용 안내</strong><br>
     본 서비스는 법률상담이 아닙니다. 면책 여부는 법원이 최종 결정하며, 본 안내는 결과를 보장하지 않습니다.
     구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
   </div>
@@ -1182,8 +1172,8 @@ input:focus, select:focus, textarea:focus {
   <!-- AI 기능 안내 -->
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
     <div class="bg-green-50 border border-green-100 rounded-xl p-4">
-      <h3 class="font-bold text-green-800 text-sm mb-2">✅ AI가 하는 것</h3>
-      <ul class="text-xs text-green-700 space-y-1">
+      <h3 class="font-bold text-green-800 text-base mb-2">✅ AI가 하는 것</h3>
+      <ul class="text-sm text-green-700 space-y-1">
         <li>• 필수항목 누락 여부 확인</li>
         <li>• 내용이 짧거나 불명확한 부분 안내</li>
         <li>• 숫자 불일치 가능성 지적</li>
@@ -1193,8 +1183,8 @@ input:focus, select:focus, textarea:focus {
       </ul>
     </div>
     <div class="bg-red-50 border border-red-100 rounded-xl p-4">
-      <h3 class="font-bold text-red-800 text-sm mb-2">❌ AI가 하지 않는 것</h3>
-      <ul class="text-xs text-red-700 space-y-1">
+      <h3 class="font-bold text-red-800 text-base mb-2">❌ AI가 하지 않는 것</h3>
+      <ul class="text-sm text-red-700 space-y-1">
         <li>• 법률적 결론 제공</li>
         <li>• 사건 결과 예측</li>
         <li>• 면책 가능성 단정</li>
@@ -1299,46 +1289,18 @@ input:focus, select:focus, textarea:focus {
 
 <div class="max-w-4xl mx-auto px-4 py-10">
 
-  <!-- 법률대리 아님 고지 (결제 페이지 상단) -->
-  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-8">
-    <p class="text-amber-800 font-bold text-sm mb-1">⚠ 구매 전 반드시 확인하세요</p>
-    <p class="text-amber-700 text-xs leading-relaxed">
-      본 서비스는 <strong>법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.</strong>
-      사용자가 직접 채무 정리 절차를 이해하고 준비할 수 있도록 돕는 <strong>정보 제공 및 서류 점검 보조 서비스</strong>입니다.
-      구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
-    </p>
-  </div>
-
   <!-- 요금제 카드 -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+  <div class="flex justify-center mb-10">
 
-    <!-- 무료 -->
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-      <div class="text-center mb-6">
-        <div class="text-sm font-medium text-slate-500 mb-1">무료</div>
-        <div class="text-4xl font-bold text-slate-800">0원</div>
-        <div class="text-slate-400 text-xs mt-1">회원가입 없이 이용</div>
+    <!-- 프리미엄 -->
+    <div class="bg-white rounded-2xl border-2 border-blue-700 shadow-lg p-6 pricing-featured w-full max-w-md">
+      <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs px-4 py-1 rounded-full font-semibold">
+        가장 인기
       </div>
-      <ul class="space-y-3 text-sm mb-6">
-        <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">무료 채무 진단 (3분)</span></li>
-        <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">3가지 절차 비교 안내</span></li>
-        <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">진단 결과 참고 확인</span></li>
-        <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">자료실 FAQ 열람</span></li>
-        <li class="flex gap-2 items-start text-slate-300"><span class="font-bold mt-0.5">✗</span><span>서류 체크리스트</span></li>
-        <li class="flex gap-2 items-start text-slate-300"><span class="font-bold mt-0.5">✗</span><span>작성예시 열람</span></li>
-        <li class="flex gap-2 items-start text-slate-300"><span class="font-bold mt-0.5">✗</span><span>AI 서류 검토</span></li>
-      </ul>
-      <a href="#" onclick="navigate('diagnosis');return false;" class="block w-full text-center py-3 border border-slate-300 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
-        무료 진단 시작
-      </a>
-    </div>
-
-    <!-- 베이직 -->
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
       <div class="text-center mb-6">
-        <div class="text-sm font-medium text-slate-500 mb-1">베이직</div>
-        <div class="text-4xl font-bold text-slate-800">9,900<span class="text-lg font-normal">원</span></div>
-        <div class="text-slate-400 text-xs mt-1">1회 결제 · 평생 이용</div>
+        <div class="text-sm font-medium text-blue-600 mb-1">프리미엄</div>
+        <div class="text-4xl font-bold text-slate-800">100,000<span class="text-lg font-normal">원</span></div>
+        <div class="text-slate-600 text-sm font-medium mt-1">1회 결제 · 1회 이용</div>
       </div>
       <ul class="space-y-3 text-sm mb-6">
         <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">무료 플랜 전체 포함</span></li>
@@ -1346,68 +1308,16 @@ input:focus, select:focus, textarea:focus {
         <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">개인파산 진행 로드맵</span></li>
         <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">전체 서류 체크리스트</span></li>
         <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">작성예시 열람 (전체)</span></li>
-        <li class="flex gap-2 items-start text-slate-300"><span class="font-bold mt-0.5">✗</span><span>AI 서류 검토</span></li>
-        <li class="flex gap-2 items-start text-slate-300"><span class="font-bold mt-0.5">✗</span><span>마이페이지 저장</span></li>
-      </ul>
-      <button onclick="mockPayment('베이직', 9900)"
-        class="block w-full text-center py-3 border border-blue-300 rounded-xl text-sm font-medium text-blue-700 hover:bg-blue-50 transition-colors">
-        구매하기
-      </button>
-    </div>
-
-    <!-- 프리미엄 -->
-    <div class="bg-white rounded-2xl border-2 border-blue-700 shadow-lg p-6 pricing-featured">
-      <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs px-4 py-1 rounded-full font-semibold">
-        가장 인기
-      </div>
-      <div class="text-center mb-6">
-        <div class="text-sm font-medium text-blue-600 mb-1">프리미엄</div>
-        <div class="text-4xl font-bold text-slate-800">29,000<span class="text-lg font-normal">원</span></div>
-        <div class="text-slate-400 text-xs mt-1">1회 결제 · 평생 이용</div>
-      </div>
-      <ul class="space-y-3 text-sm mb-6">
-        <li class="flex gap-2 items-start"><span class="text-green-500 font-bold mt-0.5">✓</span><span class="text-slate-700">베이직 플랜 전체 포함</span></li>
         <li class="flex gap-2 items-start"><span class="text-blue-600 font-bold mt-0.5">✓</span><span class="text-slate-700 font-medium">AI 서류 참고 검토 (무제한)</span></li>
         <li class="flex gap-2 items-start"><span class="text-blue-600 font-bold mt-0.5">✓</span><span class="text-slate-700 font-medium">진행률 관리 (마이페이지)</span></li>
         <li class="flex gap-2 items-start"><span class="text-blue-600 font-bold mt-0.5">✓</span><span class="text-slate-700 font-medium">PDF 체크리스트 다운로드</span></li>
         <li class="flex gap-2 items-start"><span class="text-blue-600 font-bold mt-0.5">✓</span><span class="text-slate-700 font-medium">마이페이지 저장·관리</span></li>
         <li class="flex gap-2 items-start"><span class="text-blue-600 font-bold mt-0.5">✓</span><span class="text-slate-700 font-medium">AI 검토 기록 저장</span></li>
       </ul>
-      <button onclick="mockPayment('프리미엄', 29000)"
+      <button onclick="mockPayment('프리미엄', 100000)"
         class="block w-full text-center py-3 bg-blue-700 text-white rounded-xl text-sm font-medium hover:bg-blue-800 transition-colors">
         구매하기
       </button>
-    </div>
-  </div>
-
-  <!-- 기능 비교표 -->
-  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-8">
-    <div class="px-6 py-4 border-b border-slate-100">
-      <h3 class="font-bold text-slate-800">기능 상세 비교</h3>
-    </div>
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-slate-600 text-xs">
-          <tr>
-            <th class="text-left px-4 py-3 font-semibold">기능</th>
-            <th class="text-center px-3 py-3 font-semibold">무료</th>
-            <th class="text-center px-3 py-3 font-semibold">베이직</th>
-            <th class="text-center px-3 py-3 font-semibold text-blue-700">프리미엄</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-50">
-          <tr><td class="px-4 py-3 text-slate-700">무료 채무 진단</td><td class="text-center">✓</td><td class="text-center">✓</td><td class="text-center text-blue-700">✓</td></tr>
-          <tr class="bg-slate-25"><td class="px-4 py-3 text-slate-700">3가지 절차 비교 안내</td><td class="text-center">✓</td><td class="text-center">✓</td><td class="text-center text-blue-700">✓</td></tr>
-          <tr><td class="px-4 py-3 text-slate-700">진단 결과 확인</td><td class="text-center">✓</td><td class="text-center">✓</td><td class="text-center text-blue-700">✓</td></tr>
-          <tr class="bg-slate-25"><td class="px-4 py-3 text-slate-700">자료실 · FAQ</td><td class="text-center">✓</td><td class="text-center">✓</td><td class="text-center text-blue-700">✓</td></tr>
-          <tr><td class="px-4 py-3 text-slate-700">단계별 진행 로드맵</td><td class="text-center text-slate-300">✗</td><td class="text-center">✓</td><td class="text-center text-blue-700">✓</td></tr>
-          <tr class="bg-slate-25"><td class="px-4 py-3 text-slate-700">전체 서류 체크리스트</td><td class="text-center text-slate-300">✗</td><td class="text-center">✓</td><td class="text-center text-blue-700">✓</td></tr>
-          <tr><td class="px-4 py-3 text-slate-700">작성예시 열람</td><td class="text-center text-slate-300">✗</td><td class="text-center">✓</td><td class="text-center text-blue-700">✓</td></tr>
-          <tr class="bg-slate-25"><td class="px-4 py-3 text-slate-700">AI 서류 참고 검토</td><td class="text-center text-slate-300">✗</td><td class="text-center text-slate-300">✗</td><td class="text-center font-semibold text-blue-700">✓ 무제한</td></tr>
-          <tr><td class="px-4 py-3 text-slate-700">진행률 관리 (마이페이지)</td><td class="text-center text-slate-300">✗</td><td class="text-center text-slate-300">✗</td><td class="text-center text-blue-700">✓</td></tr>
-          <tr class="bg-slate-25"><td class="px-4 py-3 text-slate-700">PDF 체크리스트 다운로드</td><td class="text-center text-slate-300">✗</td><td class="text-center text-slate-300">✗</td><td class="text-center text-blue-700">✓</td></tr>
-        </tbody>
-      </table>
     </div>
   </div>
 
@@ -1542,17 +1452,21 @@ input:focus, select:focus, textarea:focus {
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
       <div>
         <div class="flex items-center gap-2 mb-3">
-          <div class="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
-            <span class="text-white text-xs font-bold">채</span>
+          <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#1e40af,#3b82f6)">
+            <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 18L10 5L18 18" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <line x1="10" y1="8.5" x2="10" y2="11.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="10" y1="14" x2="10" y2="17" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
           </div>
-          <span class="text-white font-bold">채무정리길잡이</span>
+          <span class="text-white font-bold">챔로드</span>
         </div>
         <p class="text-sm leading-relaxed">채무 정리 절차를 스스로 이해하고 준비할 수 있도록 돕는 정보 제공 플랫폼입니다.</p>
       </div>
       <div>
         <h4 class="text-slate-300 font-semibold mb-3 text-sm">주요 서비스</h4>
         <ul class="space-y-1.5 text-sm">
-          <li><a href="#" onclick="navigate('diagnosis');return false;" class="hover:text-white transition-colors">무료 채무진단</a></li>
+          <li><a href="#" onclick="navigate('diagnosis');return false;" class="hover:text-white transition-colors">채무진단</a></li>
           <li><a href="#" onclick="navigate('rehabilitation');return false;" class="hover:text-white transition-colors">개인회생 셀프 진행센터</a></li>
           <li><a href="#" onclick="navigate('bankruptcy');return false;" class="hover:text-white transition-colors">개인파산·면책 셀프 진행센터</a></li>
           <li><a href="#" onclick="navigate('documents');return false;" class="hover:text-white transition-colors">서류 체크센터</a></li>
@@ -1574,16 +1488,16 @@ input:focus, select:focus, textarea:focus {
         본 서비스는 법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.
         구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
       </div>
-      <p class="text-xs text-slate-500 text-center">&#169; 2025 채무정리길잡이. 본 사이트의 모든 정보는 참고용이며 법적 효력이 없습니다.</p>
+      <p class="text-xs text-slate-500 text-center">&#169; 2025 챔로드. 본 사이트의 모든 정보는 참고용이며 법적 효력이 없습니다.</p>
     </div>
   </div>
 </footer>
 <script>
 /* ==============================
-   채무정리길잡이 - 공통 JS
+   챔로드 - 공통 JS
    ============================== */
 
-const SITE_NAME = '채무정리길잡이';
+const SITE_NAME = '챔로드';
 
 const NAV_LINKS = [
   { href: 'index.html',          label: '홈',        id: 'home' },
@@ -1621,10 +1535,10 @@ function renderHeader(activePage) {
         <div class="flex items-center justify-between h-16">
 
           <a href="index.html" class="flex items-center gap-2">
-            <div class="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center">
-              <span class="text-white font-bold text-sm">채</span>
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#1e40af,#3b82f6)">
+              <svg class="w-5 h-5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 18L10 5L18 18" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="8.5" x2="10" y2="11.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/><line x1="10" y1="14" x2="10" y2="17" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
             </div>
-            <span class="font-bold text-slate-800 text-lg">${SITE_NAME}</span>
+            <span class="font-bold text-slate-800 text-lg tracking-tight">${SITE_NAME}</span>
           </a>
 
           <div class="hidden lg:flex items-center gap-5">${desktopLinks}</div>
@@ -1670,8 +1584,8 @@ function renderFooter() {
 
           <div>
             <div class="flex items-center gap-2 mb-3">
-              <div class="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
-                <span class="text-white text-xs font-bold">채</span>
+              <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#1e40af,#3b82f6)">
+                <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 18L10 5L18 18" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="8.5" x2="10" y2="11.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/><line x1="10" y1="14" x2="10" y2="17" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
               </div>
               <span class="text-white font-bold">${SITE_NAME}</span>
             </div>
@@ -1681,7 +1595,7 @@ function renderFooter() {
           <div>
             <h4 class="text-slate-300 font-semibold mb-3 text-sm">주요 서비스</h4>
             <ul class="space-y-1.5 text-sm">
-              <li><a href="diagnosis.html" class="hover:text-white transition-colors">무료 채무진단</a></li>
+              <li><a href="diagnosis.html" class="hover:text-white transition-colors">채무진단</a></li>
               <li><a href="rehabilitation.html" class="hover:text-white transition-colors">개인회생 셀프 진행센터</a></li>
               <li><a href="bankruptcy.html" class="hover:text-white transition-colors">개인파산·면책 셀프 진행센터</a></li>
               <li><a href="documents.html" class="hover:text-white transition-colors">서류 체크센터</a></li>
@@ -1696,7 +1610,7 @@ function renderFooter() {
               <li><a href="https://www.scourt.go.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">대법원 전자소송</a></li>
               <li><a href="https://www.ccrs.or.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">신용회복위원회</a></li>
               <li><a href="https://www.klac.or.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">대한법률구조공단</a></li>
-              <li><a href="https://www.bok.or.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">한국은행 서민금융</a></li>
+                  <li><a href="https://www.bok.or.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">한국은행 서민금융</a></li>
             </ul>
           </div>
         </div>
@@ -1721,7 +1635,7 @@ function renderDisclaimer(containerId) {
   if (!el) return;
   el.innerHTML = `
     <div class="disclaimer-box mt-6">
-      <strong>⚠ 참고용 안내</strong><br>
+      <strong>⚠️ 참고용 안내</strong><br>
       본 서비스는 법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.
       모든 결과는 입력값을 기반으로 한 참고용이며, 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다.
       구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
@@ -1785,7 +1699,7 @@ function initPage(activePage) {
 }
 
 /* ==============================
-   채무정리길잡이 - 진단 로직
+   챔로드 - 진단 로직
    ============================== */
 
 // ── 단계 관리 ──
@@ -1996,17 +1910,17 @@ function collectFormData() {
 function calcScores(d) {
   let rehab = 0, bankrupt = 0, credit = 0;
 
-  // 금융기관 채무 여부 (신복위 핵심 조건)
+  // 금융기관 채무 여부 (신용회복위원회 핵심 조건)
   const hasFinanceDebt = d.debtTypes.some(t => ['bank', 'savings', 'card', 'insurance'].includes(t));
 
   // ── 신용회복위원회 ──
   if (hasFinanceDebt) credit += 35;
-  else credit -= 40;                // 사채·세금만 있으면 신복위 대상 아님
+  else credit -= 40;                // 사채·세금만 있으면 신용회복위원회 대상 아님
 
   if (d.hasIncome) credit += 25;
   else credit -= 20;                // 소득 없으면 변제능력 부족
 
-  if (d.unsecuredDebt <= 1_500_000_000) credit += 15; // 무담보 15억 이하 (신복위 한도)
+  if (d.unsecuredDebt <= 1_500_000_000) credit += 15; // 무담보 15억 이하 (신용회복위원회 한도)
   else credit -= 30;
 
   if (d.arrearsMonths === 0)       credit += 20; // 연체 없음 → 프리워크아웃
