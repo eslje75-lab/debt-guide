@@ -195,8 +195,8 @@
           </div>
         </div>
 
-        <!-- 법적 조치 -->
-        <div>
+        <!-- 법적 조치 (연체 중일 때만 표시) -->
+        <div id="legal-action-section" class="hidden">
           <label class="block text-sm font-medium text-slate-700 mb-2">
             현재 법적 조치를 받고 있나요?
             <span class="text-slate-400 font-normal ml-1">(복수 선택 가능)</span>
@@ -544,7 +544,7 @@
         </div>
 
         <div class="disclaimer-box">
-          입력하신 내용은 진단 참고용으로만 활용되며, 법률상담이나 법적 결론을 제공하지 않습니다.
+          ⚠️ 입력하신 내용은 진단 참고용으로만 활용되며, 법률상담이나 법적 결론을 제공하지 않습니다.
           모든 결과는 참고용이며, 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다.
         </div>
 
@@ -581,9 +581,12 @@
 
   function toggleArrearsFields(show) {
     document.getElementById('arrears-details').classList.toggle('hidden', !show);
+    document.getElementById('legal-action-section').classList.toggle('hidden', !show);
     if (!show) {
       document.getElementById('arrears-period').value = '';
       document.getElementById('delinquent-creditor-count').value = '';
+      // 법적 조치 체크 초기화
+      document.querySelectorAll('input[name="legal-action"]').forEach(c => c.checked = false);
     }
   }
 
@@ -622,6 +625,12 @@
       if (noneCb) noneCb.checked = false;
       const sections = document.getElementById('prior-detail-sections');
       if (sections) sections.classList.remove('hidden');
+
+      // 같은 그룹(ccrs / rehab / bankrupt) 내 다른 항목 해제
+      const prefix = cb.value.split('-')[0]; // 'ccrs', 'rehab', 'bankrupt'
+      document.querySelectorAll('input[name="prior-adj"]').forEach(c => {
+        if (c !== cb && c.value.startsWith(prefix + '-')) c.checked = false;
+      });
     }
   }
 

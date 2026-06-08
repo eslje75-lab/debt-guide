@@ -231,7 +231,7 @@ function calcScores(d) {
   else credit -= 40;                // 사채·세금만 있으면 신용회복위원회 대상 아님
 
   if (d.hasIncome) credit += 25;
-  else credit -= 20;                // 소득 없으면 변제능력 부족
+  else credit -= 30;                // 소득 없으면 변제능력 부족 (분할상환 계획 수립 불가)
 
   if (d.unsecuredDebt <= 500_000_000) credit += 15; // 무담보 5억 이하 (신용회복위원회 한도)
   else credit -= 30;
@@ -264,6 +264,13 @@ function calcScores(d) {
   if (d.arrearsMonths > 0)  rehab += 10; // 연체 → 회생 필요성
   if (d.hasLegalAction)     rehab += 5;  // 법적 조치 → 시급성
 
+  // 회생 하드블록 여부 사전 확인 (채무한도·이력)
+  const rehabHardBlocked =
+    d.unsecuredDebt > 1_000_000_000 ||
+    d.securedDebt   > 1_500_000_000 ||
+    d.priorAdjustments.includes('rehab-done-recent') ||
+    d.priorAdjustments.includes('rehab-ongoing');
+
   // ── 개인파산·면책 ──
   if (!d.hasIncome || d.monthlyIncome === 0) {
     bankrupt += 45;                 // 소득 없음 → 파산 가장 강력한 신호
@@ -271,6 +278,8 @@ function calcScores(d) {
     bankrupt += 30;                 // 소득이 생활비도 안 됨
   } else if (d.monthlyIncome < 1_000_000) {
     bankrupt += 15;
+  } else if (rehabHardBlocked) {
+    bankrupt += 30;                 // 소득 있어도 회생이 법적으로 불가 → 파산이 유일한 법원 절차
   }
 
   if (d.totalAssets < d.totalDebt * 0.2) bankrupt += 20; // 채무초과 상태
