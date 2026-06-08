@@ -71,6 +71,16 @@ function validateStep(step) {
       unsecured && unsecured.focus();
       return warn('무담보 채무 총액을 입력해 주세요. (없으면 0)');
     }
+    if (parseFloat(unsecured.value) > 200000) {
+      unsecured.focus();
+      return warn('채무액이 너무 큽니다. 만원 단위로 입력해 주세요. (예: 1억5천만원 → 15,000)');
+    }
+
+    const secured = document.getElementById('secured-debt');
+    if (secured && parseFloat(secured.value) > 200000) {
+      secured.focus();
+      return warn('담보 채무액이 너무 큽니다. 만원 단위로 입력해 주세요. (예: 1억5천만원 → 15,000)');
+    }
 
     const creditor = document.getElementById('creditor-count');
     if (!creditor || !creditor.value) {
@@ -223,7 +233,7 @@ function calcScores(d) {
   if (d.hasIncome) credit += 25;
   else credit -= 20;                // 소득 없으면 변제능력 부족
 
-  if (d.unsecuredDebt <= 1_500_000_000) credit += 15; // 무담보 15억 이하 (신용회복위원회 한도)
+  if (d.unsecuredDebt <= 500_000_000) credit += 15; // 무담보 5억 이하 (신용회복위원회 한도)
   else credit -= 30;
 
   if (d.arrearsMonths === 0)       credit += 20; // 연체 없음 → 프리워크아웃
@@ -248,8 +258,8 @@ function calcScores(d) {
     rehab -= 30;                    // 소득 없으면 회생 불가
   }
 
-  if (d.unsecuredDebt > 1_500_000_000) rehab -= 50; // 무담보 15억 초과 → 회생 불가
-  if (d.securedDebt   > 2_000_000_000) rehab -= 30; // 담보 20억 초과 → 회생 불가
+  if (d.unsecuredDebt > 1_000_000_000) rehab -= 50; // 무담보 10억 초과 → 회생 불가
+  if (d.securedDebt   > 1_500_000_000) rehab -= 30; // 담보 15억 초과 → 회생 불가
 
   if (d.arrearsMonths > 0)  rehab += 10; // 연체 → 회생 필요성
   if (d.hasLegalAction)     rehab += 5;  // 법적 조치 → 시급성
@@ -317,7 +327,7 @@ function levelLabel(l) {
 }
 
 // ── 2026년 기준중위소득 (원 단위, 보건복지부 고시) ──
-const MEDIAN_INCOME_2026 = [0, 2503534, 4118195, 5262306, 6381798, 7436994, 8443420];
+const MEDIAN_INCOME_2026 = [0, 2564238, 4199292, 5359036, 6494738, 7556719, 8555952];
 // 인덱스: [미사용, 1인, 2인, 3인, 4인, 5인, 6인 이상]
 
 function getStandardLiving(householdSize) {

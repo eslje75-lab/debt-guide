@@ -72,7 +72,7 @@
           <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
             <span class="text-xl">😟</span>
           </div>
-          <h3 class="font-bold text-slate-800 text-base">혼자 진행하기엔 너무 복잡합니다</h3>
+          <h3 class="font-bold text-slate-800 text-lg">혼자 진행하기엔 너무 복잡합니다</h3>
         </div>
         <ul class="space-y-2.5 text-sm text-slate-600">
           <li class="flex items-start gap-2">
@@ -100,7 +100,7 @@
           <div class="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
             <span class="text-xl">💸</span>
           </div>
-          <h3 class="font-bold text-slate-800 text-base">그렇다고 전문가는 너무 비쌉니다</h3>
+          <h3 class="font-bold text-slate-800 text-lg">그렇다고 전문가는 너무 비쌉니다</h3>
         </div>
         <ul class="space-y-2.5 text-sm text-slate-600">
           <li class="flex items-start gap-2">
@@ -145,7 +145,7 @@
   <div class="max-w-5xl mx-auto px-4">
     <div class="text-center mb-8">
       <h2 class="text-2xl md:text-3xl font-bold text-slate-800 mb-3">챔로드는 다음과 같은 서비스를 제공합니다</h2>
-      <p class="text-slate-500">채무진단부터 최종 서류 법원 제출까지 혼자서 진행할 수 있도록</p>
+      <p class="text-slate-500">채무진단부터 최종 서류 법원 제출까지 <strong>혼자서</strong> 진행할 수 있도록</p>
     </div>
 
     <!-- 공통 무료 단계 -->
@@ -155,14 +155,14 @@
         <span class="text-sm font-semibold text-slate-600">모든 이용자 공통</span>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-400">
           <div class="flex items-center gap-2 mb-2">
             <span class="text-lg">🔍</span>
             <h3 class="font-bold text-slate-800">채무진단</h3>
           </div>
           <p class="text-slate-500 text-sm leading-relaxed">소득·채무·재산 정보를 입력하면 개인회생·파산·면책·신용회복위원회 중 어떤 제도가 적절한지 참고 방향을 알 수 있습니다.</p>
         </div>
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-400">
           <div class="flex items-center gap-2 mb-2">
             <span class="text-lg">📌</span>
             <h3 class="font-bold text-slate-800">제도 제시</h3>
@@ -189,7 +189,7 @@
         </div>
         <div class="bg-white p-5 flex flex-col flex-1">
           <p class="text-slate-600 text-sm leading-relaxed mb-4">
-            신용회복위원회 공식 사이트에서 직접 신청하세요. 신용회복위원회에서 채무조정할 수 있도록 돕습니다.
+            신용회복위원회 공식 사이트에서 <strong>직접 신청</strong>하세요. 신용회복위원회에서 채무조정 할 수 있도록 돕습니다.
           </p>
           <div class="bg-teal-50 rounded-xl p-4 border border-teal-100 text-sm space-y-2 mb-4">
             <p class="font-semibold text-teal-800 mb-1">신용회복위원회 주요 내용</p>
@@ -211,7 +211,7 @@
       </div>
 
       <!-- 개인회생·파산 경로 -->
-      <div class="rounded-2xl border border-blue-200 overflow-hidden flex flex-col">
+      <div class="rounded-2xl border-2 border-blue-700 overflow-hidden flex flex-col" style="box-shadow: 0 0 0 2px #1d4ed8;">
         <div class="bg-blue-700 px-5 py-3 flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="text-base">⚖️</span>
@@ -221,7 +221,7 @@
         </div>
         <div class="bg-white p-5 flex flex-col flex-1">
           <p class="text-slate-600 text-sm leading-relaxed mb-4">
-            절차 안내부터 최종 법원 제출까지, 챔로드 서비스로 진행해보세요.
+            절차 안내부터 최종 법원 제출까지, <strong>챔로드 서비스</strong>로 진행해보세요.
           </p>
           <div class="space-y-3 mb-5">
             <div class="flex items-start gap-3">
@@ -264,218 +264,17 @@
   </div>
 </section>
 
-<!-- ══ 절차 비교 ══ -->
-<section id="compare" class="section bg-slate-50">
-  <div class="max-w-5xl mx-auto px-4">
-    <div class="text-center mb-10">
-      <h2 class="text-2xl md:text-3xl font-bold text-slate-800 mb-2">3가지 채무조정 제도 비교</h2>
-    </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
 
-      <!-- 개인회생 -->
-      <div class="rounded-2xl overflow-hidden shadow-sm border border-blue-100 flex flex-col">
-        <div class="bg-blue-700 text-white px-5 py-4 min-h-[112px] flex flex-col gap-2">
-          <div class="flex items-center gap-2">
-            <span class="text-2xl">📋</span>
-            <h3 class="font-bold text-xl">개인회생</h3>
-          </div>
-          <p class="text-blue-200 text-sm">급여·영업 등 <strong class="text-white">정기소득이 있는</strong> 채무자</p>
-        </div>
-        <div class="bg-white p-5 flex flex-col flex-1 gap-3">
-          <div class="flex items-start gap-3">
-            <span class="text-base mt-0.5">✅</span>
-            <div>
-              <p class="text-sm font-bold text-slate-600 mb-0.5">채무 처리</p>
-              <p class="text-sm text-slate-800">소득에서 생활비 제외 후 <strong class="text-blue-700">3년 변제 → 잔여채무 면책</strong> (조건에 따라 최대 5년)</p>
-            </div>
-          </div>
-          <div class="flex items-start gap-3">
-            <span class="text-base mt-0.5">⏱️</span>
-            <div>
-              <p class="text-sm font-bold text-slate-600 mb-0.5">기간</p>
-              <p class="text-sm text-slate-800">신청~인가 6개월~1년 + 변제 3년(최대 5년)</p>
-            </div>
-          </div>
-          <div class="flex items-start gap-3">
-            <span class="text-base mt-0.5">💰</span>
-            <div>
-              <p class="text-sm font-bold text-slate-600 mb-0.5">신청비용</p>
-              <p class="text-sm text-slate-800">인지대 3만원 + 송달료 (채권자 수에 따라 상이)</p>
-            </div>
-          </div>
-          <div class="flex items-start gap-3">
-            <span class="text-base mt-0.5">🏢</span>
-            <div>
-              <p class="text-sm font-bold text-slate-600 mb-0.5">신청 기관</p>
-              <p class="text-sm text-slate-800">법원 (대법원 전자소송)</p>
-            </div>
-          </div>
-          <div class="flex items-start gap-3">
-            <span class="text-base mt-0.5">📵</span>
-            <div>
-              <p class="text-sm font-bold text-slate-600 mb-0.5">추심·독촉 중단</p>
-              <p class="text-sm text-slate-800">신청과 동시에 강제집행 중지·금지명령 신청 가능 → <strong class="text-blue-700">명령 발령 즉시 중단</strong></p>
-            </div>
-          </div>
-          <a href="rehabilitation.html" class="mt-auto pt-3 block text-center bg-blue-700 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-blue-800 transition-colors">
-            개인회생 셀프 진행하기 →
-          </a>
-        </div>
-      </div>
 
-      <!-- 개인파산·면책 -->
-      <div class="rounded-2xl overflow-hidden shadow-sm border border-slate-200 flex flex-col">
-        <div class="bg-slate-700 text-white px-5 py-4 min-h-[112px] flex flex-col gap-2">
-          <div class="flex items-center gap-2">
-            <span class="text-2xl">⚖️</span>
-            <h3 class="font-bold text-xl">개인파산·면책</h3>
-          </div>
-          <p class="text-slate-300 text-sm">채무를 <strong class="text-white">일반적·계속적으로 갚을 수 없는</strong> 지급불능 상태의 채무자</p>
-        </div>
-        <div class="bg-white p-5 flex flex-col flex-1 gap-3">
-          <div class="flex items-start gap-3">
-            <span class="text-base mt-0.5">✅</span>
-            <div>
-              <p class="text-sm font-bold text-slate-600 mb-0.5">채무 처리</p>
-              <p class="text-sm text-slate-800">재산 처분 후 <strong class="text-slate-700">잔여채무 전액 면책</strong></p>
-            </div>
-          </div>
-          <div class="flex items-start gap-3">
-            <span class="text-base mt-0.5">⏱️</span>
-            <div>
-              <p class="text-sm font-bold text-slate-600 mb-0.5">기간</p>
-              <p class="text-sm text-slate-800">파산선고~면책까지 약 6개월~1년</p>
-            </div>
-          </div>
-          <div class="flex items-start gap-3">
-            <span class="text-base mt-0.5">💰</span>
-            <div>
-              <p class="text-sm font-bold text-slate-600 mb-0.5">신청비용</p>
-              <p class="text-sm text-slate-800">인지대 2,000원 + 송달료 (채권자 수에 따라 상이)</p>
-            </div>
-          </div>
-          <div class="flex items-start gap-3">
-            <span class="text-base mt-0.5">🏢</span>
-            <div>
-              <p class="text-sm font-bold text-slate-600 mb-0.5">신청 기관</p>
-              <p class="text-sm text-slate-800">법원 (대법원 전자소송)</p>
-            </div>
-          </div>
-          <div class="flex items-start gap-3">
-            <span class="text-base mt-0.5">📵</span>
-            <div>
-              <p class="text-sm font-bold text-slate-600 mb-0.5">추심·독촉 중단</p>
-              <p class="text-sm text-slate-800">법원의 파산선고와 동시에 <strong class="text-slate-700">모든 추심·강제집행 즉시 중단</strong></p>
-            </div>
-          </div>
-          <a href="bankruptcy.html" class="mt-auto pt-3 block text-center bg-slate-700 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-slate-800 transition-colors">
-            파산·면책 셀프 진행하기 →
-          </a>
-        </div>
-      </div>
-
-      <!-- 신용회복위원회 -->
-      <div class="rounded-2xl overflow-hidden shadow-sm border border-teal-100 flex flex-col">
-        <div class="bg-teal-600 text-white px-5 py-4 min-h-[112px] flex flex-col gap-2">
-          <div class="flex items-center gap-2">
-            <span class="text-2xl">🏛️</span>
-            <h3 class="font-bold text-xl">신용회복위원회</h3>
-          </div>
-          <p class="text-teal-100 text-sm"><strong class="text-white">단기연체부터 90일 이상 장기연체까지</strong> 금융기관 채무가 있는 채무자</p>
-        </div>
-        <div class="bg-white p-5 flex flex-col flex-1 gap-3">
-          <div class="flex items-start gap-3">
-            <span class="text-base mt-0.5">✅</span>
-            <div>
-              <p class="text-sm font-bold text-slate-600 mb-0.5">채무 처리</p>
-              <p class="text-sm text-slate-800">이자 감면 + <strong class="text-teal-700">분할상환 기간 최대 10년 조정</strong></p>
-            </div>
-          </div>
-          <div class="flex items-start gap-3">
-            <span class="text-base mt-0.5">⏱️</span>
-            <div>
-              <p class="text-sm font-bold text-slate-600 mb-0.5">기간</p>
-              <p class="text-sm text-slate-800">조정 후 상환 기간 최대 10년</p>
-            </div>
-          </div>
-          <div class="flex items-start gap-3">
-            <span class="text-base mt-0.5">💰</span>
-            <div>
-              <p class="text-sm font-bold text-slate-600 mb-0.5">신청비용</p>
-              <p class="text-sm text-slate-800"><strong>5만원</strong> (별도 추가비용 없음)</p>
-            </div>
-          </div>
-          <div class="flex items-start gap-3">
-            <span class="text-base mt-0.5">🏢</span>
-            <div>
-              <p class="text-sm font-bold text-slate-600 mb-0.5">신청 기관</p>
-              <p class="text-sm text-slate-800">신용회복위원회 (ccrs.or.kr)</p>
-            </div>
-          </div>
-          <div class="flex items-start gap-3">
-            <span class="text-base mt-0.5">📵</span>
-            <div>
-              <p class="text-sm font-bold text-slate-600 mb-0.5">추심·독촉 중단</p>
-              <p class="text-sm text-slate-800">신청 다음 날부터 <strong class="text-teal-700">협약 금융회사의 추심 활동 중단</strong></p>
-            </div>
-          </div>
-          <a href="https://www.ccrs.or.kr" target="_blank" rel="noopener" class="mt-auto pt-3 block text-center bg-teal-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-teal-700 transition-colors">
-            신용회복위원회 바로가기 →
-          </a>
-        </div>
-      </div>
-
-    </div>
-
-    <p class="text-sm text-slate-400 text-center mt-5 leading-relaxed [word-break:keep-all]">
-      ※ 제도별 세부특징은 무료 채무진단 후 더 자세하게 확인하실 수 있습니다.
-    </p>
+<div class="max-w-5xl mx-auto px-4 mb-8">
+  <div class="disclaimer-box">
+    <strong>⚠️ 법률대리 아님 고지</strong><br>
+    본 서비스는 법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.
+    사용자가 직접 절차를 이해하고 준비할 수 있도록 돕는 정보 제공 및 서류 점검 보조 서비스입니다.
+    구체적인 법률 판단이 필요한 경우 변호사, 법무사 등 전문가 상담을 권장합니다.
   </div>
-</section>
-
-
-<!-- ══ 유료 서비스 소개 ══ -->
-<section class="section bg-white">
-  <div class="max-w-5xl mx-auto px-4">
-    <div class="text-center mb-10">
-      <h2 class="text-2xl md:text-3xl font-bold text-slate-800 mb-3">챔로드 서비스</h2>
-      <p class="text-slate-500">혼자 채무조정을 진행할 수 있도록 돕는 서비스입니다.</p>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="border border-slate-200 rounded-2xl p-6 text-center">
-        <div class="text-3xl font-bold text-slate-800 mb-1">무료</div>
-        <div class="text-slate-400 text-sm mb-4">기본 이용</div>
-        <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
-          <li class="flex gap-2"><span class="text-green-500">✓</span> 채무 무료진단</li>
-          <li class="flex gap-2"><span class="text-green-500">✓</span> 기본 절차 안내</li>
-        </ul>
-        <a href="diagnosis.html" class="block w-full py-2.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">진단 시작</a>
-      </div>
-
-      <div class="border-2 border-blue-700 rounded-2xl p-6 text-center pricing-featured">
-        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-700 text-white text-xs px-3 py-1 rounded-full font-semibold">추천</div>
-        <div class="text-3xl font-bold text-slate-800 mb-1">100,000<span class="text-base font-normal">원</span></div>
-        <div class="text-slate-400 text-sm mb-4">프리미엄</div>
-        <ul class="text-sm text-slate-600 space-y-2 text-left mb-6">
-          <li class="flex gap-2"><span class="text-green-500">✓</span> 단계별 진행절차 안내</li>
-          <li class="flex gap-2"><span class="text-green-500">✓</span> 필요서류 작성 가이드 제공</li>
-          <li class="flex gap-2"><span class="text-green-500">✓</span> AI 서류검토 기능 제공</li>
-          <li class="flex gap-2"><span class="text-green-500">✓</span> 체크리스트로 제출서류 최종 검토</li>
-        </ul>
-        <a href="pricing.html" class="block w-full py-2.5 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors">구매하기</a>
-      </div>
-    </div>
-
-    <div class="disclaimer-box mt-8">
-      <strong>⚠️ 법률대리 아님 고지</strong><br>
-      본 서비스는 법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.
-      사용자가 직접 절차를 이해하고 준비할 수 있도록 돕는 정보 제공 및 서류 점검 보조 서비스입니다.
-      구체적인 법률 판단이 필요한 경우 변호사, 법무사 등 전문가 상담을 권장합니다.
-    </div>
-  </div>
-</section>
-
+</div>
 
 <div id="footer-placeholder"></div>
 <div id="toast"></div>

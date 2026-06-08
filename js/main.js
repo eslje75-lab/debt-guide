@@ -6,14 +6,9 @@ const SITE_NAME = '챔로드';
 
 const NAV_LINKS = [
   { href: 'index.html',          label: '홈',        id: 'home' },
-  { href: 'diagnosis.html',      label: '무료진단',   id: 'diagnosis' },
-  { href: 'rehabilitation.html', label: '개인회생',   id: 'rehabilitation' },
-  { href: 'bankruptcy.html',     label: '개인파산',   id: 'bankruptcy' },
-  { href: 'documents.html',      label: '서류체크',   id: 'documents' },
-  { href: 'ai-review.html',      label: 'AI검토',    id: 'ai-review' },
-  { href: 'resources.html',      label: 'FAQ',        id: 'resources' },
-  { href: 'pricing.html',        label: '요금제',     id: 'pricing' },
   { href: 'about.html',          label: '소개글',     id: 'about' },
+  { href: 'compare.html',        label: '채무조정제도', id: 'compare' },
+  { href: 'resources.html',      label: 'FAQ',        id: 'resources' },
 ];
 
 /* ── Header ── */
@@ -23,7 +18,7 @@ function renderHeader(activePage) {
 
   const desktopLinks = NAV_LINKS.map(l => {
     const active = activePage === l.id;
-    return `<a href="${l.href}" class="text-sm font-medium transition-colors ${
+    return `<a href="${l.href}" class="text-base font-medium transition-colors ${
       active ? 'text-blue-700 border-b-2 border-blue-700 pb-0.5' : 'text-slate-600 hover:text-blue-700'
     }">${l.label}</a>`;
   }).join('');
@@ -51,7 +46,7 @@ function renderHeader(activePage) {
             <span class="font-bold text-slate-800 text-lg tracking-tight">${SITE_NAME}</span>
           </a>
 
-          <div class="hidden lg:flex items-center gap-5">${desktopLinks}</div>
+          <div class="hidden lg:flex items-center gap-9">${desktopLinks}</div>
 
           <div class="hidden lg:flex items-center gap-3">
             <a href="mypage.html" class="text-sm text-slate-600 hover:text-blue-700 transition-colors">마이페이지</a>

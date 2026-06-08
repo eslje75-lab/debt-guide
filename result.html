@@ -21,10 +21,9 @@
 <div class="max-w-4xl mx-auto px-4 py-8">
 
   <!-- 참고 안내 -->
-  <div class="disclaimer-box mb-6">
-    <strong>⚠️ 참고용 안내</strong><br>
-    아래 결과는 입력하신 정보를 바탕으로 한 참고용 분석입니다.
-    법률상담·법률대리·결과 보장이 아니며, 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다.
+  <div class="disclaimer-box mb-6 flex items-start gap-2">
+    <span class="shrink-0">⚠️</span>
+    <span>아래 결과는 입력하신 정보를 바탕으로 한 참고용 분석입니다. 법률상담·법률대리·결과 보장이 아니며, 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다.</span>
   </div>
 
   <!-- 최적 절차 추천 배너 -->
@@ -81,14 +80,46 @@
 <script>
   initPage('diagnosis');
 
-  // ── 법적 재신청 불가 → 강제 0% 처리 ──
+  // ── 신청 불가 → 강제 0% 처리 ──
   function applyHardBlocks(scores, data) {
-    const s = { rehab: scores.rehab || 0, bankrupt: scores.bankrupt || 0, credit: scores.credit || 0 };
-    const prior = data.priorAdjustment || 'none';
-    if (['rehab-done-recent', 'rehab-ongoing'].includes(prior))       s.rehab    = 0;
-    if (['bankrupt-done-recent', 'bankrupt-ongoing'].includes(prior)) s.bankrupt = 0;
-    if (prior === 'ccrs-ongoing')                                     s.credit   = 0;
+    const s         = { rehab: scores.rehab || 0, bankrupt: scores.bankrupt || 0, credit: scores.credit || 0 };
+    const priors    = data.priorAdjustments || [];
+    const unsecured = data.unsecuredDebt || 0;
+    const secured   = data.securedDebt   || 0;
+
+    // 이전 채무조정 이력 기반 불가
+    if (priors.includes('rehab-done-recent')    || priors.includes('rehab-ongoing'))    s.rehab    = 0;
+    if (priors.includes('bankrupt-done-recent') || priors.includes('bankrupt-ongoing')) s.bankrupt = 0;
+    if (priors.includes('ccrs-ongoing'))                                                s.credit   = 0;
+
+    // 채무한도 초과 → 신청 자체 불가
+    if (unsecured > 1_000_000_000 || secured > 1_500_000_000) s.rehab  = 0; // 무담보 10억·담보 15억 초과
+    if (unsecured > 500_000_000   || secured > 1_000_000_000) s.credit = 0; // 무담보 5억·담보 10억 초과
+
     return s;
+  }
+
+  // ── 신청불가 사유 반환 (있으면 문자열, 없으면 null) ──
+  function getHardBlockReason(type, data) {
+    const unsecured = data.unsecuredDebt    || 0;
+    const secured   = data.securedDebt      || 0;
+    const priors    = data.priorAdjustments || [];
+    if (type === 'rehab') {
+      if (priors.includes('rehab-done-recent')) return '개인회생 면책 확정 후 5년 미경과 — 법적 재신청 불가';
+      if (priors.includes('rehab-ongoing'))     return '현재 개인회생 진행 중 — 중복 신청 불가';
+      if (unsecured > 1_000_000_000) return `무담보 채무(${formatWon(unsecured)})가 법정 한도(10억) 초과`;
+      if (secured   > 1_500_000_000) return `담보 채무(${formatWon(secured)})가 법정 한도(15억) 초과`;
+    }
+    if (type === 'bankrupt') {
+      if (priors.includes('bankrupt-done-recent')) return '파산 면책 확정 후 7년 미경과 — 법적 재신청 불가';
+      if (priors.includes('bankrupt-ongoing'))     return '현재 개인파산 진행 중 — 중복 신청 불가';
+    }
+    if (type === 'credit') {
+      if (priors.includes('ccrs-ongoing'))   return '현재 신용회복위원회 진행 중 — 중복 신청 불가';
+      if (unsecured > 500_000_000)  return `무담보 채무(${formatWon(unsecured)})가 신청 한도(무담보 5억) 초과`;
+      if (secured   > 1_000_000_000) return `담보 채무(${formatWon(secured)})가 신청 한도(담보 10억) 초과`;
+    }
+    return null;
   }
 
   // ── 신용회복위원회 채무조정제도: 해당 세부 프로그램 판별 ──
@@ -97,9 +128,10 @@
     const hasFinance = (data.debtTypes || []).some(t => ['bank','savings','card','insurance'].includes(t));
     const isSelf     = ['current', 'closed'].includes(data.businessStatus || '');
     const unsecured  = data.unsecuredDebt || 0;
-    const prior      = data.priorAdjustment || 'none';
+    const secured    = data.securedDebt   || 0;
+    const priors     = data.priorAdjustments || [];
 
-    if (!hasFinance || unsecured > 1_500_000_000 || prior === 'ccrs-ongoing') return [];
+    if (!hasFinance || unsecured > 500_000_000 || secured > 1_000_000_000 || priors.includes('ccrs-ongoing')) return [];
 
     const list = [];
     if ((arrears === 0 || arrears === 1) && data.hasIncome)
@@ -140,7 +172,7 @@
     const totalDebt   = data.totalDebt      || 0;
     const totalAssets = data.totalAssets    || 0;
     const arrears     = data.arrearsMonths  || 0;
-    const prior       = data.priorAdjustment || 'none';
+    const prior       = (data.priorAdjustments || [])[0] || 'none';
     const causes      = data.debtCauses     || [];
     const debtTypes   = data.debtTypes      || [];
     const hasFinance  = debtTypes.some(t => ['bank','savings','card','insurance'].includes(t));
@@ -151,10 +183,10 @@
         pros.push(`정기소득 있음 (월 ${formatWon(income)}) — 변제계획 수립의 핵심 조건 충족`);
       if (disposable > 0)
         pros.push(`<span class="term-tip" data-tip="월 소득에서 생활비를 뺀 금액. 채무조정에서 실제 변제 여력을 나타내는 용어로 사용됩니다.">가처분소득</span> 월 ${formatWon(disposable)} → 3년 총 변제 가능 추정액 약 ${formatWon(disposable * 36)}`);
-      if (unsecured > 0 && unsecured <= 1_500_000_000)
-        pros.push(`무담보 채무 ${formatWon(unsecured)} — 법정 신청 한도(15억) 이내`);
-      if (secured > 0 && secured <= 2_000_000_000)
-        pros.push(`담보 채무 ${formatWon(secured)} — 법정 신청 한도(20억) 이내`);
+      if (unsecured > 0 && unsecured <= 1_000_000_000)
+        pros.push(`무담보 채무 ${formatWon(unsecured)} — 법정 신청 한도(10억) 이내`);
+      if (secured > 0 && secured <= 1_500_000_000)
+        pros.push(`담보 채무 ${formatWon(secured)} — 법정 신청 한도(15억) 이내`);
       if (arrears > 0)
         pros.push('연체 중 — 회생 인가 후 추심·압류 자동 중지 효과 기대 가능');
 
@@ -163,10 +195,10 @@
         cons.push('소득 없음 — 변제계획 수립 불가, 개인파산 검토가 우선됩니다');
       else if (disposable <= 0)
         cons.push(`소득(${formatWon(income)})이 생활비(${formatWon(living)})에 미달 — 변제 여력 없음`);
-      if (unsecured > 1_500_000_000)
-        cons.push(`무담보 채무(${formatWon(unsecured)})가 법정 한도 15억 초과 — 개인회생 신청 자체가 불가`);
-      if (secured > 2_000_000_000)
-        cons.push(`담보 채무(${formatWon(secured)})가 법정 한도 20억 초과 — 개인회생 신청 자체가 불가`);
+      if (unsecured > 1_000_000_000)
+        cons.push(`무담보 채무(${formatWon(unsecured)})가 법정 한도(10억) 초과 — 개인회생 신청 자체가 불가`);
+      if (secured > 1_500_000_000)
+        cons.push(`담보 채무(${formatWon(secured)})가 법정 한도(15억) 초과 — 개인회생 신청 자체가 불가`);
       if (prior === 'rehab-done-recent')
         cons.push('개인회생 면책 확정 후 5년 미경과 — 법적으로 재신청 불가 상태');
       if (prior === 'rehab-ongoing')
@@ -209,8 +241,8 @@
         pros.push('현재 연체 없음 — 신용회복위원회 사전채무조정(프리워크아웃) 신청 검토 가능');
       else if (arrears <= 3)
         pros.push(`연체 초기(${arrears}개월) — 채무조정 가능성 비교적 높음`);
-      if (unsecured > 0 && unsecured <= 1_500_000_000)
-        pros.push(`무담보 채무 ${formatWon(unsecured)} — 신용회복위원회 한도(15억) 이내`);
+      if (unsecured > 0 && unsecured <= 500_000_000)
+        pros.push(`무담보 채무 ${formatWon(unsecured)} — 신용회복위원회 한도(무담보 5억) 이내`);
 
       // 불리한 점
       if (!hasFinance)
@@ -219,10 +251,10 @@
         cons.push('소득 없음 — 분할상환 계획 수립 어려워 조정 승인 가능성 낮음');
       if (arrears > 12)
         cons.push(`장기 연체(${arrears}개월) — 채권자 동의 획득 어려울 수 있음`);
-      if (unsecured > 1_500_000_000)
-        cons.push(`무담보 채무(${formatWon(unsecured)})가 신용회복위원회 한도 15억 초과`);
-      if (prior === 'ccrs-ongoing')
-        cons.push('현재 신용회복위원회 채무조정 진행 중 — 중복 신청 불가');
+      if (unsecured > 500_000_000)
+        cons.push(`무담보 채무(${formatWon(unsecured)})가 신청 한도(무담보 5억) 초과 — 신청 불가`);
+      if (secured > 1_000_000_000)
+        cons.push(`담보 채무(${formatWon(secured)})가 신청 한도(담보 10억) 초과 — 신청 불가`);
     }
 
     return { pros, cons };
@@ -233,6 +265,25 @@
     const th = scoreTheme(score);
     const { pros, cons } = buildReasons(data, type);
     const icons = { rehab:'📋', bankrupt:'⚖️', credit:'🏛️' };
+    const blockReason = getHardBlockReason(type, data);
+
+    // 신청불가 카드
+    if (score === 0 && blockReason) {
+      return `
+        <div class="bg-white rounded-2xl shadow-sm border border-red-100 p-5 flex flex-col">
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex items-start gap-2 font-bold text-slate-800 text-base">
+              <span class="shrink-0">${icons[type]}</span><span>${title}</span>
+            </div>
+            <div class="shrink-0 ml-3 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 text-center">
+              <div class="text-sm font-extrabold text-red-600 leading-none">신청불가</div>
+            </div>
+          </div>
+          <div class="bg-red-50 border border-red-100 rounded-lg px-3 py-2.5 text-xs text-red-700 leading-relaxed">
+            <span class="font-semibold">사유:</span> ${blockReason}
+          </div>
+        </div>`;
+    }
 
     const prosHtml = pros.slice(0, 3).map(p =>
       `<li class="flex gap-2 text-xs text-slate-600 leading-snug">
@@ -587,7 +638,14 @@
       bankruptEl.style.display = 'none';
     }
 
-    // ── 신용회복위원회 채무조정제도 상세: 항상 표시 ──
+    // ── 신용회복위원회 채무조정제도 상세: 신청불가(0%)이면 숨김 ──
+    const creditEl = document.getElementById('credit-detail');
+    if (scores.credit === 0) {
+      creditEl.style.display = 'none';
+      return;
+    }
+    creditEl.style.display = '';
+
     const arrears  = data.arrearsMonths || 0;
     const programs = getCCRSPrograms(data);
 
