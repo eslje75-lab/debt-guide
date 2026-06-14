@@ -225,13 +225,26 @@ function calcScores(d) {
 
   // 금융기관 채무 여부 (신용회복위원회 핵심 조건)
   const hasFinanceDebt = d.debtTypes.some(t => ['bank', 'savings', 'card', 'insurance'].includes(t));
+  const hasLoanDebt    = d.debtTypes.includes('loan'); // 대부업 채무 (CCRS 협약 미가입 다수)
 
   // ── 신용회복위원회 ──
-  if (hasFinanceDebt) credit += 35;
-  else credit -= 40;                // 사채·세금만 있으면 신용회복위원회 대상 아님
+  if (hasFinanceDebt) {
+    credit += 35;
+    // 대부업·사채·세금 등 비금융 채무 동반 → CCRS가 커버 못 하는 채무 존재
+    const hasNonFinanceDebt = d.debtTypes.some(t => !['bank','savings','card','insurance'].includes(t));
+    if (hasNonFinanceDebt) credit -= 20;
+    // 대부업 채무 추가 패널티: 비협약 채권자 비중 20% 이상이면 채무조정 기각 (서민금융법)
+    if (hasLoanDebt) credit -= 20;
+  } else {
+    credit -= 40;                   // 금융기관 채무 없으면 신용회복위원회 대상 아님
+  }
 
-  if (d.hasIncome) credit += 25;
-  else credit -= 30;                // 소득 없으면 변제능력 부족 (분할상환 계획 수립 불가)
+  if (d.hasIncome && d.monthlyIncome > 0) {
+    credit += 25;
+    if (d.monthlyIncome < d.monthlyLiving) credit -= 15; // 소득이 생활비에 미달 → 실질 변제 여력 없음
+  } else {
+    credit -= 30;                   // 소득 없으면 변제능력 부족 (분할상환 계획 수립 불가)
+  }
 
   if (d.unsecuredDebt <= 500_000_000) credit += 15; // 무담보 5억 이하 (신용회복위원회 한도)
   else credit -= 30;
