@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>로그인 / 회원가입 | 챔로드</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .auth-tab { transition: color 0.2s, border-color 0.2s; }
+    .auth-tab.active { color: #1d4ed8; border-bottom: 2px solid #1d4ed8; }
+    .auth-tab:not(.active) { color: #64748b; border-bottom: 2px solid transparent; }
+    .input-field {
+      width: 100%; padding: 0.625rem 0.875rem; border: 1.5px solid #e2e8f0;
+      border-radius: 0.625rem; font-size: 0.9rem; outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-field:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+    .input-field.error { border-color: #ef4444; }
+    .error-msg { color: #ef4444; font-size: 0.75rem; margin-top: 0.25rem; display: none; }
+    .error-msg.show { display: block; }
+    .btn-primary {
+      width: 100%; padding: 0.75rem; background: #1d4ed8; color: white;
+      border-radius: 0.625rem; font-weight: 600; font-size: 0.95rem;
+      transition: background 0.2s; cursor: pointer; border: none;
+    }
+    .btn-primary:hover { background: #1e40af; }
+    .btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
+    .form-panel { display: none; }
+    .form-panel.active { display: block; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .alert-box { padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; margin-bottom: 1rem; display: none; }
+    .alert-box.show { display: block; }
+    .alert-error   { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .alert-success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .pw-toggle { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: #94a3b8; }
+    .pw-toggle:hover { color: #475569; }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+
+  <!-- 상단 로고 -->
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center">
+      <a href="index.html" class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#1e40af,#3b82f6)">
+          <svg class="w-4.5 h-4.5" viewBox="0 0 20 20" fill="none">
+            <path d="M2 18L10 5L18 18" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="10" y1="8.5" x2="10" y2="11.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="10" y1="14" x2="10" y2="17" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="font-bold text-slate-800 text-lg tracking-tight">챔로드</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- 메인 카드 -->
+  <main class="flex-1 flex items-center justify-center px-4 py-10">
+    <div class="w-full max-w-md">
+
+      <!-- 상단 안내 -->
+      <div class="text-center mb-6">
+        <h1 class="text-2xl font-bold text-slate-800 mb-1">챔로드에 오신 것을 환영합니다</h1>
+        <p class="text-slate-500 text-sm">회원가입하고 진단 결과·진행 현황을 저장하세요</p>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+
+        <!-- 탭 -->
+        <div class="flex border-b border-slate-100">
+          <button id="tab-login"  class="auth-tab active flex-1 py-3.5 text-sm font-semibold" onclick="switchTab('login')">로그인</button>
+          <button id="tab-signup" class="auth-tab flex-1 py-3.5 text-sm font-semibold" onclick="switchTab('signup')">회원가입</button>
+        </div>
+
+        <div class="p-6">
+
+          <!-- ── 로그인 폼 ── -->
+          <div id="panel-login" class="form-panel active">
+            <div id="login-alert" class="alert-box alert-error"></div>
+
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">이메일</label>
+                <input id="l-email" type="email" class="input-field" placeholder="example@email.com" autocomplete="email">
+                <p id="l-email-err" class="error-msg">이메일을 입력해주세요.</p>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">비밀번호</label>
+                <div class="relative">
+                  <input id="l-pw" type="password" class="input-field pr-10" placeholder="비밀번호" autocomplete="current-password">
+                  <button type="button" class="pw-toggle" onclick="togglePw('l-pw', this)" tabindex="-1">
+                    <svg id="l-pw-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                  </button>
+                </div>
+                <p id="l-pw-err" class="error-msg">비밀번호를 입력해주세요.</p>
+              </div>
+
+              <div class="text-right">
+                <button type="button" class="text-sm text-slate-500 hover:text-blue-600 hover:underline" onclick="showFindAccount()">아이디 · 비밀번호 찾기</button>
+              </div>
+
+              <button class="btn-primary" onclick="doLogin()">로그인</button>
+            </div>
+          </div>
+
+          <!-- ── 회원가입 폼 ── -->
+          <div id="panel-signup" class="form-panel">
+            <div id="signup-alert" class="alert-box alert-error"></div>
+
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">이름</label>
+                <input id="s-name" type="text" class="input-field" placeholder="홍길동" autocomplete="name">
+                <p id="s-name-err" class="error-msg">이름을 입력해주세요.</p>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">이메일</label>
+                <input id="s-email" type="email" class="input-field" placeholder="example@email.com" autocomplete="email">
+                <p id="s-email-err" class="error-msg">올바른 이메일을 입력해주세요.</p>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">비밀번호 <span class="text-slate-400 font-normal text-xs">(8자 이상)</span></label>
+                <div class="relative">
+                  <input id="s-pw" type="password" class="input-field pr-10" placeholder="8자 이상 입력" autocomplete="new-password">
+                  <button type="button" class="pw-toggle" onclick="togglePw('s-pw', this)" tabindex="-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                  </button>
+                </div>
+                <p id="s-pw-err" class="error-msg">비밀번호는 8자 이상이어야 합니다.</p>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">비밀번호 확인</label>
+                <div class="relative">
+                  <input id="s-pw2" type="password" class="input-field pr-10" placeholder="비밀번호 재입력" autocomplete="new-password">
+                  <button type="button" class="pw-toggle" onclick="togglePw('s-pw2', this)" tabindex="-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                  </button>
+                </div>
+                <p id="s-pw2-err" class="error-msg">비밀번호가 일치하지 않습니다.</p>
+              </div>
+
+              <label class="flex items-start gap-2 cursor-pointer select-none">
+                <input id="s-terms" type="checkbox" class="w-4 h-4 mt-0.5 accent-blue-700">
+                <span class="text-sm text-slate-600">
+                  본 서비스는 법률대리가 아닌 정보 제공 목적임을 이해하며,
+                  <button type="button" class="text-blue-600 hover:underline" onclick="alert('이용약관 준비 중입니다.')">이용약관</button>에 동의합니다.
+                </span>
+              </label>
+              <p id="s-terms-err" class="error-msg">이용약관에 동의해주세요.</p>
+
+              <button class="btn-primary" onclick="doSignup()">회원가입</button>
+
+              <p class="text-center text-sm text-slate-500">
+                이미 계정이 있으신가요?
+                <button type="button" class="text-blue-600 hover:underline" onclick="switchTab('login')">로그인</button>
+              </p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 하단 안내 -->
+      <p class="text-center text-xs text-slate-400 mt-4 px-4 leading-relaxed">
+        챔로드는 개인회생·파산 절차를 스스로 이해하고 준비할 수 있도록 돕는 정보 제공 플랫폼입니다.<br>
+        법률상담·법률대리·사건 수임 또는 결과 보장을 제공하지 않습니다.
+      </p>
+    </div>
+  </main>
+
+<script src="js/main.js"></script>
+<script>
+  // 이미 로그인된 경우 리다이렉트
+  if (Auth.isLoggedIn()) {
+    const next = new URLSearchParams(location.search).get('next');
+    location.replace(next || 'index.html');
+  }
+
+  function getNextUrl() {
+    const next = new URLSearchParams(location.search).get('next');
+    return next || 'index.html';
+  }
+
+  function switchTab(tab) {
+    document.getElementById('panel-login').classList.toggle('active',  tab === 'login');
+    document.getElementById('panel-signup').classList.toggle('active', tab === 'signup');
+    document.getElementById('tab-login').classList.toggle('active',  tab === 'login');
+    document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
+    hideAlerts();
+  }
+
+  function hideAlerts() {
+    document.querySelectorAll('.alert-box').forEach(el => el.classList.remove('show'));
+    document.querySelectorAll('.error-msg').forEach(el => el.classList.remove('show'));
+    document.querySelectorAll('.input-field').forEach(el => el.classList.remove('error'));
+  }
+
+  function showAlert(id, msg) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+
+  function fieldError(fieldId, errId, msg) {
+    const f = document.getElementById(fieldId);
+    const e = document.getElementById(errId);
+    if (msg) { f.classList.add('error'); e.textContent = msg; e.classList.add('show'); f.focus(); return true; }
+    f.classList.remove('error'); e.classList.remove('show'); return false;
+  }
+
+  function togglePw(inputId, btn) {
+    const inp = document.getElementById(inputId);
+    const isHidden = inp.type === 'password';
+    inp.type = isHidden ? 'text' : 'password';
+    btn.querySelector('svg').innerHTML = isHidden
+      ? `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>`
+      : `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>`;
+  }
+
+  function doLogin() {
+    hideAlerts();
+    const email    = document.getElementById('l-email').value.trim();
+    const password = document.getElementById('l-pw').value;
+
+    let hasErr = false;
+    if (!email)    { fieldError('l-email', 'l-email-err', '이메일을 입력해주세요.'); hasErr = true; }
+    if (!password) { fieldError('l-pw', 'l-pw-err', '비밀번호를 입력해주세요.'); hasErr = true; }
+    if (hasErr) return;
+
+    const result = Auth.login(email, password, false);
+    if (!result.ok) { showAlert('login-alert', result.error); return; }
+
+    location.replace(getNextUrl());
+  }
+
+  function doSignup() {
+    hideAlerts();
+    const name  = document.getElementById('s-name').value.trim();
+    const email = document.getElementById('s-email').value.trim();
+    const pw    = document.getElementById('s-pw').value;
+    const pw2   = document.getElementById('s-pw2').value;
+    const terms = document.getElementById('s-terms').checked;
+
+    let hasErr = false;
+    if (!name)  { fieldError('s-name',  's-name-err',  '이름을 입력해주세요.'); hasErr = true; }
+    if (!email || !email.includes('@')) { fieldError('s-email', 's-email-err', '올바른 이메일을 입력해주세요.'); hasErr = true; }
+    if (pw.length < 8) { fieldError('s-pw', 's-pw-err', '비밀번호는 8자 이상이어야 합니다.'); hasErr = true; }
+    if (pw !== pw2) { fieldError('s-pw2', 's-pw2-err', '비밀번호가 일치하지 않습니다.'); hasErr = true; }
+    if (!terms) {
+      const e = document.getElementById('s-terms-err');
+      e.textContent = '이용약관에 동의해주세요.'; e.classList.add('show');
+      hasErr = true;
+    }
+    if (hasErr) return;
+
+    const result = Auth.signup(name, email, pw);
+    if (!result.ok) { showAlert('signup-alert', result.error); return; }
+
+    location.replace(getNextUrl());
+  }
+
+  function showFindAccount() {
+    location.href = 'find-account.html';
+  }
+
+  // Enter 키 지원
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const loginActive = document.getElementById('panel-login').classList.contains('active');
+    if (loginActive) doLogin(); else doSignup();
+  });
+</script>
+</body>
+</html>

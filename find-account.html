@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>아이디 · 비밀번호 찾기 | 챔로드</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .auth-tab { transition: color 0.2s, border-color 0.2s; }
+    .auth-tab.active { color: #1d4ed8; border-bottom: 2px solid #1d4ed8; }
+    .auth-tab:not(.active) { color: #64748b; border-bottom: 2px solid transparent; }
+    .input-field {
+      width: 100%; padding: 0.625rem 0.875rem; border: 1.5px solid #e2e8f0;
+      border-radius: 0.625rem; font-size: 0.9rem; outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-field:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+    .input-field.error { border-color: #ef4444; }
+    .input-field:disabled { background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
+    .error-msg { color: #ef4444; font-size: 0.75rem; margin-top: 0.25rem; display: none; }
+    .error-msg.show { display: block; }
+    .btn-primary {
+      width: 100%; padding: 0.75rem; background: #1d4ed8; color: white;
+      border-radius: 0.625rem; font-weight: 600; font-size: 0.95rem;
+      transition: background 0.2s; cursor: pointer; border: none;
+    }
+    .btn-primary:hover { background: #1e40af; }
+    .btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
+    .btn-outline {
+      width: 100%; padding: 0.75rem; background: white; color: #1d4ed8;
+      border: 1.5px solid #1d4ed8; border-radius: 0.625rem; font-weight: 600;
+      font-size: 0.95rem; transition: background 0.2s; cursor: pointer;
+    }
+    .btn-outline:hover { background: #eff6ff; }
+    .form-panel { display: none; }
+    .form-panel.active { display: block; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .result-box {
+      display: none; padding: 1.25rem; border-radius: 0.75rem;
+      background: #f0f9ff; border: 1.5px solid #bae6fd; text-align: center;
+    }
+    .result-box.show { display: block; animation: fadeIn 0.3s ease; }
+    .pw-toggle { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: #94a3b8; }
+    .pw-toggle:hover { color: #475569; }
+    .step { display: none; }
+    .step.active { display: block; animation: fadeIn 0.2s ease; }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+
+  <!-- 상단 로고 -->
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center">
+      <a href="index.html" class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#1e40af,#3b82f6)">
+          <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none">
+            <path d="M2 18L10 5L18 18" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="10" y1="8.5" x2="10" y2="11.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="10" y1="14" x2="10" y2="17" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="font-bold text-slate-800 text-lg tracking-tight">챔로드</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="flex-1 flex items-center justify-center px-4 py-10">
+    <div class="w-full max-w-md">
+
+      <div class="text-center mb-6">
+        <h1 class="text-2xl font-bold text-slate-800 mb-1">아이디 · 비밀번호 찾기</h1>
+        <p class="text-slate-500 text-sm">가입 시 입력하신 정보로 확인합니다</p>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+
+        <!-- 탭 -->
+        <div class="flex border-b border-slate-100">
+          <button id="tab-id"  class="auth-tab active flex-1 py-3.5 text-sm font-semibold" onclick="switchTab('id')">아이디 찾기</button>
+          <button id="tab-pw"  class="auth-tab flex-1 py-3.5 text-sm font-semibold"         onclick="switchTab('pw')">비밀번호 찾기</button>
+        </div>
+
+        <div class="p-6">
+
+          <!-- ════ 아이디 찾기 ════ -->
+          <div id="panel-id" class="form-panel active">
+
+            <!-- Step 1: 이름 입력 -->
+            <div id="id-step1" class="step active">
+              <p class="text-sm text-slate-500 mb-5">가입 시 입력하신 <strong class="text-slate-700">이름</strong>을 입력하면 등록된 아이디(이메일)를 확인할 수 있습니다.</p>
+
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">이름</label>
+                  <input id="find-id-name" type="text" class="input-field" placeholder="가입 시 입력한 이름">
+                  <p id="find-id-name-err" class="error-msg">이름을 입력해주세요.</p>
+                </div>
+                <button class="btn-primary" onclick="doFindId()">아이디 찾기</button>
+              </div>
+            </div>
+
+            <!-- Step 2: 결과 -->
+            <div id="id-step2" class="step">
+              <div class="text-center py-4">
+                <div class="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center mx-auto mb-4">
+                  <svg class="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/>
+                  </svg>
+                </div>
+                <p class="text-sm text-slate-500 mb-1">회원님의 아이디(이메일)는</p>
+                <p id="found-email" class="text-xl font-bold text-blue-700 mb-1"></p>
+                <p class="text-xs text-slate-400 mb-6">입니다.</p>
+
+                <div class="space-y-2">
+                  <button class="btn-primary" onclick="location.href='login.html'">로그인하기</button>
+                  <button class="btn-outline mt-2" onclick="switchTab('pw')">비밀번호도 찾기</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 찾기 실패 -->
+            <div id="id-not-found" class="hidden mt-4 p-4 rounded-xl bg-red-50 border border-red-100 text-center">
+              <p class="text-sm text-red-600 font-medium">일치하는 회원 정보를 찾을 수 없습니다.</p>
+              <p class="text-xs text-slate-500 mt-1">입력하신 이름을 다시 확인해주세요.</p>
+            </div>
+          </div>
+
+          <!-- ════ 비밀번호 찾기 ════ -->
+          <div id="panel-pw" class="form-panel">
+
+            <!-- Step 1: 본인 확인 -->
+            <div id="pw-step1" class="step active">
+              <p class="text-sm text-slate-500 mb-5">가입 시 입력하신 <strong class="text-slate-700">이름</strong>과 <strong class="text-slate-700">이메일</strong>이 일치하면 비밀번호를 재설정할 수 있습니다.</p>
+
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">이름</label>
+                  <input id="reset-name" type="text" class="input-field" placeholder="가입 시 입력한 이름">
+                  <p id="reset-name-err" class="error-msg">이름을 입력해주세요.</p>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">이메일 (아이디)</label>
+                  <input id="reset-email" type="email" class="input-field" placeholder="가입 시 입력한 이메일">
+                  <p id="reset-email-err" class="error-msg">이메일을 입력해주세요.</p>
+                </div>
+                <button class="btn-primary" onclick="doVerify()">본인 확인</button>
+              </div>
+
+              <!-- 확인 실패 -->
+              <div id="verify-fail" class="hidden mt-4 p-4 rounded-xl bg-red-50 border border-red-100 text-center">
+                <p class="text-sm text-red-600 font-medium">이름 또는 이메일이 일치하지 않습니다.</p>
+                <p class="text-xs text-slate-500 mt-1">입력하신 정보를 다시 확인해주세요.</p>
+              </div>
+            </div>
+
+            <!-- Step 2: 새 비밀번호 입력 -->
+            <div id="pw-step2" class="step">
+              <div class="flex items-center gap-2 mb-5 p-3 bg-green-50 rounded-xl border border-green-100">
+                <svg class="w-5 h-5 text-green-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <p class="text-sm text-green-700 font-medium">본인 확인이 완료되었습니다.</p>
+              </div>
+
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">새 비밀번호 <span class="text-slate-400 font-normal text-xs">(8자 이상)</span></label>
+                  <div class="relative">
+                    <input id="new-pw" type="password" class="input-field pr-10" placeholder="새 비밀번호 입력">
+                    <button type="button" class="pw-toggle" onclick="togglePw('new-pw', this)" tabindex="-1">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <p id="new-pw-err" class="error-msg">비밀번호는 8자 이상이어야 합니다.</p>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 mb-1.5">새 비밀번호 확인</label>
+                  <div class="relative">
+                    <input id="new-pw2" type="password" class="input-field pr-10" placeholder="새 비밀번호 재입력">
+                    <button type="button" class="pw-toggle" onclick="togglePw('new-pw2', this)" tabindex="-1">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <p id="new-pw2-err" class="error-msg">비밀번호가 일치하지 않습니다.</p>
+                </div>
+                <button class="btn-primary" onclick="doReset()">비밀번호 재설정</button>
+              </div>
+            </div>
+
+            <!-- Step 3: 완료 -->
+            <div id="pw-step3" class="step">
+              <div class="text-center py-4">
+                <div class="w-14 h-14 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
+                  <svg class="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                </div>
+                <p class="text-lg font-bold text-slate-800 mb-1">비밀번호가 재설정되었습니다</p>
+                <p class="text-sm text-slate-500 mb-6">새 비밀번호로 로그인해주세요.</p>
+                <button class="btn-primary" onclick="location.href='login.html'">로그인하러 가기</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="text-center mt-4">
+        <a href="login.html" class="text-sm text-slate-500 hover:text-blue-600 hover:underline">← 로그인 화면으로 돌아가기</a>
+      </div>
+    </div>
+  </main>
+
+<script src="js/main.js"></script>
+<script>
+  let _verifiedEmail = '';
+
+  function switchTab(tab) {
+    document.getElementById('panel-id').classList.toggle('active', tab === 'id');
+    document.getElementById('panel-pw').classList.toggle('active', tab === 'pw');
+    document.getElementById('tab-id').classList.toggle('active', tab === 'id');
+    document.getElementById('tab-pw').classList.toggle('active', tab === 'pw');
+  }
+
+  function showStep(prefix, n) {
+    ['1','2','3'].forEach(i => {
+      const el = document.getElementById(prefix + '-step' + i);
+      if (el) el.classList.toggle('active', i === String(n));
+    });
+  }
+
+  function clearErr(fieldId, errId) {
+    document.getElementById(fieldId)?.classList.remove('error');
+    document.getElementById(errId)?.classList.remove('show');
+  }
+
+  function setErr(fieldId, errId, msg) {
+    const f = document.getElementById(fieldId);
+    const e = document.getElementById(errId);
+    f.classList.add('error');
+    e.textContent = msg;
+    e.classList.add('show');
+    f.focus();
+  }
+
+  function togglePw(inputId, btn) {
+    const inp = document.getElementById(inputId);
+    const isHidden = inp.type === 'password';
+    inp.type = isHidden ? 'text' : 'password';
+    btn.querySelector('svg').innerHTML = isHidden
+      ? `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>`
+      : `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>`;
+  }
+
+  /* ── 아이디 찾기 ── */
+  function doFindId() {
+    const name = document.getElementById('find-id-name').value.trim();
+    clearErr('find-id-name', 'find-id-name-err');
+    document.getElementById('id-not-found').classList.add('hidden');
+
+    if (!name) { setErr('find-id-name', 'find-id-name-err', '이름을 입력해주세요.'); return; }
+
+    const result = Auth.findEmail(name);
+    if (!result.ok) {
+      document.getElementById('id-not-found').classList.remove('hidden');
+      return;
+    }
+
+    document.getElementById('found-email').textContent = result.maskedEmail;
+    showStep('id', 2);
+  }
+
+  /* ── 비밀번호 찾기: 본인 확인 ── */
+  function doVerify() {
+    const name  = document.getElementById('reset-name').value.trim();
+    const email = document.getElementById('reset-email').value.trim();
+    clearErr('reset-name', 'reset-name-err');
+    clearErr('reset-email', 'reset-email-err');
+    document.getElementById('verify-fail').classList.add('hidden');
+
+    let hasErr = false;
+    if (!name)  { setErr('reset-name', 'reset-name-err', '이름을 입력해주세요.'); hasErr = true; }
+    if (!email) { setErr('reset-email', 'reset-email-err', '이메일을 입력해주세요.'); hasErr = true; }
+    if (hasErr) return;
+
+    if (!Auth.verifyForReset(name, email)) {
+      document.getElementById('verify-fail').classList.remove('hidden');
+      return;
+    }
+
+    _verifiedEmail = email.toLowerCase().trim();
+    showStep('pw', 2);
+  }
+
+  /* ── 비밀번호 재설정 ── */
+  function doReset() {
+    const pw  = document.getElementById('new-pw').value;
+    const pw2 = document.getElementById('new-pw2').value;
+    clearErr('new-pw', 'new-pw-err');
+    clearErr('new-pw2', 'new-pw2-err');
+
+    let hasErr = false;
+    if (pw.length < 8) { setErr('new-pw', 'new-pw-err', '비밀번호는 8자 이상이어야 합니다.'); hasErr = true; }
+    if (pw !== pw2)    { setErr('new-pw2', 'new-pw2-err', '비밀번호가 일치하지 않습니다.'); hasErr = true; }
+    if (hasErr) return;
+
+    const result = Auth.resetPassword(_verifiedEmail, pw);
+    if (!result.ok) { alert(result.error); return; }
+
+    showStep('pw', 3);
+  }
+
+  /* Enter 키 지원 */
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const idActive = document.getElementById('panel-id').classList.contains('active');
+    if (idActive) {
+      if (document.getElementById('id-step1').classList.contains('active')) doFindId();
+    } else {
+      if (document.getElementById('pw-step1').classList.contains('active')) doVerify();
+      else if (document.getElementById('pw-step2').classList.contains('active')) doReset();
+    }
+  });
+</script>
+</body>
+</html>

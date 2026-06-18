@@ -63,23 +63,22 @@ function validateStep(step) {
   const warn = msg => { showToast(msg, 'warn'); return false; };
 
   if (step === 1) {
-    const checked = document.querySelectorAll('input[name="debt-type"]:checked');
-    if (checked.length === 0) return warn('채무 종류를 하나 이상 선택해 주세요.');
-
     const unsecured = document.getElementById('unsecured-debt');
     if (!unsecured || unsecured.value === '') {
       unsecured && unsecured.focus();
       return warn('무담보 채무 총액을 입력해 주세요. (없으면 0)');
     }
-    if (parseFloat(unsecured.value) > 200000) {
+    const unsecuredVal = parseInt(unsecured.value.replace(/[^0-9]/g, '') || '0', 10);
+    if (unsecuredVal > 2_000_000_000_000) {
       unsecured.focus();
-      return warn('채무액이 너무 큽니다. 만원 단위로 입력해 주세요. (예: 1억5천만원 → 15,000)');
+      return warn('채무액이 너무 큽니다. 원 단위로 입력해 주세요. (예: 1억5천만원 → 150,000,000)');
     }
 
     const secured = document.getElementById('secured-debt');
-    if (secured && parseFloat(secured.value) > 200000) {
+    const securedVal = parseInt((secured?.value || '').replace(/[^0-9]/g, '') || '0', 10);
+    if (securedVal > 2_000_000_000_000) {
       secured.focus();
-      return warn('담보 채무액이 너무 큽니다. 만원 단위로 입력해 주세요. (예: 1억5천만원 → 15,000)');
+      return warn('담보 채무액이 너무 큽니다. 원 단위로 입력해 주세요. (예: 1억5천만원 → 150,000,000)');
     }
 
     const creditor = document.getElementById('creditor-count');
@@ -87,6 +86,9 @@ function validateStep(step) {
       creditor && creditor.focus();
       return warn('채권자(금융사) 수를 입력해 주세요.');
     }
+
+    const recentLoan = document.querySelector('input[name="recent-loan"]:checked');
+    if (!recentLoan) return warn('최근 1년 이내 신규 대출 여부를 선택해 주세요.');
   }
 
   if (step === 2) {
@@ -110,7 +112,7 @@ function validateStep(step) {
       const income = document.getElementById('monthly-income');
       if (!income || !income.value) {
         income && income.focus();
-        return warn('월 평균 소득을 입력해 주세요.');
+        return warn('최근 1년 월 평균 소득(세후)을 입력해 주세요.');
       }
     }
 
@@ -146,8 +148,8 @@ function collectFormData() {
     const el = document.getElementById(id);
     return el ? (parseFloat(String(el.value).replace(/[^0-9.]/g, '')) || 0) : 0;
   };
-  // 만원 단위 입력 → 원 단위로 변환
-  const money = id => num(id) * 10000;
+  // 원 단위 입력 (콤마 제거 후 파싱)
+  const money = id => num(id);
   const val = id => {
     const el = document.getElementById(id);
     return el ? el.value.trim() : '';
@@ -186,10 +188,10 @@ function collectFormData() {
     securedDebt,
     totalDebt,
     creditorCount:           num('creditor-count'),
+    recentLoan:              radio('recent-loan'), // 'within-3m' | 'within-1y' | 'none'
     // 연체·법적
     isDelinquent,
     arrearsMonths,
-    delinquentCreditorCount: num('delinquent-creditor-count'),
     legalActions,
     hasLegalAction:          legalActions.length > 0 && !legalActions.includes('none'),
     // 소득
@@ -210,7 +212,6 @@ function collectFormData() {
     age:                     val('age'),
     hasHealthIssues:         document.getElementById('has-health-issues')?.value === 'yes',
     debtCauses,
-    businessStatus:          val('business-status'),
     priorAdjustments:        getChecked('prior-adj').filter(v => v !== 'none'),
     // result.html 호환성
     monthlyPayment:          0,
@@ -221,41 +222,7 @@ function collectFormData() {
 
 // ── 진단 점수 계산 ──
 function calcScores(d) {
-  let rehab = 0, bankrupt = 0, credit = 0;
-
-  // 금융기관 채무 여부 (신용회복위원회 핵심 조건)
-  const hasFinanceDebt = d.debtTypes.some(t => ['bank', 'savings', 'card', 'insurance'].includes(t));
-  const hasLoanDebt    = d.debtTypes.includes('loan'); // 대부업 채무 (CCRS 협약 미가입 다수)
-
-  // ── 신용회복위원회 ──
-  if (hasFinanceDebt) {
-    credit += 35;
-    // 대부업·사채·세금 등 비금융 채무 동반 → CCRS가 커버 못 하는 채무 존재
-    const hasNonFinanceDebt = d.debtTypes.some(t => !['bank','savings','card','insurance'].includes(t));
-    if (hasNonFinanceDebt) credit -= 20;
-    // 대부업 채무 추가 패널티: 비협약 채권자 비중 20% 이상이면 채무조정 기각 (서민금융법)
-    if (hasLoanDebt) credit -= 20;
-  } else {
-    credit -= 40;                   // 금융기관 채무 없으면 신용회복위원회 대상 아님
-  }
-
-  if (d.hasIncome && d.monthlyIncome > 0) {
-    credit += 25;
-    if (d.monthlyIncome < d.monthlyLiving) credit -= 15; // 소득이 생활비에 미달 → 실질 변제 여력 없음
-  } else {
-    credit -= 30;                   // 소득 없으면 변제능력 부족 (분할상환 계획 수립 불가)
-  }
-
-  if (d.unsecuredDebt <= 500_000_000) credit += 15; // 무담보 5억 이하 (신용회복위원회 한도)
-  else credit -= 30;
-
-  if (d.arrearsMonths === 0)       credit += 20; // 연체 없음 → 프리워크아웃
-  else if (d.arrearsMonths <= 3)   credit += 15; // 초기 연체
-  else if (d.arrearsMonths <= 6)   credit += 5;  // 중기 연체
-  else if (d.arrearsMonths <= 12)  credit -= 5;
-  else                             credit -= 15; // 1년 이상 장기 연체
-
-  if (!d.hasLegalAction) credit += 5;
+  let rehab = 0, bankrupt = 0;
 
   // ── 개인회생 ──
   if (d.hasIncome && d.monthlyIncome > 0) {
@@ -276,6 +243,15 @@ function calcScores(d) {
 
   if (d.arrearsMonths > 0)  rehab += 10; // 연체 → 회생 필요성
   if (d.hasLegalAction)     rehab += 5;  // 법적 조치 → 시급성
+
+
+  if (d.recentLoan === 'within-3m') {
+    bankrupt -= 10; // 3개월 내 신규 대출 → 면책불허가 위험 높음
+    rehab    -= 5;  // 채무 발생 경위 심사에서 불리
+  } else if (d.recentLoan === 'within-1y') {
+    bankrupt -= 5;  // 1년 이내 → 면책불허가 사유 가능성 있음
+    rehab    -= 1;  // 회생은 경미한 영향
+  }
 
   // 회생 하드블록 여부 사전 확인 (채무한도·이력)
   const rehabHardBlocked =
@@ -308,32 +284,23 @@ function calcScores(d) {
   if (d.debtCauses.includes('gambling')) {
     bankrupt -= 30; // 법 제564조 면책불허가 사유 해당 가능성
     rehab    += 10; // 파산보다 회생이 상대적으로 유리
-    credit   -= 10; // 신용회복위원회도 감점
   }
 
   // ── 이전 채무조정 이력 반영 (복수 선택, 각 조건 독립 적용) ──
   const priors = d.priorAdjustments;
-  // 재신청 불가 (절차별 독립 차단)
   if (priors.includes('rehab-done-recent'))    rehab    -= 60;  // 개인회생 5년 미경과
   if (priors.includes('bankrupt-done-recent')) bankrupt -= 60;  // 개인파산 7년 미경과
-  // 법원 절차 진행 중 → 동일 법원 절차 간 중복 신청 불가
   if (priors.includes('rehab-ongoing'))    { rehab -= 40; bankrupt -= 30; }
   if (priors.includes('bankrupt-ongoing')) { bankrupt -= 40; rehab -= 30; }
-  // 신용회복위원회 진행 중 → 신용회복 재신청 불가
-  if (priors.includes('ccrs-ongoing'))     { credit -= 40; }
-  // 면책불허가 이력 → 파산 재신청 시 불리
   if (priors.includes('bankrupt-denied'))  bankrupt -= 20;
-  // 취소·기각 이력 → 소폭 감점
   if (priors.includes('rehab-cancel'))     rehab    -= 10;
   if (priors.includes('bankrupt-cancel'))  bankrupt -= 10;
-  if (priors.includes('ccrs-cancel'))      credit   -= 5;
 
   // 정규화 (0~100)
   rehab    = Math.max(0, Math.min(100, rehab));
   bankrupt = Math.max(0, Math.min(100, bankrupt));
-  credit   = Math.max(0, Math.min(100, credit));
 
-  return { rehab, bankrupt, credit };
+  return { rehab, bankrupt };
 }
 
 function scoreToLevel(s) {
@@ -377,7 +344,6 @@ function submitDiagnosis() {
   const levels  = {
     rehab:    scoreToLevel(scores.rehab),
     bankrupt: scoreToLevel(scores.bankrupt),
-    credit:   scoreToLevel(scores.credit),
   };
   const repayment = calcRepayment(data);
 
