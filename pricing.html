@@ -45,67 +45,28 @@
         <span id="rehab-chev" class="text-slate-600 text-xs shrink-0 ml-2">펼치기 ▼</span>
       </button>
       <div id="rehab-steps" class="hidden px-5 pb-5">
-        <p class="text-xs text-slate-600 mb-4">각 단계에서 어떤 패키지가 필요한지 확인하세요.</p>
+        <p class="text-xs text-slate-600 mb-4">패키지로 묶이는 단계는 하나로 모아 보여드려요.</p>
         <div class="border-l-2 border-slate-100 ml-2 space-y-0">
 
-          <!-- 단계 1 -->
+          <!-- 묶음 1: 패키지 1 (신청 준비 ~ 채권자집회) -->
           <div class="relative pl-6 pb-5">
             <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">1</div>
-            <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
-              <span class="text-sm font-semibold text-slate-700">신청 준비</span>
-              <span class="text-xs text-slate-600">2~4주</span>
-              <span class="text-xs bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded-full">패키지 1</span>
+            <div class="flex flex-wrap items-center gap-1.5 mb-1.5">
+              <span class="text-sm font-semibold text-slate-700">신청 준비 ~ 채권자집회</span>
+              <span class="text-xs bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full font-medium">패키지 1로 전체 지원</span>
             </div>
-            <p class="text-xs text-slate-700">신청서·첨부서류 수집, 채권자 목록 및 변제계획안 초안 작성</p>
+            <ul class="bg-blue-50/60 border border-blue-100 rounded-lg p-3 space-y-1.5 text-xs text-slate-700">
+              <li><span class="font-semibold text-slate-700">신청 준비</span> <span class="text-slate-500">(2~4주)</span> — 신청서·첨부서류 수집, 채권자 목록 및 변제계획안 초안 작성</li>
+              <li><span class="font-semibold text-slate-700">법원 신청 + 금지명령</span> <span class="text-slate-500">(접수 즉시)</span> — 추심·강제집행 중단 효과 발생</li>
+              <li><span class="font-semibold text-slate-700">개시결정</span> <span class="text-slate-500">(신청 후 약 1개월)</span> — 법원이 회생 절차 공식 개시 승인</li>
+              <li><span class="font-semibold text-slate-700">보정권고</span> <span class="text-slate-500">(개시 후 수시)</span> — 서류 보완 요청 대응 (1회 포함, 평균 1~2회 발생)</li>
+              <li><span class="font-semibold text-slate-700">회생위원 면담 + 채권자집회</span> <span class="text-slate-500">(개시 후 2~5개월)</span> — 변제계획안 검토, 채권자 의견 수렴</li>
+            </ul>
           </div>
 
-          <!-- 단계 2 -->
+          <!-- 묶음 2: 법원 처리 -->
           <div class="relative pl-6 pb-5">
             <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">2</div>
-            <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
-              <span class="text-sm font-semibold text-slate-700">법원 신청 + 금지명령</span>
-              <span class="text-xs text-slate-600">신청 즉시</span>
-              <span class="text-xs bg-green-50 text-green-600 border border-green-100 px-1.5 py-0.5 rounded-full">자동</span>
-            </div>
-            <p class="text-xs text-slate-700">법원 접수 즉시 추심·강제집행 중단 효과 발생</p>
-          </div>
-
-          <!-- 단계 3 -->
-          <div class="relative pl-6 pb-5">
-            <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">3</div>
-            <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
-              <span class="text-sm font-semibold text-slate-700">개시결정</span>
-              <span class="text-xs text-slate-600">신청 후 약 1개월</span>
-              <span class="text-xs bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full">패키지 1</span>
-            </div>
-            <p class="text-xs text-slate-700">법원이 회생 절차 공식 개시 승인</p>
-          </div>
-
-          <!-- 단계 4 -->
-          <div class="relative pl-6 pb-5">
-            <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">4</div>
-            <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
-              <span class="text-sm font-semibold text-slate-700">보정권고</span>
-              <span class="text-xs text-slate-600">개시 후 수시 발생</span>
-              <span class="text-xs bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full">패키지 1 포함</span>
-            </div>
-            <p class="text-xs text-slate-700">법원·회생위원의 서류 보완 요청 (평균 1~2회). 패키지 1에 1회 대응 포함</p>
-          </div>
-
-          <!-- 단계 5 -->
-          <div class="relative pl-6 pb-5">
-            <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">5</div>
-            <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
-              <span class="text-sm font-semibold text-slate-700">회생위원 면담 + 채권자집회</span>
-              <span class="text-xs text-slate-600">개시 후 2~5개월</span>
-              <span class="text-xs bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full">패키지 1</span>
-            </div>
-            <p class="text-xs text-slate-700">변제계획안 검토, 채권자 의견 수렴</p>
-          </div>
-
-          <!-- 단계 6 -->
-          <div class="relative pl-6 pb-5">
-            <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">6</div>
             <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
               <span class="text-sm font-semibold text-slate-700">변제계획 인가</span>
               <span class="text-xs text-slate-600">개시 후 4~8개월</span>
@@ -114,9 +75,9 @@
             <p class="text-xs text-slate-700">법원 최종 인가 결정. 이후 변제 수행 시작</p>
           </div>
 
-          <!-- 단계 7 -->
+          <!-- 묶음 3: 패키지 2 (선택) -->
           <div class="relative pl-6 pb-5">
-            <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">7</div>
+            <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">3</div>
             <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
               <span class="text-sm font-semibold text-slate-700">변제 수행</span>
               <span class="text-xs text-slate-600">36~60개월</span>
@@ -125,9 +86,9 @@
             <p class="text-xs text-slate-700">매월 변제금 납부. 실직·소득 변동 발생 시 변제계획 변경 신청 필요</p>
           </div>
 
-          <!-- 단계 8 -->
+          <!-- 묶음 4: 완료 -->
           <div class="relative pl-6">
-            <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">8</div>
+            <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">4</div>
             <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
               <span class="text-sm font-semibold text-slate-700">면책결정</span>
               <span class="text-xs text-slate-600">변제 완료 후</span>
@@ -142,7 +103,7 @@
 
     <!-- STEP 1: 서류 준비 + 신청·인가 -->
     <div class="bg-white rounded-2xl border-2 border-blue-500 shadow-md p-5 mb-2">
-      <div class="flex items-start justify-between gap-4">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div class="flex items-start gap-3">
           <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</div>
           <div>
@@ -159,10 +120,10 @@
             </ul>
           </div>
         </div>
-        <div class="text-right shrink-0">
+        <div class="sm:text-right shrink-0 flex sm:flex-col items-center sm:items-end gap-3 sm:gap-0">
           <div class="text-xl font-extrabold text-slate-800">149,000<span class="text-sm font-normal">원</span></div>
           <button onclick="mockPayment('회생 완주 패키지', 149000)"
-            class="mt-2 block w-full text-center px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition-colors">
+            class="sm:mt-2 block text-center px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition-colors whitespace-nowrap">
             구매하기
           </button>
         </div>
@@ -173,7 +134,7 @@
 
     <!-- STEP 2: 변제기간 (선택) -->
     <div class="bg-white rounded-2xl border border-dashed border-slate-200 p-5 mb-2">
-      <div class="flex items-start justify-between gap-4">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div class="flex items-start gap-3">
           <div class="w-8 h-8 rounded-full bg-slate-50 border-2 border-dashed border-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">2</div>
           <div>
@@ -189,29 +150,31 @@
             </ul>
           </div>
         </div>
-        <div class="text-right shrink-0">
+        <div class="sm:text-right shrink-0 flex sm:flex-col items-center sm:items-end gap-3 sm:gap-0">
           <div class="text-xl font-extrabold text-slate-700">29,000<span class="text-sm font-normal">원</span></div>
-          <div class="text-xs text-slate-600 mt-0.5">일시불</div>
-          <button onclick="mockPayment('변제기간 관리 패키지', 29000)"
-            class="mt-2 block w-full text-center px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors">
-            구매하기
-          </button>
+          <div class="flex sm:flex-col items-center gap-2 sm:gap-0">
+            <div class="text-xs text-slate-600 sm:mt-0.5">일시불</div>
+            <button onclick="mockPayment('변제기간 관리 패키지', 29000)"
+              class="sm:mt-2 block text-center px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors whitespace-nowrap">
+              구매하기
+            </button>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- 보정권고 추가 애드온 -->
-    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
-      <div class="flex items-start justify-between gap-4">
+    <div class="bg-white border border-slate-200 rounded-2xl p-4 mb-6 mt-5">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <div class="text-xs text-amber-600 font-semibold mb-0.5">추가 옵션</div>
           <h4 class="font-semibold text-slate-700 text-sm">보정권고 추가 대응</h4>
           <p class="text-xs text-slate-700 mt-1">패키지 1에 포함된 1회 외에 추가 보정권고가 발생한 경우</p>
         </div>
-        <div class="text-right shrink-0">
+        <div class="sm:text-right shrink-0 flex sm:flex-col items-center sm:items-end gap-3 sm:gap-0">
           <div class="font-bold text-slate-700 text-base">19,000<span class="text-xs font-normal text-slate-700">원/회</span></div>
           <button onclick="mockPayment('보정권고 추가 대응', 19000)"
-            class="mt-1.5 block w-full text-center px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded-lg text-xs font-medium transition-colors">
+            class="sm:mt-1.5 block text-center px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors whitespace-nowrap">
             구매하기
           </button>
         </div>
@@ -235,44 +198,27 @@
         <span id="bankrupt-chev" class="text-slate-600 text-xs shrink-0 ml-2">펼치기 ▼</span>
       </button>
       <div id="bankrupt-steps" class="hidden px-5 pb-5">
-        <p class="text-xs text-slate-600 mb-4">각 단계에서 어떤 패키지가 필요한지 확인하세요.</p>
+        <p class="text-xs text-slate-600 mb-4">패키지로 묶이는 단계는 하나로 모아 보여드려요.</p>
         <div class="border-l-2 border-slate-100 ml-2 space-y-0">
 
-          <!-- 단계 1 -->
+          <!-- 묶음 1: 패키지 1 (신청 준비 ~ 심문기일) -->
           <div class="relative pl-6 pb-5">
             <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-slate-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">1</div>
-            <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
-              <span class="text-sm font-semibold text-slate-700">신청 준비</span>
-              <span class="text-xs bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded-full">패키지 1</span>
+            <div class="flex flex-wrap items-center gap-1.5 mb-1.5">
+              <span class="text-sm font-semibold text-slate-700">신청 준비 ~ 심문기일</span>
+              <span class="text-xs bg-slate-200 text-slate-700 border border-slate-300 px-1.5 py-0.5 rounded-full font-medium">패키지 1로 전체 지원</span>
             </div>
-            <p class="text-xs text-slate-700">신청서·첨부서류 수집, 채무 목록 및 재산 목록 정리</p>
+            <ul class="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1.5 text-xs text-slate-700">
+              <li><span class="font-semibold text-slate-700">신청 준비</span> — 신청서·첨부서류 수집, 채무 목록 및 재산 목록 정리</li>
+              <li><span class="font-semibold text-slate-700">법원 신청</span> <span class="text-slate-500">(파산 + 면책 동시)</span> — 별도 면책신청 불필요</li>
+              <li><span class="font-semibold text-slate-700">보정명령</span> <span class="text-slate-500">(접수 후 수시)</span> — 서류 미비 시 사법보좌관·판사의 보정 명령 대응 (1회 포함)</li>
+              <li><span class="font-semibold text-slate-700">심문기일</span> <span class="text-slate-500">(신청 후 약 1개월)</span> — 법원 출석 (강제 아님, 권장). 재판부에 사정 설명 가능</li>
+            </ul>
           </div>
 
-          <!-- 단계 2 -->
+          <!-- 묶음 2: 법원 처리 -->
           <div class="relative pl-6 pb-5">
             <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-slate-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">2</div>
-            <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
-              <span class="text-sm font-semibold text-slate-700">법원 신청</span>
-              <span class="text-xs text-slate-600">파산 + 면책 동시</span>
-              <span class="text-xs bg-green-50 text-green-600 border border-green-100 px-1.5 py-0.5 rounded-full">자동</span>
-            </div>
-            <p class="text-xs text-slate-700">파산신청과 면책신청을 한 번에 접수. 별도 면책신청 불필요</p>
-          </div>
-
-          <!-- 단계 3 -->
-          <div class="relative pl-6 pb-5">
-            <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-slate-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">3</div>
-            <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
-              <span class="text-sm font-semibold text-slate-700">심문기일</span>
-              <span class="text-xs text-slate-600">신청 후 약 1개월</span>
-              <span class="text-xs bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded-full">패키지 1</span>
-            </div>
-            <p class="text-xs text-slate-700">법원 출석 (강제 아님, 권장). 재판부에 사정 설명 가능</p>
-          </div>
-
-          <!-- 단계 4 -->
-          <div class="relative pl-6 pb-5">
-            <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-slate-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">4</div>
             <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
               <span class="text-sm font-semibold text-slate-700">파산결정</span>
               <span class="text-xs text-slate-600">심문 후 약 3주</span>
@@ -281,20 +227,20 @@
             <p class="text-xs text-slate-700">파산 선고 + 면책절차 안내문 송달. 채무자는 면책심리 준비</p>
           </div>
 
-          <!-- 단계 5 -->
+          <!-- 묶음 3: 패키지 1 (면책심리) -->
           <div class="relative pl-6 pb-5">
-            <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-slate-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">5</div>
+            <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-slate-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">3</div>
             <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
               <span class="text-sm font-semibold text-slate-700">면책심리</span>
               <span class="text-xs text-slate-600">파산 후 1~2개월</span>
-              <span class="text-xs bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded-full">패키지 1</span>
+              <span class="text-xs bg-slate-200 text-slate-700 border border-slate-300 px-1.5 py-0.5 rounded-full">패키지 1</span>
             </div>
             <p class="text-xs text-slate-700">채권자 이의신청 기간 (30일). 이의 있을 경우 의견청취기일 진행</p>
           </div>
 
-          <!-- 단계 6 -->
+          <!-- 묶음 4: 완료 -->
           <div class="relative pl-6">
-            <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-slate-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">6</div>
+            <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-slate-500 border-2 border-white flex items-center justify-center text-[8px] font-bold text-white">4</div>
             <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
               <span class="text-sm font-semibold text-slate-700">면책결정</span>
               <span class="text-xs text-slate-600">신청부터 총 6~8개월</span>
@@ -309,7 +255,7 @@
 
     <!-- STEP 1: 서류 준비 + 신청·면책 -->
     <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-6">
-      <div class="flex items-start justify-between gap-4">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div class="flex items-start gap-3">
           <div class="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</div>
           <div>
@@ -326,10 +272,28 @@
             </ul>
           </div>
         </div>
-        <div class="text-right shrink-0">
+        <div class="sm:text-right shrink-0 flex sm:flex-col items-center sm:items-end gap-3 sm:gap-0">
           <div class="text-xl font-extrabold text-slate-800">49,000<span class="text-sm font-normal">원</span></div>
           <button onclick="mockPayment('파산 완주 패키지', 49000)"
-            class="mt-2 block w-full text-center px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors">
+            class="sm:mt-2 block text-center px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors whitespace-nowrap">
+            구매하기
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 보정명령 추가 애드온 -->
+    <div class="bg-white border border-slate-200 rounded-2xl p-4 mt-5 mb-2">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div>
+          <div class="text-xs text-amber-600 font-semibold mb-0.5">추가 옵션</div>
+          <h4 class="font-semibold text-slate-700 text-sm">보정명령 추가 대응</h4>
+          <p class="text-xs text-slate-700 mt-1">패키지 1에 포함된 1회 외에 추가 보정명령이 발생한 경우</p>
+        </div>
+        <div class="sm:text-right shrink-0 flex sm:flex-col items-center sm:items-end gap-3 sm:gap-0">
+          <div class="font-bold text-slate-700 text-base">19,000<span class="text-xs font-normal text-slate-700">원/회</span></div>
+          <button onclick="mockPayment('보정명령 추가 대응', 19000)"
+            class="sm:mt-1.5 block text-center px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors whitespace-nowrap">
             구매하기
           </button>
         </div>
@@ -338,13 +302,6 @@
 
   </div><!-- /content-bankrupt -->
 
-  <!-- 법률대리 고지 -->
-  <div class="disclaimer-box">
-    <strong>⚠️ 법률대리 아님 고지</strong><br>
-    본 서비스는 법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.
-    사용자가 직접 절차를 이해하고 준비할 수 있도록 돕는 정보 제공 및 서류 점검 보조 서비스입니다.
-    구체적인 법률 판단이 필요한 경우 변호사, 법무사 등 전문가 상담을 권장합니다.
-  </div>
 
 </div>
 
@@ -359,6 +316,16 @@
       <button onclick="closePay()" class="flex-1 py-2.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">닫기</button>
       <button onclick="mockComplete()" class="flex-1 py-2.5 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors">체험 시작</button>
     </div>
+  </div>
+</div>
+
+<!-- 법률대리 고지 -->
+<div class="max-w-2xl mx-auto px-4 pb-6">
+  <div class="disclaimer-box">
+    <strong>⚠️ 법률대리 아님 고지</strong><br>
+    본 서비스는 법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.
+    사용자가 직접 절차를 이해하고 준비할 수 있도록 돕는 정보 제공 및 서류 점검 보조 서비스입니다.
+    구체적인 법률 판단이 필요한 경우 변호사, 법무사 등 전문가 상담을 권장합니다.
   </div>
 </div>
 
