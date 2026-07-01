@@ -85,7 +85,7 @@ function renderHeader(activePage) {
         <div class="flex items-center justify-between h-16">
 
           <a href="index.html" class="flex items-center gap-2">
-            <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#1e40af,#3b82f6)">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:#533afd">
               <svg class="w-5 h-5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M2 18L10 5L18 18" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                 <line x1="10" y1="8.5" x2="10" y2="11.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
@@ -141,45 +141,44 @@ function renderFooter() {
   if (!el) return;
 
   el.innerHTML = `
-    <footer class="bg-slate-800 text-slate-400 mt-16 no-print">
-      <div class="max-w-6xl mx-auto px-4 py-10">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+    <footer class="footer-stripe mt-16 no-print">
+      <div class="max-w-6xl mx-auto px-4 md:px-6 py-10 md:py-16">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10 mb-8 md:mb-10">
 
           <div>
-            <div class="flex items-center gap-2 mb-3">
-              <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#1e40af,#3b82f6)">
-                <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <div class="flex items-center gap-2 mb-4">
+              <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:#533afd">
+                <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none">
                   <path d="M2 18L10 5L18 18" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                   <line x1="10" y1="8.5" x2="10" y2="11.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
                   <line x1="10" y1="14" x2="10" y2="17" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
                 </svg>
               </div>
-              <span class="text-white font-bold">${SITE_NAME}</span>
+              <span class="font-bold text-sm" style="color:#0d253d">${SITE_NAME}</span>
             </div>
-            <p class="text-sm leading-relaxed">채무 정리 절차를 스스로 이해하고 준비할 수 있도록 돕는 정보 제공 플랫폼입니다.</p>
+            <p class="footer-link leading-relaxed">채무 정리 절차를 스스로 이해하고 준비할 수 있도록 돕는 정보 제공 플랫폼입니다.</p>
           </div>
 
           <div>
-            <h4 class="text-slate-300 font-semibold mb-3 text-sm">주요 서비스</h4>
-            <ul class="space-y-1.5 text-sm">
-              <li><a href="diagnosis.html" class="hover:text-white transition-colors">무료 채무진단</a></li>
-              <li><a href="rehabilitation.html" class="hover:text-white transition-colors">개인회생 셀프 진행가이드</a></li>
-              <li><a href="bankruptcy.html" class="hover:text-white transition-colors">개인파산·면책 셀프 진행가이드</a></li>
-              <li><a href="resources.html" class="hover:text-white transition-colors">FAQ</a></li>
+            <h4 class="footer-heading">주요 서비스</h4>
+            <ul class="space-y-2">
+              <li><a href="diagnosis.html" class="footer-link">무료 채무진단</a></li>
+              <li><a href="pricing.html" class="footer-link">챔로드 셀프진행</a></li>
+              <li><a href="resources.html" class="footer-link">FAQ</a></li>
             </ul>
           </div>
 
           <div>
-            <h4 class="text-slate-300 font-semibold mb-3 text-sm">관련 공공기관</h4>
-            <ul class="space-y-1.5 text-sm">
-              <li><a href="https://ecfs.scourt.go.kr" target="_blank" rel="noopener" class="hover:text-white transition-colors">대법원 전자소송</a></li>
+            <h4 class="footer-heading">관련 공공기관</h4>
+            <ul class="space-y-2">
+              <li><a href="https://ecfs.scourt.go.kr" target="_blank" rel="noopener" class="footer-link">대법원 전자소송</a></li>
             </ul>
           </div>
         </div>
 
-        <div class="border-t border-slate-700 pt-6 space-y-3">
-          <p class="text-xs text-slate-500 text-center">© 2026 ${SITE_NAME} · 본 사이트는 법률대리 사이트가 아님을 고지하며, 법률상담·법률대리·사건 수임 또는 결과 보장을 제공하지 않습니다.</p>
-          <p class="text-xs text-slate-500 text-center mt-1">사용자가 직접 절차를 이해하고 준비할 수 있도록 돕는 정보 제공 및 서류 점검 보조 서비스입니다.</p>
+        <div style="border-top:1px solid #e3e8ee; padding-top:24px">
+          <p class="footer-link text-center" style="font-size:11px; line-height:1.6">© 2026 ${SITE_NAME} · 본 사이트는 법률대리 사이트가 아님을 고지하며, 법률상담·법률대리·사건 수임 또는 결과 보장을 제공하지 않습니다.</p>
+          <p class="footer-link text-center mt-1" style="font-size:11px; line-height:1.6">사용자가 직접 절차를 이해하고 준비할 수 있도록 돕는 정보 제공 및 서류 점검 보조 서비스입니다.</p>
         </div>
       </div>
     </footer>

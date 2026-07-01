@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 작업 진행 기록 (PROGRESS.md)
+
+이 저장소에는 `PROGRESS.md` 파일이 있다. 세션 시작 시(특히 `/clear` 직후) 가장 먼저 이 파일을 읽어 직전까지 무슨 작업을 하고 있었는지 파악한다. 기능 추가·버그 수정 등 의미 있는 작업 단위가 끝나거나 작업을 중단하는 시점마다 `PROGRESS.md`의 "현재 상태"와 "다음에 할 일"을 갱신한다.
+
 ## 프로젝트 개요
 
 **챔로드** — 개인회생·파산 셀프 진행 지원 정보 제공 플랫폼 (순수 HTML/CSS/JS, 프레임워크 없음)
@@ -36,13 +40,107 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### CSS 구조
 
-`css/styles.css` — 공통 컴포넌트 스타일 정의. Tailwind CDN과 병행 사용.
+`css/styles.css` — Stripe 디자인 시스템 토큰 + Tailwind 오버라이드. Tailwind CDN과 병행 사용.
 
 주요 커스텀 클래스:
 - `.disclaimer-box` — 법률대리 아님 고지 박스 (노란 배경, 주황 테두리)
 - `.navbar-sticky` — 상단 고정 네비게이션
 - `.card-hover` — 카드 호버 효과
 - `.section-sm` — 섹션 상하 패딩 단축
+- `.hero-gradient` — 히어로 인디고/네이비 그라디언트 배경
+- `.footer-stripe` / `.footer-link` / `.footer-heading` — 라이트 푸터 스타일
+
+## 디자인 시스템 (Stripe 기반) — 새 HTML 작성 규칙
+
+`css/styles.css`에 Stripe 디자인 토큰이 적용되어 있다. **새 페이지·컴포넌트를 만들 때 아래 규칙을 따르면 별도 CSS 없이 자동 적용된다.**
+
+### 색상 — Tailwind 클래스 사용, 인라인 hex 금지
+
+| 용도 | 사용할 클래스 | 실제 렌더 색 |
+|---|---|---|
+| 주 배경(브랜드) | `bg-blue-700` | `#533afd` (인디고) |
+| 주 텍스트(브랜드) | `text-blue-700` | `#533afd` |
+| 주 테두리(브랜드) | `border-blue-700` | `#533afd` |
+| 히어로/섹션 배경 | `bg-blue-700 text-white` 또는 `hero-gradient` | 인디고 |
+| 페이지 배경 | `bg-slate-50` (body 기본값) | `#f6f9fc` |
+| 카드 배경 | `bg-white` | white |
+| 다크 섹션 배경 | `bg-slate-800` | `#1c1e54` (navy) |
+
+**금지**: `style="background:#1d4ed8"`, `style="color:#3b82f6"` 등 구버전 블루 hex 인라인 스타일 사용 금지. Tailwind 클래스로 대체할 것.
+
+### 버튼 — 클래스만 맞추면 CSS가 pill 모양으로 자동 변환
+
+```html
+<!-- Primary (인디고 채움) — 자동으로 pill + #533afd -->
+<a href="..." class="bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-blue-800 transition-colors">버튼</a>
+<button class="bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors">버튼</button>
+
+<!-- Secondary (아웃라인) — 자동으로 pill -->
+<button class="border border-slate-300 px-5 py-2.5 text-slate-700 text-sm hover:bg-slate-50 transition-colors rounded-xl">취소</button>
+
+<!-- Soft (연한 채움) — 자동으로 pill -->
+<button class="bg-blue-50 text-blue-700 px-4 py-2 text-xs rounded-lg hover:bg-blue-100 transition-colors">구매하기</button>
+
+<!-- 히어로 내 반투명 버튼 — 이 경우만 rounded-full 수동 입력 (CSS 미처리) -->
+<a href="..." class="bg-white/10 text-white px-8 py-3.5 rounded-full border border-white/50 hover:bg-white/20 transition-colors">CTA</a>
+```
+
+**pill 자동 적용 대상**: `a.bg-blue-700`, `button.bg-blue-700`, `button.border-slate-300`, `a.border-slate-200` 등 — [css/styles.css](css/styles.css) 상단 "Pill buttons" 섹션 참조.
+
+### 카드
+
+```html
+<div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">...</div>
+<!-- 강조 카드 -->
+<div class="bg-white rounded-2xl border-2 border-blue-500 shadow-md p-5">...</div>
+```
+
+### 폼 인풋
+
+```html
+<input class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm">
+<!-- focus 시 인디고 테두리 + glow 자동 적용 -->
+```
+
+### 새 페이지 최소 템플릿
+
+```html
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>페이지명 | 챔로드</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-slate-50">
+<div id="header-placeholder"></div>
+
+<!-- 히어로 -->
+<section class="bg-blue-700 text-white py-8">
+  <div class="max-w-4xl mx-auto px-4 text-center">
+    <h1 class="text-2xl md:text-3xl font-bold mb-1">제목</h1>
+    <p class="text-blue-100 text-sm">부제목</p>
+  </div>
+</section>
+
+<!-- 본문 -->
+<div class="max-w-4xl mx-auto px-4 py-8">
+  <!-- 콘텐츠 -->
+  <div class="disclaimer-box mt-6">
+    <strong>⚠️ 법률대리 아님 고지</strong><br>
+    본 서비스는 법률상담, 법률대리, 사건 수임 또는 결과 보장을 제공하지 않습니다.
+  </div>
+</div>
+
+<div id="footer-placeholder"></div>
+<div id="toast"></div>
+<script src="js/main.js"></script>
+<script>initPage('page-id');</script>
+</body>
+</html>
+```
 
 ### 요금제·결제
 
@@ -96,4 +194,4 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **사이트명 변경** 시 `js/main.js` 상단 `const SITE_NAME` 한 곳만 수정
 - **헤더·푸터 수정** 은 `js/main.js`의 `renderHeader()` / `renderFooter()` 함수만 수정
 - **법률대리 아님 고지** 는 모든 페이지 하단에 `.disclaimer-box`로 존재 — 텍스트 변경 시 각 파일 개별 수정 필요
-- `css/styles.css` 주석 상단이 아직 '채무정리길잡이'로 남아 있음 (기능 영향 없음)
+- **새 HTML 작성 시 인라인 hex 색상(`#1d4ed8` 등) 절대 금지** — Tailwind `blue-*` 클래스 사용 → CSS가 자동으로 인디고로 변환

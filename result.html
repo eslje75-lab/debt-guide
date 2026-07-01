@@ -41,6 +41,9 @@
   <!-- 두 절차 비교 도우미 (점수 근접 시) -->
   <div id="tossup-advice" class="mb-6"></div>
 
+  <!-- 파산관재인 선임 경고 (재산 있는 경우) -->
+  <div id="trustee-warning" class="mb-6"></div>
+
   <!-- 상세 섹션 (점수 순으로 동적 정렬, 아코디언) -->
   <div id="detail-sections-container">
     <div id="rehab-detail"    data-type="rehab"    class="bg-white rounded-2xl shadow-sm border border-slate-100 mb-5 overflow-hidden"></div>
@@ -361,7 +364,7 @@
 
   // ── 면책불허가 리스크 경고 섹션 ──
   function buildDischargeRiskWarning(data, scores) {
-    if (scores.bankrupt < 30) return '';
+    if (scores.bankrupt < scores.rehab) return '';
 
     const causes     = data.debtCauses       || [];
     const priors     = data.priorAdjustments || [];
@@ -567,6 +570,53 @@
       </div>`;
   }
 
+  // ── 파산관재인 선임 경고 (재산 있는 경우) ──
+  function buildTrusteeWarning(data, scores) {
+    if (scores.bankrupt < 30) return '';
+    const totalAssets = data.totalAssets || 0;
+    if (totalAssets < 5_000_000) return '';
+
+    return `
+      <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+        <div class="flex items-start gap-3 mb-3">
+          <span class="text-2xl shrink-0">⚠️</span>
+          <div>
+            <h3 class="font-bold text-amber-800 text-base mb-1">재산이 있는 경우 — 파산 절차가 복잡해질 수 있습니다</h3>
+            <p class="text-sm text-slate-600">입력하신 재산 합계(<strong>${formatWon(totalAssets)}</strong>)로 인해 법원이 <strong>파산관재인</strong>을 선임할 수 있습니다. 재산이 거의 없을 때 내려지는 <em>동시폐지결정</em>과는 다른 절차가 진행됩니다.</p>
+          </div>
+        </div>
+
+        <div class="space-y-2.5 mb-4">
+          <div class="flex gap-2.5 bg-white border border-amber-100 rounded-xl px-4 py-3">
+            <span class="text-amber-500 shrink-0 font-bold mt-0.5">!</span>
+            <div>
+              <p class="text-sm font-semibold text-slate-800">파산관재인 선임 → 예납금 납부 의무 발생</p>
+              <p class="text-xs text-slate-500 mt-0.5">법원은 파산관재인 보수 등 절차비용을 충당하기 위해 <strong>예납명령</strong>을 내릴 수 있습니다. 예납금을 납부하지 못하면 파산신청이 기각될 수 있습니다.</p>
+            </div>
+          </div>
+          <div class="flex gap-2.5 bg-white border border-blue-100 rounded-xl px-4 py-3">
+            <span class="text-blue-400 shrink-0 font-bold mt-0.5">i</span>
+            <div>
+              <p class="text-sm font-semibold text-slate-800">예납금이 부담된다면 — 소송구조 신청 가능</p>
+              <p class="text-xs text-slate-500 mt-0.5">소송비용 납부 능력이 없는 경우 법원에 <strong>소송구조</strong>를 신청하면 예납금 납부를 면제·유예받을 수 있습니다. 법원이 직권으로 결정하기도 합니다.</p>
+            </div>
+          </div>
+          <div class="flex gap-2.5 bg-white border border-amber-100 rounded-xl px-4 py-3">
+            <span class="text-amber-500 shrink-0 font-bold mt-0.5">!</span>
+            <div>
+              <p class="text-sm font-semibold text-slate-800">챔로드 서비스 범위 안내</p>
+              <p class="text-xs text-slate-500 mt-0.5">챔로드는 재산이 없어 <em>동시폐지결정</em>이 내려지는 경우(개인파산의 가장 일반적인 경로)를 기준으로 설계되어 있습니다. 파산관재인이 선임되는 절차는 추가적인 전문 지원이 필요합니다.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-amber-100 border border-amber-200 rounded-xl p-4">
+          <p class="text-sm font-bold text-amber-800 mb-1">신청 전 전문가 상담을 먼저 받아보세요</p>
+          <p class="text-xs text-slate-600">재산이 있는 상황에서의 개인파산은 절차가 더 복잡합니다. <strong>대한법률구조공단(132)</strong>의 무료 상담이나 법무사·변호사 상담을 통해 실제 예납금 규모와 절차를 먼저 확인하세요.</p>
+        </div>
+      </div>`;
+  }
+
   // ── 메인 렌더링 ──
   function renderResults() {
     const rawScores = Storage.load('diagnosis_scores') || { rehab:0, bankrupt:0 };
@@ -601,6 +651,9 @@
 
     // 두 절차 비교 도우미 (점수 근접 시)
     document.getElementById('tossup-advice').innerHTML = buildTossupAdvice(scores, data, repay);
+
+    // 파산관재인 선임 경고 (재산 있는 경우)
+    document.getElementById('trustee-warning').innerHTML = buildTrusteeWarning(data, scores);
 
     // ── 개인회생 상세: 적합도 30% 이상일 때만 표시 ──
     const rehabEl = document.getElementById('rehab-detail');
@@ -711,7 +764,7 @@
           <span class="text-xl shrink-0 mt-0.5">📅</span>
           <div>
             <p class="font-bold text-amber-800 text-sm mb-1">월별 현금흐름 준비 — 상여금·보너스가 있는 경우</p>
-            <p class="text-xs text-slate-600">월 변제액은 연간 평균 소득 기준으로 고정됩니다. 상여금이 없는 달에는 실수령액이 빠듯할 수 있으므로, <strong>상여금 수령 달에 차액을 미리 저축</strong>해 두는 것이 중요합니다. 미납이 3회 누적되면 법원이 폐지 절차를 개시할 수 있으므로, <strong>1~2개월치 변제금을 비상금으로 확보</strong>해 두세요.</p>
+            <p class="text-xs text-slate-600">월 변제액은 전년도 연간 소득(원천징수영수증 기준)을 12개월로 나누어 산정되며, 변제 기간 동안 동일한 금액이 유지됩니다. 상여금이 없는 달에는 실수령액이 빠듯할 수 있으므로, <strong>상여금 수령 달에 차액을 미리 저축</strong>해 두는 것이 중요합니다. 미납이 3회 누적되면 법원이 폐지 절차를 개시할 수 있으므로, <strong>1~2개월치 변제금을 비상금으로 확보</strong>해 두세요.</p>
           </div>
         </div>` : ''}
       </div>`;

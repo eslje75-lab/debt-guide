@@ -388,7 +388,8 @@
     Storage.save('plan_type', currentPlanType);
     closePay();
     showToast(currentPlan + ' 체험 모드가 활성화되었습니다.', 'success');
-    setTimeout(() => { window.location.href = 'mypage.html'; }, 1200);
+    const dest = currentPlanType === 'bankrupt' ? 'bankruptcy.html' : 'rehabilitation.html';
+    setTimeout(() => { window.location.href = dest; }, 1200);
   }
 </script>
 </body>
