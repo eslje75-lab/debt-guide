@@ -9,7 +9,7 @@
 - **소액 채무 안내(`result.html`)**: 총채무 **1,000만원 미만**이면 적합도 배너·위험 스트립·다음 단계 CTA·상세 아코디언을 모두 숨기고, "채무 규모가 크지 않은 편입니다 → 신용회복위원회 채무조정 우선 안내"(안 A) 카드 + **총 채무 숫자 1칸만** 표시. 신복위는 자격요건까지 다루지 않고 **사이트(www.ccrs.or.kr) + 대표번호 1600-5500(평일 09:00~18:00)** 만 안내(전화번호는 ccrs.or.kr 공식 확인). 구현: `LOW_DEBT_THRESHOLD`(=10,000,000) 상수 + `isLowDebt()`/`buildLowDebtGuidance()`/`buildLowDebtKeyNumber()`. `renderResults()` 날짜 로드 직후 조기 분기, 하단 `renderCta()` IIFE에도 `if(isLowDebt) return` 가드. 무데이터 분기는 그 앞이라 회귀 없음. **기준 1,000만원은 법정 최소액이 아니라 "법원 절차 비용·부담 대비 실익" 근거의 heuristic — 사용자 승인.**
 - **홈 진행 버튼 입체화(`index.html`+`css/styles.css`)**: "무료 채무진단"/"챔로드 셀프진행" 버튼에 3D 눌림 효과. Tailwind arbitrary value가 CDN에서 안 먹어 `.btn-3d-white`/`.btn-3d-primary` 클래스를 styles.css에 직접 추가. 흰 버튼엔 pulse 애니메이션.
 - **잔손질(`result.html`)**: 중복이던 "상세 정보 전체 펼치기" 버튼 삭제, mini-disclaimer 가독성 상향(text-sm/slate-500/medium), 하단 고지 여백 mt-8→mt-16.
-- **아직 커밋/푸시 안 함** (이전 미배포분에 이어짐).
+- **커밋(`b3faf78`) + `git push origin main` 완료** — 이전 2~3차 미배포분 포함 전체 배포됨. GitHub Pages 반영 대기.
 
 ### 2026-07-02 (3차) — 진단결과 페이지 "간단 결과 우선" 구조로 개편
 
@@ -110,11 +110,11 @@ DESIGN-stripe.md 기준으로 전체 사이트 디자인 시스템 적용.
 - PROGRESS.md 신설. 작업 추적 체계 도입.
 
 ## 다음에 할 일 / 미정 사항
-- 수정 완료분(2차 버그·법률 수정 + 3차 결과 페이지 개편) 커밋 + `git push origin main` (사용자 확인 후 배포 — app.html 삭제 반영 포함)
 - 실서비스 로드맵 결정: 백엔드(회원·결제·비밀번호 안전 저장) + AI 서류검토 실제 API 연동
 - compare.html "파산선고와 동시에 추심·강제집행 즉시 중단" 표현 공식 출처 검증 후 다듬기
+- 신용회복위원회 채무조정 자격요건(연체 전/후 단계별)은 아직 ccrs.or.kr 공식 확인 전 — result.html 소액 안내는 사이트·전화번호만 노출해 우회 중
 
 ## 알아둘 것
 - Inter 폰트 Google Fonts에서 로드 (한글 지원 있음, 일부 글자는 시스템 폴백)
-- `compare.html`, `documents.html`, `ai-review.html`, `find-account.html`, `app.html` 파일은 CSS 규칙으로만 처리 (별도 HTML 수정 없음)
+- `compare.html`, `documents.html`, `ai-review.html`, `find-account.html` 파일은 CSS 규칙으로만 처리 (별도 HTML 수정 없음). `app.html`은 2026-07-02 삭제됨 — 다시 만들지 말 것
 - `login.html` 인라인 `<style>` 블록의 `.btn-primary` 등은 `styles.css`의 `!important` 규칙이 우선 적용
