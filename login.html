@@ -184,15 +184,20 @@
 
 <script src="js/main.js"></script>
 <script>
-  // 이미 로그인된 경우 리다이렉트
-  if (Auth.isLoggedIn()) {
-    const next = new URLSearchParams(location.search).get('next');
-    location.replace(next || 'index.html');
-  }
-
+  // next 파라미터는 같은 사이트 안의 주소만 허용 (외부 사이트·javascript: 주소 차단)
   function getNextUrl() {
     const next = new URLSearchParams(location.search).get('next');
-    return next || 'index.html';
+    if (!next) return 'index.html';
+    try {
+      const u = new URL(next, location.href);
+      if (u.origin === location.origin) return u.href;
+    } catch (e) {}
+    return 'index.html';
+  }
+
+  // 이미 로그인된 경우 리다이렉트
+  if (Auth.isLoggedIn()) {
+    location.replace(getNextUrl());
   }
 
   function switchTab(tab) {

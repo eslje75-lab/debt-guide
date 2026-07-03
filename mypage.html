@@ -99,10 +99,6 @@
 <script>
   initPage('home');
 
-  // 개인회생 총 항목 수
-  const REHAB_TOTAL  = 8 * 5; // 8단계 × 약 5항목 (대략)
-  const BANKRUPT_TOTAL = 8 * 5;
-
   function calcChecks(key) {
     const saved = Storage.load(key) || {};
     return Object.values(saved).filter(Boolean).length;
@@ -146,9 +142,9 @@
       return { done, total: totalItems };
     }
 
-    // 실제 항목 수로 계산
-    const rehabItems = 4+5+4+5+4+6+5+5; // 각 단계 항목수 합
-    const bankruptItems = 4+4+4+5+4+5+5+5;
+    // 실제 항목 수로 계산 — rehabilitation.html REHAB_STEPS / bankruptcy.html BANKRUPT_STEPS와 반드시 일치시킬 것
+    const rehabItems = 4+5+4+5+4+6+5+5+4;   // 9단계, 42항목
+    const bankruptItems = 4+4+4+5+4+5+5+5;  // 8단계, 36항목
 
     const rp = calcProgress('rehab_checks', rehabItems);
     const bp = calcProgress('bankrupt_checks', bankruptItems);

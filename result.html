@@ -20,44 +20,34 @@
 
 <div class="max-w-4xl mx-auto px-4 py-8">
 
-  <!-- 참고 안내 -->
-  <div class="disclaimer-box mb-6 flex items-start gap-2">
-    <span class="shrink-0">⚠️</span>
-    <span>아래 결과는 입력하신 정보를 바탕으로 한 참고용 분석입니다. 법률상담·법률대리·결과 보장이 아니며, 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다.</span>
-  </div>
-
-  <!-- 면책불허가 리스크 경고 (위험 요인 있을 때만 표시) -->
-  <div id="discharge-risk-warning" class="mb-6"></div>
+  <!-- ═══ 간단 결과 (첫 화면): 추천 → 핵심 숫자 → 위험 요약 → 다음 단계 ═══ -->
 
   <!-- 최적 절차 추천 배너 -->
-  <div id="best-recommendation" class="mb-6"><!-- JS 렌더링 --></div>
+  <div id="best-recommendation" class="mb-3"><!-- JS 렌더링 --></div>
 
-  <!-- 적합도 카드 3개 -->
-  <h2 class="text-base font-bold text-slate-700 mb-3">절차별 적합도 분석</h2>
-  <div id="result-cards" class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
-    <!-- JS 렌더링 -->
-  </div>
+  <!-- 한 줄 참고 고지 -->
+  <p id="mini-disclaimer" class="text-sm text-slate-500 text-center mb-5 font-medium">본 결과는 입력값 기반 참고용 분석으로 법률상담이 아니며, 최종 판단은 법원 결정과 전문가 검토에 따라 달라질 수 있습니다.</p>
 
-  <!-- 두 절차 비교 도우미 (점수 근접 시) -->
-  <div id="tossup-advice" class="mb-6"></div>
+  <!-- 핵심 숫자 요약 -->
+  <div id="key-numbers" class="mb-4"></div>
 
-  <!-- 파산관재인 선임 경고 (재산 있는 경우) -->
-  <div id="trustee-warning" class="mb-6"></div>
-
-  <!-- 상세 섹션 (점수 순으로 동적 정렬, 아코디언) -->
-  <div id="detail-sections-container">
-    <div id="rehab-detail"    data-type="rehab"    class="bg-white rounded-2xl shadow-sm border border-slate-100 mb-5 overflow-hidden"></div>
-    <div id="bankrupt-detail" data-type="bankrupt" class="bg-white rounded-2xl shadow-sm border border-slate-100 mb-5 overflow-hidden"></div>
-  </div>
+  <!-- 면책불허가 위험 요약 스트립 (누르면 상세) -->
+  <div id="risk-strip" class="mb-4"></div>
 
   <!-- 다음 단계 CTA -->
-  <div id="next-step-cta" class="mb-4"></div>
+  <div id="next-step-cta" class="mb-8"></div>
 
-  <!-- 재진단 버튼 -->
-  <div class="text-center mt-2">
-    <a href="diagnosis.html" class="inline-block text-slate-500 text-sm hover:text-blue-700 underline">
-      다시 진단하기
-    </a>
+  <!-- ═══ 상세 결과 (접힌 아코디언 — 궁금한 사람만 펼쳐보기) ═══ -->
+  <div id="detail-accordions" class="space-y-3"></div>
+
+  <div class="text-center mt-6 text-sm">
+    <a href="diagnosis.html" class="text-slate-500 hover:text-blue-700 underline">다시 진단하기</a>
+  </div>
+
+  <!-- 하단 고지 -->
+  <div class="disclaimer-box mt-16 flex items-start gap-2">
+    <span class="shrink-0">⚠️</span>
+    <span>위 결과는 입력하신 정보를 바탕으로 한 참고용 분석입니다. 법률상담·법률대리·결과 보장이 아니며, 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다. 구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단(국번없이 132) 등 전문가 상담을 권장합니다.</span>
   </div>
 </div>
 
@@ -88,13 +78,13 @@
     const secured   = data.securedDebt      || 0;
     const priors    = data.priorAdjustments || [];
     if (type === 'rehab') {
-      if (priors.includes('rehab-done-recent')) return '개인회생 면책 확정 후 5년 미경과 — 법적 재신청 불가';
+      if (priors.includes('rehab-done-recent')) return '개인회생 면책 확정 후 5년 미경과 — 신청 기각 사유(채무자회생법 제595조 제5호)';
       if (priors.includes('rehab-ongoing'))     return '현재 개인회생 진행 중 — 중복 신청 불가';
       if (unsecured > 1_000_000_000) return `무담보 채무(${formatWon(unsecured)})가 법정 한도(10억) 초과`;
       if (secured   > 1_500_000_000) return `담보 채무(${formatWon(secured)})가 법정 한도(15억) 초과`;
     }
     if (type === 'bankrupt') {
-      if (priors.includes('bankrupt-done-recent')) return '파산 면책 확정 후 7년 미경과 — 법적 재신청 불가';
+      if (priors.includes('bankrupt-done-recent')) return '파산 면책 확정 후 7년 미경과 — 면책불허가 사유(채무자회생법 제564조 제1항 제4호)';
       if (priors.includes('bankrupt-ongoing'))     return '현재 개인파산 진행 중 — 중복 신청 불가';
     }
     return null;
@@ -113,7 +103,10 @@
     const pros = [], cons = [];
     const income      = data.monthlyIncome  || 0;
     const living      = data.monthlyLiving  || 0;
-    const disposable  = income - living;
+    // 변제 여력은 저장된 변제금 계산(표준생계비 반영)과 동일한 기준을 사용 — 배너·카드·상세 수치 불일치 방지
+    const repayCalc   = Storage.load('diagnosis_repay') || {};
+    const courtLiving = repayCalc.effectiveLiving || living;
+    const disposable  = (repayCalc.monthly !== undefined) ? repayCalc.monthly : Math.max(0, income - living);
     const unsecured   = data.unsecuredDebt  || 0;
     const secured     = data.securedDebt    || 0;
     const totalDebt   = data.totalDebt      || 0;
@@ -121,9 +114,6 @@
     const arrears     = data.arrearsMonths  || 0;
     const priors      = data.priorAdjustments || [];
     const causes      = data.debtCauses     || [];
-    const debtTypes   = data.debtTypes      || [];
-    const hasFinance  = debtTypes.some(t => ['bank','savings','card','insurance'].includes(t));
-
     if (type === 'rehab') {
       // 유리한 점
       if (data.hasIncome && income > 0)
@@ -141,17 +131,21 @@
       if (!data.hasIncome || income === 0)
         cons.push('소득 없음 — 변제계획 수립 불가, 개인파산 검토가 우선됩니다');
       else if (disposable <= 0)
-        cons.push(`소득(${formatWon(income)})이 생활비(${formatWon(living)})에 미달 — 변제 여력 없음`);
+        cons.push(`소득(${formatWon(income)})이 법원 인정 생계비 기준(${formatWon(courtLiving)}) 이하 — 변제 여력이 없는 것으로 계산됩니다`);
       if (unsecured > 1_000_000_000)
         cons.push(`무담보 채무(${formatWon(unsecured)})가 법정 한도(10억) 초과 — 개인회생 신청 자체가 불가`);
       if (secured > 1_500_000_000)
         cons.push(`담보 채무(${formatWon(secured)})가 법정 한도(15억) 초과 — 개인회생 신청 자체가 불가`);
       if (priors.includes('rehab-done-recent'))
-        cons.push('개인회생 면책 확정 후 5년 미경과 — 법적으로 재신청 불가 상태');
+        cons.push('개인회생 면책 확정 후 5년 미경과 — 신청 기각 사유에 해당합니다(채무자회생법 제595조 제5호)');
       if (priors.includes('rehab-ongoing'))
         cons.push('현재 개인회생 진행 중 — 중복 신청 불가');
-      if (data.hasRecentLoan)
-        cons.push('최근 3개월 이내 신규 대출 있음 — 채권자가 사기죄(채무자회생법 제643조)로 형사고소하거나 이의신청을 제기할 수 있으며, 인용 시 회생 기각·해당 채무 면책 제외 가능. 이자를 3회 이상 납부한 이력이 있으면 사기 혐의가 기각될 가능성이 높아지므로, 3개월 이상 정상 납부 후 신청을 검토하세요');
+      if (priors.includes('bankrupt-done-recent'))
+        cons.push('파산 면책 이력 있음 — 면책 확정 후 5년이 지나지 않았다면 개인회생 신청도 기각 사유(채무자회생법 제595조 제5호)에 해당합니다. 면책 확정일을 먼저 확인하세요');
+      if (data.recentLoan === 'within-3m')
+        cons.push('최근 3개월 이내 신규 대출 있음 — 갚을 의사·능력 없이 빌린 것으로 의심받으면 채권자가 이의를 제기하거나 형법상 사기죄(제347조)로 고소할 수 있으며, 신청 기각·해당 채무 면책 제외로 이어질 수 있습니다. 대출 시점·사용처를 소명할 자료를 준비하세요');
+      else if (data.recentLoan === 'within-1y')
+        cons.push('최근 1년 이내 신규 대출 있음 — 채무 발생 경위 심사에서 대출 시점과 사용처에 대한 소명이 필요할 수 있습니다');
     }
 
     if (type === 'bankrupt') {
@@ -160,8 +154,8 @@
         pros.push(`개인회생 신청 불가 — 채무 규모 초과 또는 재신청 대기기간으로 인해 법원 절차 중 파산이 유일한 선택`);
       if (!data.hasIncome || income === 0)
         pros.push('소득 없음 — 변제 불능 상태로 파산의 핵심 요건에 해당');
-      else if (income < living)
-        pros.push(`소득(${formatWon(income)})이 최소 생활비(${formatWon(living)})에 미달 — 변제 불능 상태`);
+      else if (income < courtLiving)
+        pros.push(`소득(${formatWon(income)})이 법원 인정 생계비 기준(${formatWon(courtLiving)})에 미달 — 변제 불능에 가까운 상태`);
       if (totalDebt > 0 && totalAssets < totalDebt * 0.2)
         pros.push(`총 재산(${formatWon(totalAssets)})이 총 채무(${formatWon(totalDebt)})의 20%에도 못 미쳐 채무초과 상태`);
       if (totalAssets < 5_000_000)
@@ -182,14 +176,14 @@
         cons.push('투자 손실 채무 포함 — 과도한 투기로 판단될 경우 면책불허가 사유(채무자회생법 제564조) 검토 대상이 될 수 있음');
       if (arrears > 0 && arrears < 5)
         cons.push('연체 기간이 짧아 지급불능 상태 입증이 중요합니다 — 소득·자산 대비 채무 초과 상태를 구체적으로 소명하는 서류가 필요합니다');
-      if (data.hasRecentLoan)
-        cons.push('최근 3개월 이내 신규 대출 있음 — 채권자가 사기죄(채무자회생법 제643조)로 형사고소할 수 있으며, 인용 시 해당 채무가 면책 제외(비면책채권)될 수 있습니다. 파산선고 전 1년 내 신용거래는 면책불허가 사유에도 해당할 수 있습니다(제564조). 이자를 3회 이상 납부한 이력이 사기 혐의 기각에 유리하므로, 3개월 이상 정상 납부 후 신청을 검토하세요');
+      if (data.recentLoan === 'within-3m' || data.recentLoan === 'within-1y')
+        cons.push('최근 1년 이내 신규 대출 있음 — 파산선고 전 1년 이내에 지급불능 상태를 숨기고 신용거래로 재산을 취득한 경우 면책불허가 사유(채무자회생법 제564조 제1항 제2호)에 해당할 수 있고, 채권자가 형법상 사기죄(제347조)로 고소할 수도 있습니다. 대출 시점·사용처를 소명할 자료를 준비하세요');
       if (totalAssets >= 5_000_000)
         cons.push(`보유 재산(${formatWon(totalAssets)}) — 일정 한도 초과분은 파산재단에 편입되어 처분될 수 있습니다. 재산 목록을 정확히 신고해야 합니다`);
       if (!causes.includes('gambling'))
         cons.push('낭비·사치성 소비, 허위 재산신고 등도 면책불허가 사유(채무자회생법 제564조)에 해당할 수 있습니다 — 채무 발생 경위를 정확히 정리하세요');
       if (priors.includes('bankrupt-done-recent'))
-        cons.push('파산 면책 확정 후 7년 미경과 — 법적으로 재신청 불가 상태');
+        cons.push('파산 면책 확정 후 7년 미경과 — 면책불허가 사유에 해당합니다(채무자회생법 제564조 제1항 제4호)');
       if (priors.includes('bankrupt-denied'))
         cons.push('이전 면책불허가 결정 이력 있음 — 재신청 시 심사에서 불리하게 작용하며, 채무 발생 경위 소명이 특히 중요합니다');
       if (priors.includes('bankrupt-ongoing'))
@@ -293,7 +287,7 @@
     const dualNote = gap <= 20 && second.score >= 30
       ? `<p class="text-blue-100 text-sm mt-2">
            <strong>${second.title}</strong>도 적합도 ${Math.round(second.score)}%로 동시 검토 가능합니다.
-           두 절차의 장단점을 아래 카드에서 비교해 보세요.
+           장단점은 아래 '왜 이 결과가 나왔나요?'에서 비교할 수 있습니다.
          </p>`
       : '';
 
@@ -321,8 +315,9 @@
   // ── 최적 절차 선택 이유 한 줄 요약 ──
   function buildBestReason(data, type) {
     const income     = data.monthlyIncome || 0;
-    const living     = data.monthlyLiving || 0;
-    const disposable = income - living;
+    // 변제 여력은 표준생계비 반영 계산값과 동일 기준 사용
+    const repayCalc  = Storage.load('diagnosis_repay') || {};
+    const disposable = repayCalc.monthly || 0;
     const arrears    = data.arrearsMonths || 0;
 
     if (type === 'rehab') {
@@ -345,26 +340,79 @@
     return '';
   }
 
-  // ── 상세 섹션 아코디언 래핑 ──
-  function makeAccordion(el, isWinner) {
-    const inner  = el.innerHTML;
-    const bodyId = el.id + '-body';
-    el.innerHTML = `
-      <button onclick="var b=document.getElementById('${bodyId}');b.classList.toggle('hidden');this.querySelector('.chev').textContent=b.classList.contains('hidden')?'펼치기 ▼':'접기 ▲';"
-        class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 transition-colors border-b border-slate-100">
-        <span class="text-sm font-semibold text-slate-600 flex items-center gap-2">
-          상세 정보
-          ${isWinner ? '<span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">추천 절차</span>' : ''}
-        </span>
-        <span class="chev text-slate-400 text-xs">${isWinner ? '접기 ▲' : '펼치기 ▼'}</span>
-      </button>
-      <div id="${bodyId}" class="p-6 ${isWinner ? '' : 'hidden'}">${inner}</div>
-    `;
+  // ── 접이식 섹션 셸 (상세 정보 아코디언 공통) ──
+  function accordionShell(id, title, contentHtml, open = false) {
+    return `
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <button onclick="toggleSection('${id}')" class="w-full flex items-center justify-between gap-2 px-5 py-4 text-left hover:bg-slate-50 transition-colors">
+          <span class="text-sm font-semibold text-slate-700">${title}</span>
+          <span id="${id}-chev" class="acc-chev text-slate-400 text-xs shrink-0">${open ? '접기 ▲' : '펼치기 ▼'}</span>
+        </button>
+        <div id="${id}-body" class="acc-body ${open ? '' : 'hidden'} px-5 pb-5">${contentHtml}</div>
+      </div>`;
   }
 
-  // ── 면책불허가 리스크 경고 섹션 ──
-  function buildDischargeRiskWarning(data, scores) {
-    if (scores.bankrupt < scores.rehab) return '';
+  function toggleSection(id) {
+    const b = document.getElementById(id + '-body');
+    const c = document.getElementById(id + '-chev');
+    if (!b) return;
+    b.classList.toggle('hidden');
+    if (c) c.textContent = b.classList.contains('hidden') ? '펼치기 ▼' : '접기 ▲';
+  }
+
+  function toggleAllSections() {
+    const bodies = document.querySelectorAll('.acc-body');
+    const anyHidden = Array.from(bodies).some(b => b.classList.contains('hidden'));
+    bodies.forEach(b => b.classList.toggle('hidden', !anyHidden));
+    document.querySelectorAll('.acc-chev').forEach(c => { c.textContent = anyHidden ? '접기 ▲' : '펼치기 ▼'; });
+    const btn = document.getElementById('expand-all-btn');
+    if (btn) btn.textContent = anyHidden ? '상세 정보 전체 접기' : '상세 정보 전체 펼치기';
+  }
+
+  // ── 핵심 숫자 요약 (첫 화면) ──
+  function buildKeyNumbers(scores, data, repay, winnerType) {
+    const best = Math.max(scores.rehab, scores.bankrupt);
+    if (best < 20) return '';
+
+    const cell = (label, value, sub) => `
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 text-center">
+        <div class="text-xs text-slate-500 mb-1">${label}</div>
+        <div class="text-xl font-bold text-blue-700">${value}</div>
+        ${sub ? `<div class="text-xs text-slate-400 mt-1">${sub}</div>` : ''}
+      </div>`;
+
+    // 개인회생 우세: 변제금 3종 요약
+    if (winnerType === 'rehab' && scores.rehab >= 30) {
+      const monthly = repay.monthly || 0;
+      const total36 = repay.total36 || 0;
+      const exempt  = Math.max(0, repay.exempt || 0);
+      const zeroNote = monthly === 0 ? `
+        <div class="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mt-3">
+          <span class="shrink-0">⚠️</span>
+          <p class="text-xs text-slate-600">소득이 표준생계비에 미치지 못해 월 변제액이 0원으로 계산됩니다. 이 경우 법원이 개인파산·면책 검토를 권고할 수 있습니다 — 아래 '예상 변제금 계산 근거'에서 자세히 확인하세요.</p>
+        </div>` : '';
+      const liqNote = (data.totalAssets || 0) > total36 ? `
+        <p class="text-xs text-amber-600 mt-2 text-center">※ 보유 재산이 3년 변제총액보다 많아 실제 변제금이 늘거나 기간이 연장(최대 5년)될 수 있습니다 — 아래 계산 근거 참고.</p>` : '';
+      return `
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          ${cell('월 변제 가능 추정액', formatWon(monthly), '소득 − 적용 생계비')}
+          ${cell('예상 총 변제금', formatWon(total36), '36개월 기준')}
+          ${cell('면책 가능 채무 추정액', formatWon(exempt), '총 채무 − 총 변제금')}
+        </div>${zeroNote}${liqNote}`;
+    }
+
+    // 개인파산 우세: 입력 정보 요약 (면책 범위는 법원이 결정)
+    return `
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        ${cell('총 채무', formatWon(data.totalDebt || 0), '면책 범위는 법원이 결정')}
+        ${cell('신고 재산 합계', formatWon(data.totalAssets || 0), '파산재단 산정의 기초')}
+        ${cell('채권자 수', (data.creditorCount || 0) + '곳', '채권자 목록 작성 대상')}
+      </div>`;
+  }
+
+  // ── 면책불허가 위험 요인 수집 ──
+  function getDischargeRisks(data, scores) {
+    if (scores.bankrupt < scores.rehab) return [];
 
     const causes     = data.debtCauses       || [];
     const priors     = data.priorAdjustments || [];
@@ -372,63 +420,72 @@
 
     const risks = [];
     if (causes.includes('gambling'))
-      risks.push({ label: '도박·사행성 채무', detail: '가장 강력한 면책불허가 사유 — 법원이 거의 예외 없이 불허가 결정을 내립니다.', law: '채무자회생법 제564조 제1항 제4호' });
+      risks.push({ label: '도박·사행성 채무', detail: '대표적인 면책불허가 사유입니다. 다만 채무 발생 경위·반성 정도 등을 고려해 법원이 재량으로 면책(일부면책 포함)을 허가하는 경우도 있습니다.', law: '채무자회생법 제564조 제1항 제6호' });
     if (causes.includes('investment'))
-      risks.push({ label: '투기성 투자 손실', detail: '과도한 투기로 판단되면 면책불허가 사유에 해당합니다. 소액·일시적 투자는 판사 재량에 따라 달라질 수 있습니다.', law: '채무자회생법 제564조 제1항 제4호' });
+      risks.push({ label: '투기성 투자 손실', detail: '과도한 투기로 판단되면 면책불허가 사유에 해당합니다. 소액·일시적 투자는 판사 재량에 따라 달라질 수 있습니다.', law: '채무자회생법 제564조 제1항 제6호' });
     if (recentLoan === 'within-3m')
-      risks.push({ label: '최근 3개월 이내 신규 대출', detail: '면책을 의도한 사기적 채무 형성으로 볼 수 있어 면책불허가 사유에 해당할 수 있습니다.', law: '채무자회생법 제564조 제1항 제5호' });
+      risks.push({ label: '최근 3개월 이내 신규 대출', detail: '지급불능 상태를 숨기고 신용거래로 재산을 취득한 것으로 판단되면 면책불허가 사유에 해당할 수 있습니다.', law: '채무자회생법 제564조 제1항 제2호' });
     else if (recentLoan === 'within-1y')
-      risks.push({ label: '1년 이내 신규 대출', detail: '파산선고 전 1년 이내 신용거래는 면책불허가 사유 심사 대상이 될 수 있습니다.', law: '채무자회생법 제564조 참조' });
+      risks.push({ label: '1년 이내 신규 대출', detail: '파산선고 전 1년 이내 신용거래는 면책불허가 사유 심사 대상이 될 수 있습니다.', law: '채무자회생법 제564조 제1항 제2호' });
     if (priors.includes('bankrupt-denied'))
       risks.push({ label: '이전 면책불허가 이력', detail: '재신청 시 법원이 과거 불허가 사유를 다시 검토하므로 심사가 더 엄격해집니다.', law: '재심사 시 불리하게 작용' });
 
-    if (risks.length === 0) return '';
+    return risks;
+  }
 
-    const hasGambling  = causes.includes('gambling');
+  // ── 위험 요약 스트립 (첫 화면) — 누르면 상세가 펼쳐짐 ──
+  function buildRiskStrip(data, scores) {
+    const risks = getDischargeRisks(data, scores);
+    if (risks.length === 0) return '';
+    const labels = risks.map(r => r.label).join(' · ');
+    return `
+      <div class="bg-red-50 border border-red-200 rounded-2xl overflow-hidden">
+        <button onclick="toggleSection('risk-sec')" class="w-full flex items-center justify-between gap-2 px-5 py-4 text-left hover:bg-red-100 transition-colors">
+          <span class="text-sm font-bold text-red-700">🚨 진행 전 확인할 위험 ${risks.length}건 — ${labels}</span>
+          <span id="risk-sec-chev" class="acc-chev text-red-400 text-xs shrink-0">펼치기 ▼</span>
+        </button>
+        <div id="risk-sec-body" class="acc-body hidden px-5 pb-5">${buildRiskDetail(scores, risks)}</div>
+      </div>`;
+  }
+
+  // ── 위험 상세 본문 ──
+  function buildRiskDetail(scores, risks) {
     const altRehabNote = scores.rehab >= 30
       ? `<div class="mt-4 pt-4 border-t border-red-200">
            <p class="text-sm font-semibold text-slate-700 mb-1">💡 대안 검토 — 개인회생</p>
-           <p class="text-xs text-slate-600">개인회생은 파산과 달리 면책불허가 사유 기준이 더 관대합니다. 소득이 있다면 파산보다 개인회생 절차를 우선 검토하는 것이 안전합니다. 아래 적합도 카드와 비교 분석을 참고하세요.</p>
+           <p class="text-xs text-slate-600">개인회생은 파산과 달리 면책불허가 사유 기준이 더 관대합니다. 소득이 있다면 파산보다 개인회생 절차를 우선 검토하는 것이 안전합니다. 아래 '왜 이 결과가 나왔나요?'의 비교 분석을 참고하세요.</p>
          </div>`
       : `<div class="mt-4 pt-4 border-t border-red-200">
            <p class="text-xs text-slate-600">파산 외 대안이 제한적인 상황입니다. 신청 전 <strong>대한법률구조공단(132)</strong> 무료 상담을 통해 면책 가능성을 먼저 확인하세요.</p>
          </div>`;
 
     return `
-      <div class="bg-red-50 border border-red-200 rounded-2xl p-5">
-        <div class="flex items-start gap-3 mb-4">
-          <span class="text-2xl shrink-0">🚨</span>
-          <div>
-            <h3 class="font-bold text-red-800 text-base mb-1">파산 진행 전 반드시 확인 — 면책불허가 위험 요인</h3>
-            <p class="text-sm text-red-700">귀하의 채무 발생 원인 중 <strong>면책불허가 사유</strong>에 해당할 수 있는 항목이 확인됩니다. 이 경우 파산선고는 받지만 면책은 거부될 수 있습니다.</p>
-          </div>
-        </div>
+      <p class="text-sm text-red-700 mt-1 mb-4">채무 발생 원인 중 <strong>면책불허가 사유</strong>에 해당할 수 있는 항목이 확인됩니다. 이 경우 파산선고는 받아도 면책은 거부될 수 있습니다.</p>
 
-        <div class="space-y-2.5 mb-4">
-          ${risks.map(r => `
-            <div class="flex gap-2.5 bg-white border border-red-100 rounded-xl px-4 py-3">
-              <span class="text-red-500 shrink-0 font-bold mt-0.5">!</span>
-              <div>
-                <p class="text-sm font-semibold text-slate-800">${r.label}</p>
-                <p class="text-xs text-slate-500 mt-0.5">${r.detail}</p>
-                <p class="text-xs text-red-400 mt-0.5">근거: ${r.law}</p>
-              </div>
-            </div>`).join('')}
-        </div>
+      <div class="space-y-2.5 mb-4">
+        ${risks.map(r => `
+          <div class="flex gap-2.5 bg-white border border-red-100 rounded-xl px-4 py-3">
+            <span class="text-red-500 shrink-0 font-bold mt-0.5">!</span>
+            <div>
+              <p class="text-sm font-semibold text-slate-800">${r.label}</p>
+              <p class="text-xs text-slate-500 mt-0.5">${r.detail}</p>
+              <p class="text-xs text-red-400 mt-0.5">근거: ${r.law}</p>
+            </div>
+          </div>`).join('')}
+      </div>
 
-        <div class="bg-red-100 border border-red-200 rounded-xl p-4">
-          <p class="text-sm font-bold text-red-800 mb-2">면책불허가가 확정되면 어떻게 되나요?</p>
-          <ul class="space-y-1.5 text-xs text-slate-700">
-            <li class="flex gap-2"><span class="text-red-500 shrink-0 mt-0.5">▸</span><span><strong>채무 그대로 유지</strong> — 파산 신청 전 채무를 전액 변제해야 하며, 채무에서 벗어날 방법이 없습니다.</span></li>
-            <li class="flex gap-2"><span class="text-red-500 shrink-0 mt-0.5">▸</span><span><strong>파산자 신분 지속</strong> — 공직·일부 자격 취득 제한 등 파산자의 불이익이 그대로 남습니다.</span></li>
-            <li class="flex gap-2"><span class="text-red-500 shrink-0 mt-0.5">▸</span><span><strong>재신청 7년 대기</strong> — 불허가 확정 후 7년이 지나야 새로운 파산 신청이 가능합니다.</span></li>
-            <li class="flex gap-2"><span class="text-red-500 shrink-0 mt-0.5">▸</span><span><strong>동일 건 재신청 불가</strong> — 같은 파산 건으로 면책을 다시 신청할 수 없습니다.</span></li>
-          </ul>
-          <p class="text-xs text-red-700 font-semibold mt-3">→ 파산자의 불이익은 다 받으면서, 채무는 그대로인 최악의 결과입니다.</p>
-        </div>
+      <div class="bg-red-100 border border-red-200 rounded-xl p-4">
+        <p class="text-sm font-bold text-red-800 mb-2">면책불허가가 확정되면 어떻게 되나요?</p>
+        <ul class="space-y-1.5 text-xs text-slate-700">
+          <li class="flex gap-2"><span class="text-red-500 shrink-0 mt-0.5">▸</span><span><strong>채무 그대로 유지</strong> — 파산 신청 전 채무를 전액 변제해야 하며, 채무에서 벗어날 방법이 없습니다.</span></li>
+          <li class="flex gap-2"><span class="text-red-500 shrink-0 mt-0.5">▸</span><span><strong>파산자 신분 지속</strong> — 복권되지 않아 공직·일부 자격 취득 제한 등 불이익이 계속됩니다.</span></li>
+          <li class="flex gap-2"><span class="text-red-500 shrink-0 mt-0.5">▸</span><span><strong>불복은 즉시항고로</strong> — 불허가 결정에 불복하려면 정해진 기간 내에 즉시항고를 제기해 다퉈야 합니다.</span></li>
+          <li class="flex gap-2"><span class="text-red-500 shrink-0 mt-0.5">▸</span><span><strong>동일 건 재신청 불가</strong> — 같은 파산 건으로 면책을 다시 신청할 수 없습니다.</span></li>
+        </ul>
+        <p class="text-xs text-red-700 font-semibold mt-3">→ 파산자의 불이익은 다 받으면서, 채무는 그대로인 최악의 결과입니다.</p>
+      </div>
 
-        ${altRehabNote}
-      </div>`;
+      ${altRehabNote}`;
   }
 
   // ── 절차 선택 도우미: 점수 근접할 때 개인화 비교 ──
@@ -452,8 +509,6 @@
     const totalDebt   = data.totalDebt    || 0;
     const totalAssets = data.totalAssets  || 0;
     const arrears     = data.arrearsMonths || 0;
-    const debtTypes   = data.debtTypes    || [];
-    const hasNonFinanceDebt = debtTypes.some(t => !['bank','savings','card','insurance'].includes(t));
 
     // A, B 각각의 유리한 요인 배열 (type 기준으로 push 대상 결정)
     const factorMap = { [A.type]: [], [B.type]: [] };
@@ -535,10 +590,9 @@
       </li>`;
 
     return `
-      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-        <h3 class="font-bold text-slate-800 text-base mb-0.5">🤔 두 절차 중 어느 쪽이 더 유리할까요?</h3>
+      <div>
         <p class="text-sm text-slate-400 mb-1">귀하의 구체적 상황에서 각 절차가 갖는 실질적 장점을 요인별로 분석했습니다.</p>
-        <p class="text-xs text-slate-300 mb-4">이 분석은 정성적 요인 비교이며, 위 <strong class="text-slate-400">적합도(%) 점수</strong>와 함께 참고하세요. 두 결과가 다를 수 있습니다.</p>
+        <p class="text-xs text-slate-300 mb-4">이 분석은 정성적 요인 비교이며, <strong class="text-slate-400">적합도(%) 점수</strong>와 함께 참고하세요. 두 결과가 다를 수 있습니다.</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div class="border ${A.border} ${A.bg} rounded-xl p-4">
             <div class="flex items-center gap-1.5 mb-3">
@@ -617,12 +671,80 @@
       </div>`;
   }
 
+  // ── 소액 채무 안내 (총채무 1,000만원 미만) ──
+  // 법으로 정해진 최소 채무액은 없으나, 이 규모에서는 법원 절차(개인회생·파산)의
+  // 비용·기간·자격제한 부담이 실익보다 클 수 있어 신용회복위원회 채무조정 등을 우선 안내한다.
+  const LOW_DEBT_THRESHOLD = 10_000_000;
+
+  function isLowDebt(data) {
+    return (data.totalDebt || 0) < LOW_DEBT_THRESHOLD;
+  }
+
+  function buildLowDebtGuidance() {
+    return `
+      <div class="bg-white rounded-2xl border-2 border-blue-500 shadow-md p-6">
+        <div class="flex items-start gap-3">
+          <span class="text-2xl shrink-0">💡</span>
+          <div>
+            <h2 class="text-lg font-bold text-slate-800 mb-2">채무 규모가 크지 않은 편입니다</h2>
+            <p class="text-sm text-slate-600 leading-relaxed mb-3">입력하신 채무 총액은 개인회생·파산 같은 법원 절차를 진행하기엔 상대적으로 크지 않은 편입니다. 법원 절차는 신청 비용과 수개월의 시간이 들고 일정 기간 자격 제한이 따르므로, 채무 규모가 작을 경우 절차 부담이 실익보다 클 수 있습니다.</p>
+            <p class="text-sm text-slate-600 leading-relaxed">이런 경우 <strong class="text-slate-800">신용회복위원회</strong>의 채무조정 제도를 먼저 알아보시길 권합니다. 자세한 자격 요건과 신청 방법은 아래로 문의하세요.</p>
+            <div class="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2 text-sm">
+              <div class="flex items-center gap-2">
+                <span class="shrink-0">🌐</span>
+                <a href="https://www.ccrs.or.kr" target="_blank" rel="noopener" class="text-blue-700 font-semibold hover:underline">www.ccrs.or.kr</a>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="shrink-0">📞</span>
+                <span class="text-slate-700">대표번호 <strong>1600-5500</strong> <span class="text-slate-400 text-xs">(평일 09:00~18:00)</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function buildLowDebtKeyNumber(data) {
+    return `
+      <div class="max-w-xs mx-auto">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 text-center">
+          <div class="text-xs text-slate-500 mb-1">총 채무</div>
+          <div class="text-xl font-bold text-blue-700">${formatWon(data.totalDebt || 0)}</div>
+        </div>
+      </div>`;
+  }
+
   // ── 메인 렌더링 ──
   function renderResults() {
+    // 진단을 완료하지 않고 직접 접근한 경우 — 허위 카드 대신 진단 안내 표시
+    const data = Storage.load('diagnosis_data');
+    if (!data) {
+      document.getElementById('best-recommendation').innerHTML = `
+        <div class="bg-white border border-slate-200 rounded-2xl p-8 text-center">
+          <p class="text-slate-700 font-bold text-base mb-1">아직 진단 결과가 없습니다</p>
+          <p class="text-slate-500 text-sm mb-4">무료 채무진단을 완료하면 이 페이지에서 결과를 확인할 수 있습니다.</p>
+          <a href="diagnosis.html" class="inline-block bg-blue-700 text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-800 transition-colors">무료 채무진단 시작하기</a>
+        </div>`;
+      const mini = document.getElementById('mini-disclaimer');
+      if (mini) mini.style.display = 'none';
+      const expandWrap = document.getElementById('expand-all-wrap');
+      if (expandWrap) expandWrap.style.display = 'none';
+      return;
+    }
     const rawScores = Storage.load('diagnosis_scores') || { rehab:0, bankrupt:0 };
-    const data      = Storage.load('diagnosis_data')   || {};
     const repay     = Storage.load('diagnosis_repay')  || {};
     const date      = Storage.load('diagnosis_date')   || '';
+
+    // ── 소액 채무: 적합도·상세 대신 신용회복위원회 채무조정 우선 안내로 대체 ──
+    if (isLowDebt(data)) {
+      document.getElementById('result-date').textContent = date ? '진단일: ' + date : '';
+      document.getElementById('best-recommendation').innerHTML = buildLowDebtGuidance();
+      document.getElementById('key-numbers').innerHTML = buildLowDebtKeyNumber(data);
+      const mini = document.getElementById('mini-disclaimer');
+      if (mini) mini.style.display = 'none';
+      // 위험 스트립·다음 단계 CTA·상세 아코디언은 렌더링하지 않음 (빈 상태 유지)
+      return;
+    }
 
     // 법적 재신청 불가 케이스에 0% 강제 적용
     const scores = applyHardBlocks(rawScores, data);
@@ -635,34 +757,23 @@
 
     document.getElementById('result-date').textContent = date ? '진단일: ' + date : '';
 
-    // 면책불허가 리스크 경고
-    document.getElementById('discharge-risk-warning').innerHTML = buildDischargeRiskWarning(data, scores);
-
-    // 최적 절차 배너
+    // ── 간단 결과 (첫 화면) ──
     document.getElementById('best-recommendation').innerHTML = buildBanner(scores, data, hardBlocked);
 
     // 점수 1위 절차
     const winnerType = scores.rehab >= scores.bankrupt ? 'rehab' : 'bankrupt';
 
-    // 적합도 카드 2개
-    document.getElementById('result-cards').innerHTML =
-      buildCard('개인회생',     'rehab',    scores.rehab,    data, hardBlocked, winnerType === 'rehab') +
-      buildCard('개인파산·면책', 'bankrupt', scores.bankrupt, data, hardBlocked, winnerType === 'bankrupt');
+    // 핵심 숫자 요약 + 위험 요약 스트립
+    document.getElementById('key-numbers').innerHTML = buildKeyNumbers(scores, data, repay, winnerType);
+    document.getElementById('risk-strip').innerHTML  = buildRiskStrip(data, scores);
 
-    // 두 절차 비교 도우미 (점수 근접 시)
-    document.getElementById('tossup-advice').innerHTML = buildTossupAdvice(scores, data, repay);
-
-    // 파산관재인 선임 경고 (재산 있는 경우)
-    document.getElementById('trustee-warning').innerHTML = buildTrusteeWarning(data, scores);
-
-    // ── 개인회생 상세: 적합도 30% 이상일 때만 표시 ──
-    const rehabEl = document.getElementById('rehab-detail');
+    // ── 개인회생 변제금 상세 (아코디언 본문, 적합도 30% 이상일 때만) ──
+    let repayDetailHtml = '';
     if (scores.rehab >= 30) {
       const monthlyDisp = repay.monthly || 0;
       const total36     = repay.total36 || 0;
       const exempt      = repay.exempt  || 0;
-      rehabEl.style.display = '';
-      rehabEl.innerHTML = `<div class="p-6">
+      repayDetailHtml = `<div class="pt-3">
         <h3 class="font-bold text-slate-800 text-lg mb-1">📋 <span class="text-blue-700">개인회생 진행 시</span> 예상 변제금 계산(참고)</h3>
         <p class="text-slate-500 text-sm mb-4">법원 실무에서 사용하는 표준생계비 기준을 적용한 참고값입니다. (변제기간 3년·36개월 기준)</p>
 
@@ -690,7 +801,7 @@
             </div>
             <div class="flex items-start gap-2">
               <span class="text-blue-400 mt-0.5 shrink-0">②</span>
-              <span><strong class="text-slate-700">적용 생계비</strong> = 표준생계비와 입력 생활비 중 <em>더 큰 값</em> 적용 <span class="text-slate-500">(실제 생활비가 더 높은 경우 입력값 우선)</span></span>
+              <span><strong class="text-slate-700">적용 생계비</strong> = 표준생계비와 입력 생활비 중 <em>더 큰 값</em> 적용 <span class="text-slate-500">(단, 표준생계비를 초과하는 생활비는 법원에 소명해 인정받아야 하며, 인정되지 않으면 실제 변제액이 표시값보다 커질 수 있습니다)</span></span>
             </div>
             <div class="flex items-start gap-2">
               <span class="text-blue-400 mt-0.5 shrink-0">③</span>
@@ -732,6 +843,16 @@
           </div>
         </div>
 
+        <!-- 청산가치 보장 경고 (재산 > 3년 변제총액) -->
+        ${(data.totalAssets || 0) > total36 ? `
+        <div class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+          <span class="text-xl shrink-0 mt-0.5">⚖️</span>
+          <div>
+            <p class="font-bold text-amber-800 text-sm mb-1">청산가치 보장 원칙 — 변제금이 위 표시보다 늘어날 수 있습니다</p>
+            <p class="text-xs text-slate-600">입력하신 재산 합계(<strong>${formatWon(data.totalAssets || 0)}</strong>)가 3년 총 변제 추정액(${formatWon(total36)})보다 큽니다. 법원은 변제 총액이 <span class="term-tip" data-tip="지금 당장 파산했을 때 재산을 팔아 채권자에게 돌아갈 금액입니다.">청산가치</span> 이상이 되도록 요구하므로, 월 변제액 상향 또는 변제기간 연장(최대 5년)이 필요할 수 있습니다. 재산이 많은 경우 신청 전 전문가 상담을 권장합니다.</p>
+          </div>
+        </div>` : ''}
+
         <!-- 법적 근거 및 주의사항 -->
         <div class="disclaimer-box">
           <p class="font-medium text-slate-700 mb-1">⚖️ 법적 근거</p>
@@ -768,21 +889,26 @@
           </div>
         </div>` : ''}
       </div>`;
-
-    } else {
-      rehabEl.style.display = 'none';
     }
 
-    // 개인파산 상세 섹션 제거 — cons로 통합
-    document.getElementById('bankrupt-detail').style.display = 'none';
+    // ── 상세 결과: 접힌 아코디언 조립 ──
+    const cardsHtml =
+      buildCard('개인회생',     'rehab',    scores.rehab,    data, hardBlocked, winnerType === 'rehab') +
+      buildCard('개인파산·면책', 'bankrupt', scores.bankrupt, data, hardBlocked, winnerType === 'bankrupt');
 
-    // ── 상세 섹션: 점수 높은 순으로 재정렬 ──
-    const container = document.getElementById('detail-sections-container');
-    const scoreMap  = { rehab: scores.rehab, bankrupt: scores.bankrupt };
-    const sections  = Array.from(container.children);
-    sections
-      .sort((a, b) => (scoreMap[b.dataset.type] || 0) - (scoreMap[a.dataset.type] || 0))
-      .forEach(el => container.appendChild(el));
+    const sections = [];
+    sections.push(accordionShell('sec-cards', '🔍 왜 이 결과가 나왔나요? — 절차별 적합도 분석',
+      `<div class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">${cardsHtml}</div>`));
+
+    const tossupHtml = buildTossupAdvice(scores, data, repay);
+    if (tossupHtml) sections.push(accordionShell('sec-tossup', '🤔 개인회생과 개인파산, 어느 쪽이 유리한가요?', `<div class="pt-2">${tossupHtml}</div>`));
+
+    if (repayDetailHtml) sections.push(accordionShell('sec-repay', '📐 예상 변제금 계산 근거 · 법적 근거', repayDetailHtml));
+
+    const trusteeHtml = buildTrusteeWarning(data, scores);
+    if (trusteeHtml) sections.push(accordionShell('sec-trustee', '⚠️ 재산이 있는 경우 주의사항 (파산관재인)', `<div class="pt-2">${trusteeHtml}</div>`));
+
+    document.getElementById('detail-accordions').innerHTML = sections.join('');
   }
 
   renderResults();
@@ -844,6 +970,7 @@
   (function renderCta() {
     const rawScores  = Storage.load('diagnosis_scores') || { rehab: 0, bankrupt: 0 };
     const data       = Storage.load('diagnosis_data')   || {};
+    if (isLowDebt(data)) return; // 소액 채무는 셀프진행 CTA 미표시
     const scores     = applyHardBlocks(rawScores, data);
     const hardBlocked = {
       rehab:    scores.rehab    === 0 && !!getHardBlockReason('rehab',    data),

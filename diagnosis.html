@@ -165,19 +165,19 @@
           </label>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
-              <input type="checkbox" name="legal-action" value="seizure" class="accent-blue-700"> 압류·추심
+              <input type="checkbox" name="legal-action" value="seizure" onchange="uncheckLegalNone(this)" class="accent-blue-700"> 압류·추심
             </label>
             <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
-              <input type="checkbox" name="legal-action" value="provisional" class="accent-blue-700"> 가압류
+              <input type="checkbox" name="legal-action" value="provisional" onchange="uncheckLegalNone(this)" class="accent-blue-700"> 가압류
             </label>
             <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
-              <input type="checkbox" name="legal-action" value="order" class="accent-blue-700"> 지급명령
+              <input type="checkbox" name="legal-action" value="order" onchange="uncheckLegalNone(this)" class="accent-blue-700"> 지급명령
             </label>
             <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
-              <input type="checkbox" name="legal-action" value="lawsuit" class="accent-blue-700"> 소송 진행 중
+              <input type="checkbox" name="legal-action" value="lawsuit" onchange="uncheckLegalNone(this)" class="accent-blue-700"> 소송 진행 중
             </label>
             <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
-              <input type="checkbox" name="legal-action" value="auction" class="accent-blue-700"> 경매 진행 중
+              <input type="checkbox" name="legal-action" value="auction" onchange="uncheckLegalNone(this)" class="accent-blue-700"> 경매 진행 중
             </label>
             <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm">
               <input type="checkbox" name="legal-action" value="none" id="legal-none" onchange="toggleLegalNone(this)" class="accent-blue-700"> 해당 없음
@@ -339,7 +339,7 @@
         <!-- 나이 -->
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1.5">
-            나이 (만 나이)
+            나이 (만 나이) <span class="text-red-500">*</span>
           </label>
           <input id="age" type="number" min="19" max="99" placeholder="예: 38"
             class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm">
@@ -536,6 +536,14 @@
     }
   }
 
+  // 다른 법적 조치를 체크하면 '해당 없음'은 자동 해제
+  function uncheckLegalNone(cb) {
+    if (cb.checked) {
+      const none = document.getElementById('legal-none');
+      if (none) none.checked = false;
+    }
+  }
+
   // ── 이전 채무조정 체크박스 ──
   function togglePriorNone(cb) {
     const sections = document.getElementById('prior-detail-sections');
@@ -564,14 +572,6 @@
     }
   }
 
-  // 바깥 클릭 시 닫기 (스크롤에는 반응 안 함)
-  document.addEventListener('click', function(e) {
-    const container = document.getElementById('prior-adj-container');
-    if (container && !container.contains(e.target)) {
-      document.getElementById('prior-adj-dropdown').classList.add('hidden');
-      document.getElementById('prior-adj-chevron').style.transform = '';
-    }
-  });
 </script>
 </body>
 </html>

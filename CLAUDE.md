@@ -17,8 +17,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 로컬 개발
 
 별도 빌드 과정 없음. VS Code의 **Live Server** 확장으로 `index.html`을 열면 로컬에서 바로 확인 가능.
+Claude 자동 브라우저 테스트용으로는 `.claude/launch.json`의 `chamroad-static` 설정(node 정적 서버, 포트 3456)을 preview로 실행.
 
 배포는 `git push origin main` 으로 완료. 몇 분 후 GitHub Pages에 반영됨.
+
+※ 과거 단일파일 빌드 산출물(`app.html`, `build.ps1`)은 2026-07-02에 삭제됨 — 다시 만들지 말 것.
 
 ## 아키텍처
 
@@ -36,7 +39,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - 4단계 폼(채무현황 → 연체·법적현황 → 소득·생활비 → 재산·기타)
 - 단계 이동: `goStep(n)` / `nextStep()` / `prevStep()`
-- 결과 계산 후 `sessionStorage`에 저장 → `result.html`에서 읽어 표시
+- 결과 계산 후 `localStorage`(`cdg_diagnosis_*` 키, `js/main.js`의 `Storage` 헬퍼)에 저장 → `result.html`에서 읽어 표시
+- 변제 여력 계산 기준: 표준생계비(2026 기준중위소득 60%)와 입력 생활비 중 큰 값 — `calcScores`와 `calcRepayment`가 동일 기준을 사용해야 함 (수치 불일치 방지)
 
 ### CSS 구조
 
@@ -144,7 +148,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### 요금제·결제
 
-`pricing.html` — 현재 프리미엄(100,000원) 단일 플랜. 결제 기능 미구현(mock 모달만 존재).
+`pricing.html` — 회생 완주 패키지 149,000원 / 변제기간 관리 패키지 29,000원 / 파산 완주 패키지 49,000원 / 보정 추가 대응 19,000원·회. 결제 기능 미구현(mock 모달만 존재 — 어떤 패키지를 사도 `plan='premium'`으로 저장됨).
 
 ## 페이지별 역할
 
