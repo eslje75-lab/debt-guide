@@ -159,7 +159,6 @@ function collectFormData() {
     return el ? el.value : '';
   };
 
-  const debtTypes    = getChecked('debt-type');
   const legalActions = getChecked('legal-action');
   const debtCauses   = getChecked('debt-cause');
 
@@ -174,7 +173,10 @@ function collectFormData() {
   const carValue       = money('car-value');
   const depositValue   = money('deposit-value');
   const insuranceValue = money('insurance-value');
-  const totalAssets    = cashAssets + propertyValue + carValue + depositValue + insuranceValue;
+  const severanceValue = money('severance-value');
+  // 예상 퇴직금은 법원 실무상 통상 1/2만 청산가치(재산)에 산입
+  const severanceHalf  = Math.round(severanceValue / 2);
+  const totalAssets    = cashAssets + propertyValue + carValue + depositValue + insuranceValue + severanceHalf;
 
   const unsecuredDebt = money('unsecured-debt');
   const securedDebt   = money('secured-debt');
@@ -183,7 +185,6 @@ function collectFormData() {
 
   return {
     // 채무
-    debtTypes,
     unsecuredDebt,
     securedDebt,
     totalDebt,
@@ -207,6 +208,8 @@ function collectFormData() {
     carValue,
     depositValue,
     insuranceValue,
+    severanceValue,
+    severanceHalf,
     totalAssets,
     // 기타
     age:                     val('age'),

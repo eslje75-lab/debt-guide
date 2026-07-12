@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
@@ -6,6 +6,17 @@
   <title>AI 서류 검토 | 챔로드</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/styles.css">
+  <meta name="description" content="제출 전 서류의 누락·형식 오류를 점검하는 서류검토 보조 기능(베타).">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="챔로드">
+  <meta property="og:image" content="https://eslje75-lab.github.io/debt-guide/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:title" content="서류 검토 | 챔로드">
+  <meta property="og:description" content="제출 전 서류의 누락·형식 오류를 점검하는 서류검토 보조 기능(베타).">
+  <meta property="og:url" content="https://eslje75-lab.github.io/debt-guide/ai-review.html">
 </head>
 <body class="bg-slate-50">
 <div id="header-placeholder"></div>
@@ -13,7 +24,7 @@
 <section class="bg-purple-800 text-white py-8">
   <div class="max-w-4xl mx-auto px-4">
     <h1 class="text-2xl md:text-3xl font-bold mb-1">AI 서류 검토</h1>
-    <p class="text-purple-200 text-sm">직접 작성하신 내용을 붙여넣으면 AI가 필수항목 누락·형식 미비를 참고 안내합니다.</p>
+    <p class="text-purple-200 text-sm">직접 작성하신 내용을 붙여넣으면 필수항목 누락·형식 미비를 참고 안내합니다. 제출 서류 세트 전체를 하나씩 검토해 보세요.</p>
   </div>
 </section>
 
@@ -22,24 +33,22 @@
   <!-- AI 기능 안내 -->
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
     <div class="bg-green-50 border border-green-100 rounded-xl p-4">
-      <h3 class="font-bold text-green-800 text-base mb-2">✅ AI가 하는 것</h3>
+      <h3 class="font-bold text-green-800 text-base mb-2">✅ 검토가 하는 것</h3>
       <ul class="text-sm text-green-700 space-y-1">
         <li>• 필수항목 누락 여부 확인</li>
         <li>• 내용이 짧거나 불명확한 부분 안내</li>
         <li>• 숫자 불일치 가능성 지적</li>
-        <li>• 채권자 정보 누락 가능성 안내</li>
-        <li>• 첨부서류 필요 가능성 안내</li>
-        <li>• 작성예시 제공</li>
+        <li>• 서류별 작성 팁·실전 예시 연결</li>
+        <li>• 제출 서류 세트 중 몇 종을 검토했는지 추적</li>
       </ul>
     </div>
     <div class="bg-red-50 border border-red-100 rounded-xl p-4">
-      <h3 class="font-bold text-red-800 text-base mb-2">❌ AI가 하지 않는 것</h3>
+      <h3 class="font-bold text-red-800 text-base mb-2">❌ 검토가 하지 않는 것</h3>
       <ul class="text-sm text-red-700 space-y-1">
         <li>• 법률적 결론 제공</li>
         <li>• 사건 결과 예측</li>
         <li>• 면책 가능성 단정</li>
         <li>• 신청서 자동 작성</li>
-        <li>• 문장 전체 대신 작성</li>
         <li>• 법률 상담 대체</li>
       </ul>
     </div>
@@ -47,44 +56,27 @@
 
   <!-- 서류 유형 선택 -->
   <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
-    <h3 class="font-semibold text-slate-800 mb-3">검토할 서류 유형을 선택하세요</h3>
-    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-      <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50">
-        <input type="radio" name="doc-type" value="rehab-petition" checked class="accent-blue-700">
-        개인회생 신청서
-      </label>
-      <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50">
-        <input type="radio" name="doc-type" value="creditor-list" class="accent-blue-700">
-        채권자 목록
-      </label>
-      <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50">
-        <input type="radio" name="doc-type" value="asset-list" class="accent-blue-700">
-        재산목록
-      </label>
-      <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50">
-        <input type="radio" name="doc-type" value="income-expense" class="accent-blue-700">
-        수입·지출 명세서
-      </label>
-      <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50">
-        <input type="radio" name="doc-type" value="bankrupt-petition" class="accent-blue-700">
-        개인파산 신청서
-      </label>
-      <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50">
-        <input type="radio" name="doc-type" value="statement" class="accent-blue-700">
-        진술서(경위서)
-      </label>
+    <h3 class="font-semibold text-slate-800 mb-1">검토할 서류 유형을 선택하세요</h3>
+    <p class="text-xs text-slate-400 mb-4">법원에 내는 서류 세트 전체를 유형별로 검토할 수 있습니다. 검토를 마친 서류에는 ✓ 표시가 붙습니다.</p>
+    <div id="pkg-filter-notice" class="items-center justify-between gap-3 bg-purple-50 border border-purple-100 rounded-xl px-4 py-2.5 mb-4" style="display:none">
+      <span id="pkg-filter-text" class="text-xs text-slate-600 leading-relaxed"></span>
+      <button onclick="toggleShowAllGroups()" id="pkg-filter-toggle" class="text-xs text-purple-700 hover:underline whitespace-nowrap shrink-0"></button>
     </div>
+    <div id="doc-type-groups"></div>
   </div>
 
   <!-- 텍스트 입력 -->
   <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-4">
-    <h3 class="font-semibold text-slate-800 mb-1">작성한 내용을 붙여넣으세요</h3>
+    <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+      <h3 class="font-semibold text-slate-800">작성한 내용을 붙여넣으세요</h3>
+      <a id="example-link" href="rehabilitation.html#example-library" class="text-xs text-purple-700 hover:underline">📝 이 서류의 실전 작성예시 보기 →</a>
+    </div>
     <p class="text-xs text-slate-400 mb-3">개인정보(이름·주민번호 등)는 제거하거나 ○○으로 대체 후 입력하세요.</p>
     <textarea id="doc-input" rows="10" placeholder="여기에 작성하신 내용을 붙여넣어 주세요.
 예시: 신청인 ○○○ (생년월일 ○○○○.○○.○○)
 주소: ○○시 ○○구 ○○로 ○○
 직업: 회사원
-월 소득: 약 2,350,000원
+월 소득: 약 2,600,000원
 ..."
       class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm resize-none leading-relaxed"></textarea>
     <div class="flex items-center justify-between mt-2">
@@ -93,10 +85,10 @@
     </div>
   </div>
 
-  <!-- 파일 업로드 (MVP: mock) -->
+  <!-- 파일 업로드 (백엔드 도입 시 제공) -->
   <div class="bg-slate-50 border border-dashed border-slate-300 rounded-xl p-5 mb-6 text-center">
     <div class="text-slate-400 text-sm mb-2">📎 파일 업로드 (준비 중)</div>
-    <p class="text-xs text-slate-400">HWP, PDF, DOC 파일 업로드 기능은 프리미엄 서비스 출시 예정입니다.</p>
+    <p class="text-xs text-slate-400">작성한 파일(HWP·PDF·DOC)을 그대로 올려 전체 서류를 한 번에 검토하는 기능은 정식 AI 검토와 함께 준비 중입니다. 지금은 서류별로 내용을 붙여넣어 검토해 주세요.</p>
     <label class="mt-3 inline-block cursor-pointer">
       <span class="text-xs text-slate-500 border border-slate-300 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">파일 선택 (미지원)</span>
       <input type="file" class="hidden" disabled>
@@ -127,9 +119,11 @@
       </div>
     </div>
 
-    <!-- 기록 저장 -->
-    <div class="mt-4 text-center">
+    <!-- 다음 행동 -->
+    <div class="mt-4 flex flex-wrap items-center justify-center gap-3">
       <button onclick="saveRecord()" class="text-sm text-purple-700 hover:underline">검토 기록 저장 (마이페이지)</button>
+      <span class="text-slate-300">|</span>
+      <button onclick="reviewNext()" class="text-sm text-purple-700 hover:underline">다른 서류 이어서 검토 ↑</button>
     </div>
   </div>
 </div>
@@ -154,69 +148,256 @@
     document.getElementById('review-result').style.display = 'none';
   }
 
+  // ── 서류 유형 그룹 (법원 제출 서류 세트와 1:1 대응) ──
+  const DOC_GROUPS = [
+    { key: 'rehab', label: '개인회생 서류 세트', exampleUrl: 'rehabilitation.html#example-library',
+      types: ['rehab-petition', 'creditor-list', 'asset-list', 'income-expense', 'statement', 'rehab-plan'] },
+    { key: 'bankrupt', label: '개인파산·면책 서류 세트', exampleUrl: 'bankruptcy.html#example-library',
+      types: ['bankrupt-petition', 'bk-statement', 'bk-creditor', 'bk-asset', 'bk-living', 'bk-income'] },
+    { key: 'correction', label: '보정·소명 서류', exampleUrl: 'supplement.html#example-library',
+      types: ['correction', 'explanation'] },
+  ];
+
+  // ── 구매 패키지에 맞춘 서류 유형 필터 ──
+  const PKG_PROC = { 'rehab-full': 'rehab', 'maintain': 'rehab', 'correction-rehab': 'rehab', 'bankrupt-full': 'bankrupt', 'correction-bankrupt': 'bankrupt' };
+  const PKG = Storage.load('plan_package');
+  const PKG_NAME = Storage.load('plan_package_name') || '구매하신 패키지';
+  const PROC_FILTER = PKG_PROC[PKG] || null;   // null이면 전체 표시 (미구매)
+  const IS_CORRECTION = PKG === 'correction-rehab' || PKG === 'correction-bankrupt';
+  let showAllGroups = false;
+
+  function visibleGroups() {
+    if (!PROC_FILTER || showAllGroups) return DOC_GROUPS;
+    let gs = DOC_GROUPS.filter(g => g.key === PROC_FILTER || g.key === 'correction');
+    if (IS_CORRECTION) gs = [...gs.filter(g => g.key === 'correction'), ...gs.filter(g => g.key !== 'correction')];
+    return gs;
+  }
+
+  function defaultType() {
+    if (IS_CORRECTION) return 'correction';
+    if (PROC_FILTER === 'bankrupt') return 'bankrupt-petition';
+    return 'rehab-petition';
+  }
+
+  function applyPkgNotice() {
+    if (!PROC_FILTER) return;
+    const label = PROC_FILTER === 'rehab' ? '개인회생' : '개인파산';
+    document.getElementById('pkg-filter-notice').style.display = 'flex';
+    document.getElementById('pkg-filter-text').innerHTML = showAllGroups
+      ? '현재 <strong>전체 서류 유형</strong>을 표시하고 있습니다.'
+      : (IS_CORRECTION
+        ? `💡 <strong>${PKG_NAME}</strong> 이용 중 — 보정·소명 서류와 ${label} 서류 유형만 표시하고 있습니다.`
+        : `💡 <strong>${PKG_NAME}</strong> 이용 중 — <strong>${label}</strong> 서류 유형만 표시하고 있습니다.`);
+    document.getElementById('pkg-filter-toggle').textContent = showAllGroups ? '패키지 서류만 보기' : '전체 유형 보기';
+  }
+
+  function toggleShowAllGroups() {
+    showAllGroups = !showAllGroups;
+    applyPkgNotice();
+    renderTypeGroups(currentType());
+  }
+
   // 서류 유형별 필수 항목 정의
   const DOC_RULES = {
+    // ── 개인회생 세트 ──
     'rehab-petition': {
       label: '개인회생 신청서',
-      required: ['이름', '주민', '주소', '직업', '소득', '채권자', '채무', '변제', '부양'],
-      optional: ['부동산', '자동차', '보험', '예금'],
+      required: ['이름|성명|신청인', '주소', '직업|직장|근무', '소득|수입|급여', '채무'],
+      optional: ['부양', '전화', '급여'],
       tips: [
-        '변제계획안의 월 변제액이 구체적으로 기재되어 있는지 확인하세요.',
-        '채권자 목록이 별도 서류로 첨부되어야 합니다.',
-        '수입·지출 명세서도 별도 제출이 필요합니다.',
+        '반드시 법원 양식을 사용하고, 접수할 관할 법원의 양식인지 확인하세요.',
+        '채권자목록·재산목록·수입지출목록·진술서·변제계획안이 별도 서류로 첨부되어야 합니다.',
+        '신청서의 소득·채무 숫자는 첨부서류(부채증명서·급여명세서)와 일치해야 합니다.',
       ]
     },
     'creditor-list': {
-      label: '채권자 목록',
-      required: ['채권자', '금액', '발생', '금융'],
-      optional: ['이자율', '만기', '연체'],
+      label: '개인회생채권자목록',
+      required: ['채권자', '원금', '이자', '발생|원인|일자'],
+      optional: ['주소', '카드', '대출'],
       tips: [
-        '채권자명은 정확한 금융기관 명칭을 기재해야 합니다.',
-        '채무금액은 신청일 기준 최신 잔액으로 기재해야 합니다.',
-        '사채·개인 간 채무가 있다면 빠짐없이 포함해야 합니다.',
+        '원금과 이자를 나누어 기재하고, 금액은 부채증명서 기준 잔액으로 적어야 합니다.',
+        '사채·개인 간 채무까지 빠짐없이 포함 — 목록에서 누락된 채권은 면책되지 않습니다.',
+        '제출 시 부본(복사본)이 채권자 수 + 2통 필요합니다.',
       ]
     },
     'asset-list': {
-      label: '재산목록',
+      label: '재산목록 (개인회생)',
       required: ['예금', '보험', '재산'],
-      optional: ['부동산', '자동차', '임차', '보증금'],
+      optional: ['보증금', '퇴직', '부동산', '자동차', '현금'],
       tips: [
-        '모든 금융기관의 예금·적금·펀드를 포함해야 합니다.',
-        '자동차가 있다면 차량번호·시가를 기재해야 합니다.',
+        '모든 재산을 시가 기준으로 기재하고, 재직 중이면 예상 퇴직금의 1/2도 포함됩니다.',
+        '재산 합계(청산가치)보다 변제 총액이 커야 인가되므로 누락하면 나중에 변제금이 늘 수 있습니다.',
         '임차보증금이 있다면 금액을 정확히 기재해야 합니다.',
       ]
     },
     'income-expense': {
-      label: '수입·지출 명세서',
-      required: ['수입', '지출', '소득', '생활비'],
-      optional: ['주거비', '의료', '교육', '교통'],
+      label: '수입·지출에 관한 목록 (개인회생)',
+      required: ['수입', '지출', '생활'],
+      optional: ['부양', '주거', '식비', '소득'],
       tips: [
-        '수입과 지출의 합계 금액이 일치하는지 확인하세요.',
-        '지출 항목은 실제 지출 기준으로 작성해야 합니다.',
-        '부양가족이 있는 경우 부양가족 생활비를 포함해야 합니다.',
-      ]
-    },
-    'bankrupt-petition': {
-      label: '개인파산 신청서',
-      required: ['이름', '주민', '주소', '채무', '채권자', '소득', '재산'],
-      optional: ['부양', '건강', '취업'],
-      tips: [
-        '면책 신청서를 함께 제출하는 것이 권장됩니다.',
-        '채무 발생 경위를 별도 진술서로 첨부해야 합니다.',
-        '재산은 소액이라도 빠짐없이 신고해야 합니다.',
+        '수입은 세후 월평균 기준 — 급여명세서 등 증빙 서류의 숫자와 일치해야 합니다.',
+        '실제 지출이 표준생계비(기준중위소득 60%)를 넘으면 초과 사유·증빙이 필요합니다.',
+        '여기서 계산되는 가용소득(수입−생계비)이 월 변제액의 기준이 됩니다.',
       ]
     },
     'statement': {
-      label: '진술서(경위서)',
-      required: ['채무', '발생', '원인', '경위'],
-      optional: ['사업', '실직', '의료', '현재'],
+      label: '진술서 (개인회생)',
+      required: ['경위|과정|사정', '원인|이유|사유', '채무'],
+      optional: ['경력', '실직', '의료', '사업'],
       tips: [
-        '채무 발생 시기를 구체적으로 기재해야 합니다.',
-        '면책불허가 사유(도박·낭비 등) 해당 여부를 명확히 기재해야 합니다.',
-        '현재 상황(소득·건강·취업 전망 등)도 기술하는 것이 좋습니다.',
+        '채무 발생 시기를 구체적인 날짜·금액과 함께 시간 순서대로 기재해야 합니다.',
+        '진술서의 대출 시점·금액은 채권자목록과 서로 맞아야 합니다.',
+        '사실대로 작성하세요 — 허위·과장 기재는 불인가 사유가 됩니다.',
+      ]
+    },
+    'rehab-plan': {
+      label: '변제계획안',
+      required: ['변제', '기간', '가용|가처분'],
+      optional: ['청산', '안분', '회생위원', '36'],
+      tips: [
+        '월 가용소득 전액 × 36회(3년)가 원칙이며, 청산가치를 맞추기 위한 경우 등에는 최대 60회(5년)까지 가능합니다.',
+        '총 변제예정액이 재산 합계(청산가치)보다 커야 인가됩니다.',
+        '법원 양식에 표준 문구가 인쇄되어 있으므로 양식의 숫자 칸을 채우는 방식으로 작성하세요.',
+      ]
+    },
+
+    // ── 개인파산·면책 세트 ──
+    'bankrupt-petition': {
+      label: '파산·면책 동시신청서',
+      required: ['이름|성명|신청인', '주소', '파산', '면책'],
+      optional: ['진술서', '첨부'],
+      tips: [
+        '동시신청서 양식 하나로 파산과 면책을 함께 신청하는 것이 일반적입니다.',
+        '신청이유는 "별첨 진술서 기재와 같음"으로 갈음하고 상세 내용은 진술서에 적는 방식이 일반적입니다.',
+        '신청서 및 첨부서류의 부본 1부를 함께 제출합니다.',
+      ]
+    },
+    'bk-statement': {
+      label: '진술서 (개인파산·심문사항)',
+      required: ['경력|학력', '사정|경위', '채무'],
+      optional: ['생활', '폐업', '질병', '면책'],
+      tips: [
+        '학력·경력 → 생활상황 → 파산에 이르게 된 사정 → 과거 회생·파산 이용 이력 순으로 작성합니다.',
+        '심문기일이 열리면 판사가 이 진술서를 바탕으로 질문하므로, 쓴 내용을 스스로 설명할 수 있어야 합니다.',
+        '경위를 뒷받침하는 증빙(폐업사실증명·진단서 등)을 함께 첨부하세요.',
+      ]
+    },
+    'bk-creditor': {
+      label: '채권자목록 (개인파산)',
+      required: ['채권자', '주소'],
+      optional: ['잔액', '개인', '보증', '금액'],
+      tips: [
+        '각 채권자의 주소를 기재해야 법원이 서류를 보낼 수 있습니다.',
+        '알면서 일부러 누락한 채권은 면책되지 않습니다(채무자회생법 제566조).',
+        '세금·벌금 등 면책되지 않는 채무는 별도로 정리해 두세요.',
+      ]
+    },
+    'bk-asset': {
+      label: '재산목록 (개인파산)',
+      required: ['재산', '예금'],
+      optional: ['없음', '보험', '보증금', '처분'],
+      tips: [
+        '재산 종류별로 있음/없음을 표시하고, 해당 없는 항목도 "없음"으로 적어야 합니다.',
+        '최근 2년 내 처분한 재산이 있으면 처분 시기·상대방·대금 사용처를 기재합니다.',
+        '소액이라도 전부 신고 — 은닉·허위 신고는 면책불허가와 형사처벌 사유입니다.',
+      ]
+    },
+    'bk-living': {
+      label: '현재의 생활상황',
+      required: ['주거|거주|월세|자가', '가족|세대|동거', '수입|소득'],
+      optional: ['건강', '월세', '보증금'],
+      tips: [
+        '주거 형태(보증금·월세), 동거 가족과 수입, 건강상태, 생계 유지 방법을 기재합니다.',
+        '등본·가족관계증명서·진단서 등 첨부 서류와 내용이 일치해야 합니다.',
+        '과장 없이 사실 그대로 적는 것이 가장 중요합니다.',
+      ]
+    },
+    'bk-income': {
+      label: '수입·지출에 관한 목록 (개인파산)',
+      required: ['수입', '지출'],
+      optional: ['배우자', '의료', '월세', '생활'],
+      tips: [
+        '소득이 없으면 "없음"으로 사실대로 적고, 가족의 수입도 기재합니다.',
+        '지출이 수입보다 많으면 부족분을 어떻게 메우는지(가족 도움 등) 설명이 필요합니다.',
+        '지출 항목은 통장 거래내역과 크게 다르지 않아야 합니다.',
+      ]
+    },
+
+    // ── 보정·소명 ──
+    'correction': {
+      label: '보정서',
+      required: ['사건', '첨부|별첨|증빙'],
+      optional: ['소명', '증명', '요구'],
+      tips: [
+        '보정권고·보정명령서에 적힌 사건번호를 그대로 기재해야 합니다.',
+        '요구 항목 번호 순서대로 "1.에 대하여 → 답변 + 첨부 번호" 구조로 답하세요.',
+        '기한(통지서 기재) 내 제출이 가장 중요하며, 제출 전 사본을 보관하세요.',
+      ]
+    },
+    'explanation': {
+      label: '소명서·사용내역서',
+      required: ['사용|지출|사용처', '금액|원'],
+      optional: ['이체', '영수증', '인출', '일자'],
+      tips: [
+        '입금(인출)액과 사용처 합계가 끝까지 맞아떨어지게 정리하는 것이 핵심입니다.',
+        '현금 인출분은 인출 날짜·사유를 설명하고 가계부·영수증으로 뒷받침하세요.',
+        '개인회생에서 소명하지 못한 금액은 재산(청산가치)으로 계산되어 변제금이 늘 수 있습니다.',
       ]
     },
   };
+
+  // ── 유형 선택 UI (검토 완료 추적 포함) ──
+  function getReviewed() { return Storage.load('ai_reviewed') || {}; }
+
+  function currentType() {
+    const el = document.querySelector('input[name="doc-type"]:checked');
+    return el ? el.value : defaultType();
+  }
+
+  function renderTypeGroups(selected) {
+    const reviewed = getReviewed();
+    const groups = visibleGroups();
+    if (!groups.some(g => g.types.includes(selected))) selected = defaultType();
+    document.getElementById('doc-type-groups').innerHTML = groups.map(g => {
+      const doneCount = g.types.filter(t => reviewed[t]).length;
+      const radios = g.types.map(t => {
+        const r = DOC_RULES[t];
+        const isDone = !!reviewed[t];
+        return `
+          <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm has-[:checked]:border-purple-400 has-[:checked]:bg-purple-50">
+            <input type="radio" name="doc-type" value="${t}" ${t === selected ? 'checked' : ''} onchange="onTypeChange()" class="accent-purple-700">
+            <span class="flex-1">${r.label}</span>
+            ${isDone ? '<span class="text-[11px] text-green-600 font-semibold shrink-0">✓ 검토함</span>' : ''}
+          </label>`;
+      }).join('');
+      return `
+        <div class="mb-4 last:mb-0">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-sm font-bold text-slate-700">${g.label}</span>
+            <span class="text-xs ${doneCount === g.types.length ? 'text-green-600 font-semibold' : 'text-slate-400'}">${doneCount}/${g.types.length} 검토함</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">${radios}</div>
+        </div>`;
+    }).join('');
+    onTypeChange();
+  }
+
+  function groupOfType(t) {
+    return DOC_GROUPS.find(g => g.types.includes(t)) || DOC_GROUPS[0];
+  }
+
+  function onTypeChange() {
+    const t = currentType();
+    const g = groupOfType(t);
+    const link = document.getElementById('example-link');
+    link.href = g.exampleUrl;
+    link.textContent = '📝 ' + DOC_RULES[t].label + ' 실전 작성예시 보기 →';
+  }
+
+  function reviewNext() {
+    clearInput();
+    document.getElementById('doc-type-groups').scrollIntoView({ behavior: 'smooth' });
+  }
 
   function runReview() {
     const text = textarea.value.trim();
@@ -225,7 +406,7 @@
       return;
     }
 
-    const docType = document.querySelector('input[name="doc-type"]:checked').value;
+    const docType = currentType();
     const rules = DOC_RULES[docType];
     const btn = document.getElementById('review-btn');
     btn.disabled = true;
@@ -235,12 +416,14 @@
       const issues = [];
       const ok = [];
 
-      // 필수 항목 체크
+      // 필수 항목 체크 — '이름|성명|신청인'처럼 |로 구분된 동의어 중 하나만 있으면 통과
       rules.required.forEach(keyword => {
-        if (text.includes(keyword)) {
-          ok.push(keyword + ' 관련 내용 확인됨');
+        const synonyms = keyword.split('|');
+        const displayName = synonyms[0];
+        if (synonyms.some(k => text.includes(k))) {
+          ok.push(displayName + ' 관련 내용 확인됨');
         } else {
-          issues.push({ level: 'error', msg: `'${keyword}' 관련 항목이 누락되었거나 불명확할 수 있습니다.` });
+          issues.push({ level: 'error', msg: `'${displayName}' 관련 항목이 누락되었거나 불명확할 수 있습니다.` });
         }
       });
 
@@ -263,7 +446,6 @@
       // 결과 렌더링
       let html = '';
 
-      // 문제 항목
       if (issues.length > 0) {
         html += '<div>';
         html += '<h4 class="font-bold text-slate-800 mb-2">📋 확인이 필요한 항목</h4>';
@@ -275,7 +457,6 @@
         html += '</div>';
       }
 
-      // 확인 항목
       if (ok.length > 0) {
         html += '<div>';
         html += '<h4 class="font-bold text-slate-800 mb-2">✅ 확인된 항목</h4>';
@@ -286,15 +467,32 @@
         html += '</div>';
       }
 
-      // 팁
+      // 팁 + 실전 예시 연결
+      const g = groupOfType(docType);
       html += '<div class="bg-blue-50 rounded-xl p-4 mt-2">';
       html += '<h4 class="font-bold text-blue-800 mb-2">💡 작성 팁 — ' + rules.label + '</h4>';
       html += rules.tips.map(t => `<p class="text-blue-700 text-xs mb-1">• ${t}</p>`).join('');
+      html += `<a href="${g.exampleUrl}" class="inline-block mt-2 text-xs text-blue-700 font-medium hover:underline">📝 ${rules.label}의 실전 작성예시 보러 가기 →</a>`;
+      html += '</div>';
+
+      // 세트 검토 진행 현황
+      const reviewed = getReviewed();
+      reviewed[docType] = true;
+      Storage.save('ai_reviewed', reviewed);
+      const doneCount = g.types.filter(t => reviewed[t]).length;
+      const remaining = g.types.filter(t => !reviewed[t]).map(t => DOC_RULES[t].label);
+      html += '<div class="bg-purple-50 rounded-xl p-4 mt-2">';
+      html += `<h4 class="font-bold text-purple-800 mb-1">📚 ${g.label} 검토 현황: ${doneCount}/${g.types.length}종</h4>`;
+      html += remaining.length > 0
+        ? `<p class="text-purple-700 text-xs">아직 검토하지 않은 서류: ${remaining.join(', ')} — 제출 전 세트 전체를 한 번씩 점검하는 것을 권장합니다.</p>`
+        : '<p class="text-purple-700 text-xs">세트의 모든 서류를 한 번씩 검토했습니다. 제출 전 최종 체크리스트(셀프 진행센터 마지막 단계)도 확인하세요.</p>';
       html += '</div>';
 
       document.getElementById('review-content').innerHTML = html;
       document.getElementById('review-result').style.display = 'block';
       document.getElementById('review-result').scrollIntoView({ behavior: 'smooth' });
+
+      renderTypeGroups(docType);
 
       btn.disabled = false;
       btn.textContent = 'AI 참고 검토 시작하기';
@@ -302,15 +500,20 @@
   }
 
   function saveRecord() {
+    const docType = currentType();
     const records = Storage.load('ai_records') || [];
     records.unshift({
       date: new Date().toLocaleDateString('ko-KR'),
-      docType: document.querySelector('input[name="doc-type"]:checked').value,
+      docType: docType,
+      label: DOC_RULES[docType].label,
       preview: textarea.value.substring(0, 80) + '...',
     });
     Storage.save('ai_records', records.slice(0, 10));
     showToast('검토 기록이 마이페이지에 저장되었습니다.', 'success');
   }
+
+  applyPkgNotice();
+  renderTypeGroups(defaultType());
 </script>
 </body>
 </html>

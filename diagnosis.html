@@ -6,6 +6,17 @@
   <title>채무진단 | 챔로드</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/styles.css">
+  <meta name="description" content="4단계 무료 채무진단으로 개인회생·파산 중 내게 맞는 절차와 예상 변제금을 확인해 보세요.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="챔로드">
+  <meta property="og:image" content="https://eslje75-lab.github.io/debt-guide/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:title" content="무료 채무진단 | 챔로드">
+  <meta property="og:description" content="4단계 무료 채무진단으로 개인회생·파산 중 내게 맞는 절차와 예상 변제금을 확인해 보세요.">
+  <meta property="og:url" content="https://eslje75-lab.github.io/debt-guide/diagnosis.html">
 </head>
 <body class="bg-slate-50">
 
@@ -148,9 +159,9 @@
             <select id="arrears-period" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white">
               <option value="">선택해 주세요</option>
               <option value="1">1개월 미만</option>
-              <option value="2">1개월 ~ 3개월</option>
-              <option value="5">3개월 ~ 6개월</option>
-              <option value="9">6개월 ~ 1년</option>
+              <option value="2">1개월 이상 ~ 3개월 미만</option>
+              <option value="5">3개월 이상 ~ 6개월 미만</option>
+              <option value="9">6개월 이상 ~ 1년 미만</option>
               <option value="18">1년 이상</option>
             </select>
             <p class="text-sm text-slate-500 mt-1">가장 오래된 연체 기준</p>
@@ -266,7 +277,7 @@
             <span class="absolute right-3 top-2.5 text-slate-400 text-sm">원</span>
           </div>
           <p class="text-sm text-slate-500 mt-1">주거비(월세·관리비) + 식비 + 교통비 + 의료비 등 실생활 필수 지출 합산 (원 단위)</p>
-          <p class="text-xs text-amber-600 mt-0.5">※ 대출이자·원금 상환액은 포함하지 마세요 — 변제금 계산 시 별도 처리됩니다</p>
+          <p class="text-xs text-amber-600 mt-0.5">※ 대출이자·원금 상환액은 포함하지 마세요 — 기존 대출 상환은 개인회생에서 변제계획으로 대체되므로 생활비에 넣지 않습니다</p>
         </div>
 
       </div>
@@ -333,6 +344,16 @@
                 <span class="absolute right-3 top-2 text-slate-400 text-sm">원</span>
               </div>
             </div>
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-slate-600 w-24 shrink-0">예상 퇴직금<br><span class="text-xs text-slate-400 font-normal">(재직자)</span></span>
+              <div class="relative flex-1">
+                <input id="severance-value" type="text" inputmode="numeric" placeholder="예: 8,000,000"
+                  oninput="formatInput(this)"
+                  class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm pr-10 text-right">
+                <span class="absolute right-3 top-2 text-slate-400 text-sm">원</span>
+              </div>
+            </div>
+            <p class="text-xs text-amber-600">※ 재직 중이라면 지금 퇴직할 경우 받을 예상 퇴직금 전액을 입력하세요. 법원은 통상 예상 퇴직금의 <strong>절반</strong>을 재산(청산가치)으로 계산하며, 이 진단도 절반만 재산에 반영합니다.</p>
           </div>
         </div>
 

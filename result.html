@@ -6,6 +6,8 @@
   <title>진단 결과 | 챔로드</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/styles.css">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
 </head>
 <body class="bg-slate-50">
 
@@ -125,7 +127,7 @@
       if (secured > 0 && secured <= 1_500_000_000)
         pros.push(`담보 채무 ${formatWon(secured)} — 법정 신청 한도(15억) 이내`);
       if (arrears > 0)
-        pros.push('연체 중 — 회생 인가 후 추심·압류 자동 중지 효과 기대 가능');
+        pros.push('연체 중 — 신청 시 법원의 중지·금지명령(제593조)으로 추심·강제집행 중단 가능, 개시결정(제600조) 시 자동 중지');
 
       // 불리한 점
       if (!data.hasIncome || income === 0)
@@ -246,7 +248,7 @@
         </div>
         ${pros.length ? `
         <div class="mb-3">
-          <p class="text-xs font-semibold text-green-700 mb-1.5">귀하의 상황에 유리한 점</p>
+          <p class="text-xs font-semibold text-green-700 mb-1.5">${score < 30 ? '참고 — 여건이 갖춰지면 유리해질 수 있는 점' : '귀하의 상황에 유리한 점'}</p>
           <ul class="space-y-1.5">${prosHtml}</ul>
         </div>` : ''}
         ${cons.length ? `
@@ -383,10 +385,15 @@
 
     // 개인회생 우세: 변제금 3종 요약
     if (winnerType === 'rehab' && scores.rehab >= 30) {
-      const monthly = repay.monthly || 0;
+      const hasRepay = repay && typeof repay.monthly === 'number';
+      const monthly = hasRepay ? repay.monthly : 0;
       const total36 = repay.total36 || 0;
       const exempt  = Math.max(0, repay.exempt || 0);
-      const zeroNote = monthly === 0 ? `
+      const zeroNote = !hasRepay ? `
+        <div class="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mt-3">
+          <span class="shrink-0">⚠️</span>
+          <p class="text-xs text-slate-600">저장된 진단 데이터가 불완전해 변제액을 계산할 수 없습니다. <a href="diagnosis.html" class="text-blue-600 underline">무료 진단을 다시 실행</a>해 주세요.</p>
+        </div>` : monthly === 0 ? `
         <div class="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mt-3">
           <span class="shrink-0">⚠️</span>
           <p class="text-xs text-slate-600">소득이 표준생계비에 미치지 못해 월 변제액이 0원으로 계산됩니다. 이 경우 법원이 개인파산·면책 검토를 권고할 수 있습니다 — 아래 '예상 변제금 계산 근거'에서 자세히 확인하세요.</p>
@@ -519,8 +526,8 @@
     if (pair === 'bankrupt+rehab') {
       // 개인회생 유리한 이유
       if (data.hasLegalAction)
-        push('rehab', { text: '압류·법적 조치 진행 중 — 즉시 정지 가능', weight: 3,
-          reason: '개인회생 신청 즉시 법원 보전처분으로 강제집행이 멈춥니다. 개인파산은 파산선고 후에야 집행이 정지되어 수개월 지연될 수 있습니다.' });
+        push('rehab', { text: '압류·법적 조치 진행 중 — 조기 중단 가능', weight: 3,
+          reason: '개인회생은 신청과 동시에 중지·금지명령을 신청할 수 있고, 법원이 명령을 내리면 강제집행·추심이 중단됩니다(채무자회생법 제593조). 개시결정이 나면 자동으로 중지됩니다(제600조). 개인파산은 파산선고 후에야 집행이 정지되어 상대적으로 늦을 수 있습니다.' });
       if (disposable > 0)
         push('rehab', { text: '변제 여력 있음', weight: 3,
           reason: `월 ${formatWon(disposable)}의 가처분소득이 있습니다. 변제 능력이 있는 상황에서 법원은 파산보다 개인회생을 우선 검토하며, 36개월 변제 완수 후 나머지 채무를 면책받을 수 있습니다.` });
@@ -592,7 +599,7 @@
     return `
       <div>
         <p class="text-sm text-slate-400 mb-1">귀하의 구체적 상황에서 각 절차가 갖는 실질적 장점을 요인별로 분석했습니다.</p>
-        <p class="text-xs text-slate-300 mb-4">이 분석은 정성적 요인 비교이며, <strong class="text-slate-400">적합도(%) 점수</strong>와 함께 참고하세요. 두 결과가 다를 수 있습니다.</p>
+        <p class="text-xs text-slate-400 mb-4">이 분석은 정성적 요인 비교이며, <strong class="text-slate-500">적합도(%) 점수</strong>와 함께 참고하세요. 두 결과가 다를 수 있습니다.</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div class="border ${A.border} ${A.bg} rounded-xl p-4">
             <div class="flex items-center gap-1.5 mb-3">
@@ -624,19 +631,19 @@
       </div>`;
   }
 
-  // ── 파산관재인 선임 경고 (재산 있는 경우) ──
+  // ── 파산관재인·예납금 안내 (파산 검토 대상이면 재산 규모와 무관하게 표시) ──
   function buildTrusteeWarning(data, scores) {
     if (scores.bankrupt < 30) return '';
     const totalAssets = data.totalAssets || 0;
-    if (totalAssets < 5_000_000) return '';
+    const hasAssets = totalAssets >= 5_000_000;
 
     return `
       <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5">
         <div class="flex items-start gap-3 mb-3">
           <span class="text-2xl shrink-0">⚠️</span>
           <div>
-            <h3 class="font-bold text-amber-800 text-base mb-1">재산이 있는 경우 — 파산 절차가 복잡해질 수 있습니다</h3>
-            <p class="text-sm text-slate-600">입력하신 재산 합계(<strong>${formatWon(totalAssets)}</strong>)로 인해 법원이 <strong>파산관재인</strong>을 선임할 수 있습니다. 재산이 거의 없을 때 내려지는 <em>동시폐지결정</em>과는 다른 절차가 진행됩니다.</p>
+            <h3 class="font-bold text-amber-800 text-base mb-1">파산관재인 선임과 예납금 — 미리 준비하세요</h3>
+            <p class="text-sm text-slate-600">최근 법원 실무는 재산이 거의 없는 사건에서도 대부분 <strong>파산관재인</strong>을 선임하는 방향입니다. 재산이 매우 적으면 관재인 없이 <em>동시폐지</em>로 종결되는 경우도 있으나 예외적입니다.${hasAssets ? ` 입력하신 재산 합계(<strong>${formatWon(totalAssets)}</strong>)가 있어 관재인이 재산 환가(처분) 절차를 진행할 가능성이 높습니다.` : ''}</p>
           </div>
         </div>
 
@@ -644,8 +651,8 @@
           <div class="flex gap-2.5 bg-white border border-amber-100 rounded-xl px-4 py-3">
             <span class="text-amber-500 shrink-0 font-bold mt-0.5">!</span>
             <div>
-              <p class="text-sm font-semibold text-slate-800">파산관재인 선임 → 예납금 납부 의무 발생</p>
-              <p class="text-xs text-slate-500 mt-0.5">법원은 파산관재인 보수 등 절차비용을 충당하기 위해 <strong>예납명령</strong>을 내릴 수 있습니다. 예납금을 납부하지 못하면 파산신청이 기각될 수 있습니다.</p>
+              <p class="text-sm font-semibold text-slate-800">파산관재인 선임 → 예납금 납부 필요</p>
+              <p class="text-xs text-slate-500 mt-0.5">법원은 파산관재인 보수 등 절차비용을 위해 <strong>예납명령</strong>을 내립니다. 서울회생법원 기준 원칙 <strong>30만원</strong>이며 사건에 따라 증액될 수 있습니다(법원별로 다를 수 있음). 예납금을 납부하지 못하면 파산신청이 기각될 수 있습니다.</p>
             </div>
           </div>
           <div class="flex gap-2.5 bg-white border border-blue-100 rounded-xl px-4 py-3">
@@ -659,14 +666,14 @@
             <span class="text-amber-500 shrink-0 font-bold mt-0.5">!</span>
             <div>
               <p class="text-sm font-semibold text-slate-800">챔로드 서비스 범위 안내</p>
-              <p class="text-xs text-slate-500 mt-0.5">챔로드는 재산이 없어 <em>동시폐지결정</em>이 내려지는 경우(개인파산의 가장 일반적인 경로)를 기준으로 설계되어 있습니다. 파산관재인이 선임되는 절차는 추가적인 전문 지원이 필요합니다.</p>
+              <p class="text-xs text-slate-500 mt-0.5">챔로드는 서류 준비부터 면책신청까지의 일반 절차를 기준으로 안내합니다. 파산관재인 선임 후의 구체적 대응(면담, 재산 환가 등)은 사건마다 달라, 관재인·법원 안내를 따르고 필요 시 전문가 확인을 권장합니다.</p>
             </div>
           </div>
         </div>
 
         <div class="bg-amber-100 border border-amber-200 rounded-xl p-4">
           <p class="text-sm font-bold text-amber-800 mb-1">신청 전 전문가 상담을 먼저 받아보세요</p>
-          <p class="text-xs text-slate-600">재산이 있는 상황에서의 개인파산은 절차가 더 복잡합니다. <strong>대한법률구조공단(132)</strong>의 무료 상담이나 법무사·변호사 상담을 통해 실제 예납금 규모와 절차를 먼저 확인하세요.</p>
+          <p class="text-xs text-slate-600">${hasAssets ? '재산이 있는 상황에서의 개인파산은 절차가 더 복잡합니다. ' : ''}<strong>대한법률구조공단(132)</strong>의 무료 상담이나 법무사·변호사 상담을 통해 실제 예납금 규모와 절차를 먼저 확인하세요.</p>
         </div>
       </div>`;
   }
@@ -871,8 +878,8 @@
           <div>
             <p class="font-bold text-slate-700 text-sm mb-1.5">면책 가능 채무액이 0원이어도 개인회생이 유효한 이유</p>
             <ul class="text-xs text-slate-500 space-y-1.5">
-              <li class="flex gap-2"><span class="shrink-0 text-blue-400">▸</span><span><strong class="text-slate-700">이자·연체료 즉시 동결</strong> — 신청 시점부터 채무 총액이 확정되어 더 이상 불어나지 않습니다. 방치 시 이자가 계속 쌓입니다.</span></li>
-              <li class="flex gap-2"><span class="shrink-0 text-blue-400">▸</span><span><strong class="text-slate-700">급여·통장 압류 즉시 중지</strong> — 법원 보전처분으로 강제집행이 멈춥니다. 개인파산은 선고 후에야 중지됩니다.</span></li>
+              <li class="flex gap-2"><span class="shrink-0 text-blue-400">▸</span><span><strong class="text-slate-700">이자 부담 사실상 동결</strong> — 개시결정 이후 발생하는 이자·지연손해금은 후순위 채권이 되어 변제계획에서 사실상 제외됩니다. 방치하면 이자가 계속 쌓입니다.</span></li>
+              <li class="flex gap-2"><span class="shrink-0 text-blue-400">▸</span><span><strong class="text-slate-700">급여·통장 압류 중단</strong> — 신청 시 함께 신청하는 중지·금지명령을 법원이 받아들이면 강제집행이 멈추고, 개시결정 시에는 자동 중지됩니다. 개인파산은 선고 후에야 중지됩니다.</span></li>
               <li class="flex gap-2"><span class="shrink-0 text-blue-400">▸</span><span><strong class="text-slate-700">여러 채권자를 단일 계획으로 통합</strong> — 법원이 인가한 변제계획 하나로 모든 채권자를 일원 관리합니다.</span></li>
               <li class="flex gap-2"><span class="shrink-0 text-blue-400">▸</span><span><strong class="text-slate-700">3년 분할납부 법적 보호</strong> — 인가 후에는 채권자가 임의로 추가 변제를 압박할 수 없습니다.</span></li>
             </ul>

@@ -177,6 +177,15 @@ function renderFooter() {
         </div>
 
         <div style="border-top:1px solid #e3e8ee; padding-top:24px">
+          <div class="flex flex-wrap justify-center gap-x-4 gap-y-2 mb-4 text-xs">
+            <a href="terms.html" class="footer-link">이용약관</a>
+            <span class="text-slate-300">·</span>
+            <a href="privacy.html" class="footer-link" style="font-weight:600">개인정보처리방침</a>
+            <span class="text-slate-300">·</span>
+            <a href="about.html" class="footer-link">운영자 소개</a>
+            <span class="text-slate-300">·</span>
+            <a href="mailto:eslje75@gmail.com" class="footer-link">문의 eslje75@gmail.com</a>
+          </div>
           <p class="footer-link text-center" style="font-size:11px; line-height:1.6">© 2026 ${SITE_NAME} · 본 사이트는 법률대리 사이트가 아님을 고지하며, 법률상담·법률대리·사건 수임 또는 결과 보장을 제공하지 않습니다.</p>
           <p class="footer-link text-center mt-1" style="font-size:11px; line-height:1.6">사용자가 직접 절차를 이해하고 준비할 수 있도록 돕는 정보 제공 및 서류 점검 보조 서비스입니다.</p>
         </div>

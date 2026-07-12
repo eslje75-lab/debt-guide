@@ -14,7 +14,7 @@
   --c-brand-dark:     #1c1e54;
   --c-ink:            #0d253d;
   --c-ink-2:          #273951;
-  --c-ink-mute:       #64748d;
+  --c-ink-mute:       #475569; /* 구 #64748d — 가독성 개선으로 한 단계 진하게 */
   --c-canvas:         #ffffff;
   --c-canvas-soft:    #f6f9fc;
   --c-hairline:       #e3e8ee;
@@ -28,7 +28,7 @@
 /* ── Base ── */
 body {
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  font-weight: 300;
+  font-weight: 400; /* 300(Light)은 작은 한글이 흐릿하게 렌더되어 400으로 상향 (2026-07-07 가독성 개선) */
   font-feature-settings: "ss01";
   background: var(--c-canvas-soft);
   color: var(--c-ink);
@@ -341,7 +341,7 @@ input[type="number"][class*="pr-14"] { text-align: right; }
 @media (max-width: 768px) {
   .hero-gradient > div { padding-top: 3rem !important; padding-bottom: 3rem !important; }
   section, .max-w-5xl, .max-w-3xl, .max-w-6xl { max-width: 100%; }
-  .compare-table td, .compare-table th { font-size: 12px; padding: 10px 8px; }
+  .compare-table td, .compare-table th { font-size: 13px; padding: 10px 8px; }
   .pricing-featured { transform: scale(1) !important; }
   .text-blue-100 { color: #c7c2ff                   !important; }
   .text-blue-200 { color: var(--c-primary-sub)       !important; }
@@ -402,3 +402,29 @@ input[type="number"][class*="pr-14"] { text-align: right; }
   box-shadow: none !important;
   transform: translateY(7px) scale(0.98) !important;
 }
+
+/* ══════════════════════════════════════════════
+   가독성 개선 (2026-07-07)
+   — 읽을 텍스트가 많은 사이트 특성상, 연한 회색과
+     11~12px 글씨가 피로하다는 사용자 피드백 반영.
+   ══════════════════════════════════════════════ */
+
+/* 회색 텍스트를 한 단계씩 진하게 — 흰 배경 기준 WCAG AA 이상 확보 */
+.text-slate-400 { color: #64748b !important; } /* 기존 #94a3b8 (대비 2.9:1 미달) → 4.8:1 */
+.text-slate-500 { color: #475569 !important; } /* 기존 #64748b → 7.1:1 */
+
+/* 다크 배경(네이비 히어로·다크 카드) 안에서는 밝은 회색 유지 — 어두운 바탕에선 진하게 하면 오히려 안 보임 */
+.bg-slate-700 .text-slate-400, .bg-slate-800 .text-slate-400, .hero-gradient .text-slate-400,
+.bg-slate-700 .text-slate-500, .bg-slate-800 .text-slate-500, .hero-gradient .text-slate-500 {
+  color: #b6c2d4 !important;
+}
+
+/* 최소 글자 크기 상향: text-xs 12px → 13px, text-[11px] 11px → 12px */
+.text-xs { font-size: 0.8125rem !important; line-height: 1.25rem !important; }
+.text-\[11px\] { font-size: 0.75rem !important; }
+
+/* text-xs에 행간이 명시된 곳은 그 값을 유지 */
+.text-xs.leading-relaxed { line-height: 1.625 !important; }
+.text-xs.leading-loose   { line-height: 2 !important; }
+.text-xs.leading-normal  { line-height: 1.5 !important; }
+.text-xs.leading-snug    { line-height: 1.375 !important; }

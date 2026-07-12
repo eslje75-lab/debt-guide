@@ -148,7 +148,7 @@ Claude 자동 브라우저 테스트용으로는 `.claude/launch.json`의 `chamr
 
 ### 요금제·결제
 
-`pricing.html` — 회생 완주 패키지 149,000원 / 변제기간 관리 패키지 29,000원 / 파산 완주 패키지 49,000원 / 보정 추가 대응 19,000원·회. 결제 기능 미구현(mock 모달만 존재 — 어떤 패키지를 사도 `plan='premium'`으로 저장됨).
+`pricing.html` — 회생 완주 패키지 149,000원 / 변제기간 관리 패키지 29,000원 / 파산 완주 패키지 49,000원 / 보정 추가 대응 19,000원·회. 결제 기능 미구현(mock 모달만 존재). 구매 시 `plan='premium'`과 함께 `plan_package`(rehab-full / maintain / correction-rehab / bankrupt-full / correction-bankrupt)·`plan_package_name`이 저장되고 패키지별 전용 페이지로 이동 — 완주 패키지는 `rehabilitation.html`/`bankruptcy.html`, 변제기간 관리는 `maintenance.html`, 보정 추가 대응은 `supplement.html?type=rehab|bankrupt`.
 
 ## 페이지별 역할
 
@@ -159,6 +159,8 @@ Claude 자동 브라우저 테스트용으로는 `.claude/launch.json`의 `chamr
 | `result.html` | 진단 결과 표시 (sessionStorage에서 읽음) |
 | `rehabilitation.html` | 개인회생 절차 안내 |
 | `bankruptcy.html` | 개인파산·면책 절차 안내 |
+| `maintenance.html` | 변제기간 관리 센터 (변제계획 변경·실직 대처·특별면책 — 변제기간 관리 패키지 전용) |
+| `supplement.html` | 보정 대응 센터 (`?type=rehab\|bankrupt` — 보정 추가 대응 전용) |
 | `documents.html` | 서류 체크리스트 |
 | `ai-review.html` | AI 서류 검토 기능 |
 | `resources.html` | FAQ·자료실 |

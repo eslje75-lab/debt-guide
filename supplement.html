@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>보정 대응 센터 | 챔로드</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css">
+  <meta name="description" content="개인회생 보정권고·개인파산 보정명령을 받았을 때 확인부터 제출까지 대응 절차를 안내합니다.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="챔로드">
+  <meta property="og:image" content="https://eslje75-lab.github.io/debt-guide/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:title" content="보정 대응 센터 | 챔로드">
+  <meta property="og:description" content="개인회생 보정권고·개인파산 보정명령을 받았을 때 확인부터 제출까지 대응 절차를 안내합니다.">
+  <meta property="og:url" content="https://eslje75-lab.github.io/debt-guide/supplement.html">
+</head>
+<body class="bg-slate-50">
+<div id="header-placeholder"></div>
+
+<section class="bg-blue-700 text-white py-8">
+  <div class="max-w-4xl mx-auto px-4">
+    <h1 class="text-2xl md:text-3xl font-bold mb-1">보정 대응 센터</h1>
+    <p id="hero-sub" class="text-blue-200 text-sm">법원에서 받은 보정 요구를 확인하고, 기한 내 제출까지 단계별로 준비하세요.</p>
+  </div>
+</section>
+
+<div class="max-w-4xl mx-auto px-4 py-8">
+
+  <!-- 이용 안내 -->
+  <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5 mb-6">
+    <h3 class="font-bold text-slate-800 text-sm mb-1">보정은 흔한 절차입니다</h3>
+    <p id="intro-text" class="text-xs text-slate-600 leading-relaxed"></p>
+  </div>
+
+  <!-- 서류·AI 검토 바로가기 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
+    <h3 class="font-bold text-slate-800 mb-0.5 text-sm">📌 보정 대응 지원 도구</h3>
+    <p class="text-xs text-slate-500 mb-3">요구 자료의 발급처 확인과 작성한 초안 점검까지 함께 이용하세요. 보정서·소명서·사용내역표 예시는 바로 아래에 있습니다.</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <a href="documents.html" class="flex items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 hover:border-blue-300 transition-colors card-hover">
+        <span class="text-2xl">📁</span>
+        <div>
+          <div class="font-semibold text-slate-800 text-sm">서류 체크센터</div>
+          <div class="text-xs text-slate-400">서류별 발급처·공식 사이트 링크</div>
+        </div>
+      </a>
+      <a href="ai-review.html" class="flex items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 hover:border-blue-300 transition-colors card-hover">
+        <span class="text-2xl">🤖</span>
+        <div>
+          <div class="font-semibold text-slate-800 text-sm">AI 서류 검토</div>
+          <div class="text-xs text-slate-400">작성한 보정서 초안 참고 검토</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- 실전 작성예시 라이브러리 -->
+  <div id="example-library" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
+    <h3 class="font-bold text-slate-800 mb-0.5">실전 작성예시</h3>
+    <p id="library-sub" class="text-xs text-slate-500 mb-3"></p>
+    <div id="doc-example-buttons" class="flex flex-wrap gap-2"></div>
+    <p class="text-[11px] text-slate-400 mt-3 leading-relaxed">※ 가상 사례입니다. 실제 작성 시에는 보정서에 적힌 요구 문구와 본인의 실제 상황을 기준으로 하세요.</p>
+  </div>
+
+  <!-- 전체 진행률 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
+    <div class="flex items-center justify-between mb-2">
+      <span class="font-semibold text-slate-700 text-sm">대응 진행률</span>
+      <span id="supp-pct" class="text-blue-700 font-bold text-sm">0%</span>
+    </div>
+    <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+      <div id="supp-bar" class="progress-bar h-full bg-blue-600 rounded-full" style="width:0%"></div>
+    </div>
+    <p class="text-xs text-slate-400 mt-2">각 항목의 <strong>자세히</strong> 버튼을 누르면 구체적인 방법을 확인할 수 있습니다.</p>
+  </div>
+
+  <!-- 단계별 체크리스트 -->
+  <div id="steps-container" class="space-y-4"></div>
+
+  <div class="disclaimer-box mt-6">
+    <strong>⚠️ 참고용 안내</strong><br>
+    본 서비스는 법률상담이 아닙니다. 모든 안내는 참고용이며 최종 판단은 법원 결정 및 전문가 검토에 따라 달라질 수 있습니다.
+    구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
+  </div>
+</div>
+
+<div id="footer-placeholder"></div>
+<div id="toast"></div>
+
+<!-- 상세안내 모달 -->
+<div id="example-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" style="display:none!important">
+  <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 shadow-2xl">
+    <div class="flex items-center justify-between mb-4">
+      <h3 id="modal-title" class="font-bold text-slate-800 text-lg"></h3>
+      <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">×</button>
+    </div>
+    <div id="modal-content" class="text-sm text-slate-600 leading-relaxed whitespace-pre-line bg-slate-50 p-4 rounded-xl border border-slate-200"></div>
+    <button onclick="closeModal()" class="mt-4 w-full py-2.5 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors">닫기</button>
+  </div>
+</div>
+
+<script src="js/main.js"></script>
+<script>
+  initPage('supplement');
+
+  // ?type=rehab(개인회생·보정권고) | bankrupt(개인파산·보정명령)
+  // 파라미터가 없으면 구매한 패키지 기준으로 기본 유형 결정
+  const params = new URLSearchParams(window.location.search);
+  const PKG = Storage.load('plan_package');
+  const PKG_DEFAULT = (PKG === 'bankrupt-full' || PKG === 'correction-bankrupt') ? 'bankrupt' : 'rehab';
+  const typeParam = params.get('type');
+  const TYPE = typeParam === 'bankrupt' ? 'bankrupt' : (typeParam === 'rehab' ? 'rehab' : PKG_DEFAULT);
+  const TERM   = TYPE === 'bankrupt' ? '보정명령' : '보정권고';
+  const PROC   = TYPE === 'bankrupt' ? '개인파산' : '개인회생';
+  const CHECK_KEY = 'supplement_checks_' + TYPE;
+
+  const TERM_OBJ = TYPE === 'bankrupt' ? `${TERM}을` : `${TERM}를`; // 조사 처리
+  document.getElementById('hero-sub').textContent =
+    `${PROC} ${TERM_OBJ} 받았을 때, 확인부터 기한 내 제출까지 단계별로 준비하세요.`;
+  document.getElementById('intro-text').innerHTML =
+    `${TERM}은 법원이 서류 보완이나 추가 자료를 요구하는 통지로, ${PROC} 절차에서 흔하게 발생합니다. ` +
+    `당황하지 말고 <strong>요구 항목과 기한</strong>을 먼저 확인한 뒤 아래 단계를 따라 준비하세요. ` +
+    `기한을 넘기면 신청이 기각될 수 있으므로 기한 관리가 가장 중요합니다.`;
+  document.getElementById('library-sub').innerHTML = TYPE === 'bankrupt'
+    ? '가상 인물 <strong class="text-slate-700">박○수 님(개인파산 신청 후 보정명령 수령)</strong>의 사례로, 보정서·소명서가 실제로 어떤 모습인지 보여드립니다.'
+    : '가상 인물 <strong class="text-slate-700">김○민 님(개인회생 신청 후 보정권고 수령)</strong>의 사례로, 보정서·소명서가 실제로 어떤 모습인지 보여드립니다.';
+
+  const MUST_STYLE = {
+    '필수': 'bg-rose-50 text-rose-600 border border-rose-100',
+    '해당 시 필수': 'bg-amber-50 text-amber-700 border border-amber-100',
+    '권장': 'bg-blue-50 text-blue-700 border border-blue-100',
+  };
+
+  const SUPP_STEPS = [
+    {
+      title: `1단계 · ${TERM} 내용 확인`,
+      items: [
+        { id: 's1-1', text: `${TERM}서 원문 확인`, hint: '대법원 전자소송 또는 우편으로 수령', must: '필수',
+          guide: `전자소송으로 신청했다면 전자소송 사이트의 알림·송달문서함에서, 서면으로 접수했다면 주민등록상 주소로 오는 우편으로 받습니다.\n받은 날짜를 꼭 적어두세요 — 제출 기한은 보통 ${TERM}서를 송달받은 날을 기준으로 계산됩니다.`,
+          links: [{ label: '전자소송', url: 'https://ecfs.scourt.go.kr' }] },
+        { id: 's1-2', text: '요구 항목을 하나씩 목록으로 정리', hint: '항목별로 나눠 적으면 누락 방지', must: '필수',
+          guide: '요구 문구를 그대로 옮겨 번호를 붙이세요. "1. ◇◇저축은행 대출금 사용처 소명, 2. 최근 3개월 급여 입금내역 제출" 식으로 정리하면 빠뜨리지 않고, 보정서도 이 번호 순서대로 쓰면 됩니다.',
+          ex: { title: '요구 항목 정리 예시', content: '[받은 요구 문구를 번호로 정리]\n\n요구 1. ◇◇저축은행 대출금 7,000,000원의 사용처를 소명할 것\n → 준비: 사용내역표 + 이체확인증·영수증\n\n요구 2. 최근 3개월 급여 입금내역을 제출할 것\n → 준비: 급여 입금 통장 거래내역서 (은행 발급)\n\n요구 3. 부채증명서 기준일 갱신\n → 준비: ○○은행 부채증명서 재발급\n\n※ 각 요구 옆에 "무엇을 준비할지"까지 함께 적으면 2단계가 쉬워집니다.' } },
+        { id: 's1-3', text: '제출 기한 확인 및 달력에 표시', hint: '보정서에 적힌 기한 기준 — 기한 초과 시 기각될 수 있음', must: '필수',
+          guide: `기한은 ${TERM}서에 적힌 날짜가 기준입니다(통상 1~2주, 사건에 따라 더 길게 주어지기도 합니다). 달력과 휴대폰에 마감 2~3일 전 알림을 걸어두세요.\n기한 내 준비가 어려우면 그냥 넘기지 말고 미리 법원에 기한 연장을 문의하세요 — 방치가 가장 나쁜 대응입니다.` },
+        { id: 's1-4', text: '이해되지 않는 요구 항목 확인', hint: '법원 민원실 또는 전문가에게 문의', must: '권장',
+          guide: '요구 취지를 잘못 짚으면 보정을 다시 받게 됩니다. 담당 재판부에 전화로 문의할 때는 사건번호를 준비하고, 무엇을 소명하라는 것인지(어느 금액? 어느 기간? 사용처?)를 확인해 메모해 두세요.' },
+      ],
+      example: { title: `${TERM} 확인 예시`, content: `[${TERM}서에서 확인할 것]\n\n① 사건번호\n   이후 모든 서류에 기재해야 합니다.\n\n② 요구 항목\n   예: "○○ 채권자 채무잔액증명서 제출 요망"\n   예: "최근 1년 소득 관련 소명자료 제출 요망"\n\n③ 제출 기한\n   ${TERM}서에 적힌 기한 기준(통상 1~2주) — 기한을 넘기면\n   신청이 기각될 수 있으므로 반드시 달력에 표시하세요.\n\n④ 제출 방법\n   전자소송으로 접수했다면 전자소송으로,\n   서면 접수했다면 법원 접수창구로 제출하는 것이 일반적입니다.` }
+    },
+    {
+      title: '2단계 · 요구 자료 준비',
+      items: [
+        { id: 's2-1', text: '요구 서류별 발급처 확인', hint: '서류 체크센터에서 발급처 안내 참고', must: '필수',
+          guide: '서류 체크센터에 서류별 발급처와 공식 사이트 링크를 정리해 두었습니다. 부채증명서(각 금융사 고객센터), 등본·초본(정부24), 소득 증명(홈택스), 통장 거래내역(각 은행) 등 대부분의 요구 자료가 목록에 있습니다.',
+          links: [{ label: '서류 체크센터', url: 'documents.html' }] },
+        { id: 's2-2', text: '증명서·확인서 발급 신청', hint: '발급에 며칠 걸리는 서류부터 먼저 신청', must: '필수',
+          guide: '금융사 부채증명서처럼 발급에 며칠 걸리는 서류부터 먼저 신청하세요. "○월 ○일 기준"처럼 기준일을 지정받았다면 그 날짜 기준으로 발급되는지 발급 전에 확인해야 두 번 걸음하지 않습니다.' },
+        { id: 's2-3', text: '설명이 필요한 항목은 소명서(경위서) 초안 작성', hint: '사실관계를 시간 순서대로 정리', must: '해당 시 필수',
+          guide: '"왜, 어디에 썼는지"를 묻는 요구는 서류만으로 답이 안 되고 설명 서면(소명서)이 필요합니다. 시간 순서 + 구체적 금액 + 증빙 연결(첨부 번호)이 기본 구조입니다.\n상단 실전 작성예시의 소명서·사용내역표를 참고해 초안을 만들어 보세요.',
+          ex: { title: '소명서 → 실전 예시로 확인', content: '완성된 형태의 예시는 페이지 상단 "실전 작성예시 → 소명서" 버튼에서 확인할 수 있습니다.\n\n핵심 구조\n① 무엇에 대한 소명인지 제목에 명시\n② 시간 순서대로, 구체적 금액과 함께 설명\n③ 각 내용 뒤에 증빙(첨부 번호) 연결\n④ 소명하지 못하는 금액이 없도록 합계 맞추기' } },
+        { id: 's2-4', text: '준비한 자료를 요구 항목 순서대로 정리', hint: '항목 번호를 매겨 대조 확인', must: '권장',
+          guide: '요구 항목 번호별로 자료를 묶어(클립·라벨) 정리하면 보정서 작성과 제출 직전 대조가 쉬워집니다. 1단계에서 만든 목록과 하나씩 대조해 빠진 것이 없는지 확인하세요.' },
+      ],
+      example: { title: '자료 준비 예시', content: `[요구 항목별 준비 예시]\n\n요구 1. 채무잔액증명서\n → 해당 금융사 고객센터·인터넷뱅킹에서 발급\n\n요구 2. 소득 소명자료\n → 급여명세서, 통장 입금내역, 소득금액증명원 등\n\n요구 3. 재산 관련 소명\n → 등기사항전부증명서, 보험 해약환급금 조회서 등\n\n요구 4. 경위 설명\n → 소명서에 사실관계를 시간 순서대로 작성\n\n※ 발급까지 시간이 걸리는 서류(금융사 증명서 등)를\n   가장 먼저 신청해 두는 것이 안전합니다.` }
+    },
+    {
+      title: '3단계 · 보정서 작성·제출',
+      items: [
+        { id: 's3-1', text: '보정서에 사건번호·성명 기재', hint: `${TERM}서에 기재된 사건번호 그대로`, must: '필수',
+          guide: `${TERM}서에 적힌 사건번호를 한 글자도 다르지 않게 옮겨 적으세요. 사건번호가 틀리면 다른 사건으로 잘못 접수되어 기한을 넘긴 것으로 처리될 수 있습니다.` },
+        { id: 's3-2', text: '요구 항목별 답변과 첨부서류 목록 작성', hint: '항목 순서대로 답변하면 확인이 쉬움', must: '필수',
+          guide: '"1.에 대하여 → 답변 + (첨부 1)" 구조로 요구 항목 순서 그대로 답하는 것이 법원이 확인하기 가장 좋습니다. 마지막에 첨부서류 목록을 번호 순서로 정리하세요.\n상단 실전 작성예시의 보정서를 참고하면 형태를 그대로 따라 쓸 수 있습니다.',
+          ex: { title: '보정서 → 실전 예시로 확인', content: '완성된 형태의 예시는 페이지 상단 "실전 작성예시 → 보정서" 버튼에서 확인할 수 있습니다.\n\n핵심 구조\n① 사건번호·채무자 성명\n② 요구 항목 순서대로 "1.에 대하여 → 답변 + 첨부 번호"\n③ 첨부서류 목록\n④ 날짜·서명, "○○법원 귀중"' } },
+        { id: 's3-3', text: 'AI 서류 검토로 초안 점검', hint: 'AI 서류 검토 메뉴 이용', must: '권장',
+          guide: '작성한 보정서·소명서 초안을 AI 서류 검토(서류 유형: 보정서 / 소명서·사용내역서)에 붙여넣으면 누락되기 쉬운 항목을 참고용으로 점검해 줍니다.',
+          links: [{ label: 'AI 서류 검토', url: 'ai-review.html' }] },
+        { id: 's3-4', text: '기한 내 제출', hint: '전자소송 또는 법원 접수창구', must: '필수',
+          guide: '전자소송으로 접수한 사건은 전자소송으로, 서면 접수 사건은 법원 접수창구(또는 우편)로 제출하는 것이 일반적입니다. 마감일 당일 제출은 피하고 하루 이상 여유를 두세요.' },
+        { id: 's3-5', text: '제출 후 접수 완료 여부 확인', hint: '전자소송 진행내역 또는 접수증 확인', must: '권장',
+          guide: '전자소송은 제출 후 진행내역에서 접수 표시를 확인하고, 창구 제출은 접수증을 받아 보관하세요. "대법원 나의사건검색"에서도 사건 진행 상황을 조회할 수 있습니다. 제출한 보정서 사본은 반드시 보관하세요.' },
+      ],
+      example: { title: '보정서 작성 예시', content: `[보정서 기본 구성]\n\n사건번호: ${TYPE === 'bankrupt' ? `(${TERM}서에 기재된 사건번호 그대로)` : `20○○개회○○○○ (${TERM}서 기재 번호)`}\n신청인(채무자): 홍길동\n\n1. 요구사항 ①에 대하여\n   ○○은행 채무잔액증명서를 첨부합니다. (첨부 1)\n\n2. 요구사항 ②에 대하여\n   최근 3개월 급여명세서를 첨부합니다. (첨부 2)\n   ※ 설명이 필요한 경우 소명 내용을 함께 기재\n\n첨부서류\n 1. ○○은행 채무잔액증명서 1통\n 2. 급여명세서 3매\n\n20○○. ○. ○.\n위 신청인 홍길동 (서명 또는 날인)\n\n○○법원 귀중\n\n※ 제출 전 사본 1부를 반드시 보관하세요.` }
+    },
+  ];
+
+  // ── 실전 작성예시 (유형별 가상 사례) ──
+  const AMT = 'text-right whitespace-nowrap';
+  const TH = 'border border-slate-200 bg-slate-100 px-2 py-1.5 text-left font-semibold text-slate-700';
+  const TD = 'border border-slate-200 px-2 py-1.5';
+  const CAVEAT = '<p class="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5 mb-3 leading-relaxed">아래는 <strong>가상 인물의 작성 예시</strong>입니다. 실제 작성 시에는 받은 보정서의 요구 문구와 본인의 실제 상황을 기준으로 사실대로 적어야 합니다.</p>';
+
+  const DOC_EXAMPLES = TYPE === 'bankrupt' ? [
+    {
+      icon: '📄', name: '보정서',
+      html: CAVEAT + `
+        <div class="bg-white border border-slate-200 rounded-xl p-4 text-xs text-slate-700 leading-relaxed space-y-3">
+          <p class="font-bold text-sm text-slate-800 text-center">보 정 서</p>
+          <p>사건번호: (보정명령서에 기재된 사건번호 그대로)<br>채무자(신청인): 박 ○ 수</p>
+          <div>
+            <p class="font-semibold mb-1">1. 보정명령 요구사항 ①(2025. 10. 예금 인출액 3,000,000원의 사용처 소명)에 대하여</p>
+            <p>위 인출액은 허리 수술비 잔금 1,200,000원, 연체된 월세 2개월분 800,000원, 3개월간 생활비 1,000,000원에 사용하였습니다. 상세 내역과 증빙은 별첨 소명서 및 사용내역표(첨부 1)와 같습니다.</p>
+          </div>
+          <div>
+            <p class="font-semibold mb-1">2. 요구사항 ②(배우자 소득 증빙 제출)에 대하여</p>
+            <p>배우자의 최근 3개월 급여 입금내역(첨부 2)을 제출합니다.</p>
+          </div>
+          <div>
+            <p class="font-semibold mb-1">첨부서류</p>
+            <p>1. 소명서 및 사용내역표(진료비 영수증·이체내역·가계부 사본 포함) 1부<br>2. 배우자 급여 입금내역(통장 거래내역서) 1부</p>
+          </div>
+          <p class="text-right">2026. ○. ○.<br>위 채무자 박 ○ 수 (날인)<br>○○법원 귀중</p>
+        </div>
+        <ul class="text-xs text-slate-600 mt-3 space-y-1 leading-relaxed">
+          <li>· 요구사항 번호 순서 그대로 답변하고, 답마다 첨부 번호를 연결하세요.</li>
+          <li>· 제출 전 사본을 보관하고, 기한(보정명령서 기재)을 반드시 지키세요.</li>
+        </ul>`
+    },
+    {
+      icon: '✍️', name: '소명서',
+      html: CAVEAT + `
+        <div class="bg-white border border-slate-200 rounded-xl p-4 text-xs text-slate-700 leading-relaxed space-y-3">
+          <p class="font-bold text-sm text-slate-800 text-center">소 명 서 (예금 인출액 사용처)</p>
+          <p>채무자 박○수는 ○○은행 계좌에서 2025. 10. 15. 인출한 3,000,000원의 사용처를 아래와 같이 소명합니다.</p>
+          <p>① 2024. 3. 허리 수술(추간판 탈출증) 이후 분할 납부해 온 수술비의 잔금 1,200,000원을 2025. 10. 15. ○○병원에 납부하였습니다(진료비 영수증 첨부).</p>
+          <p>② 연체 중이던 월세 2개월분 800,000원을 2025. 10. 16. 임대인 정○○에게 이체하였습니다(이체내역 첨부).</p>
+          <p>③ 나머지 1,000,000원은 2025. 10.~12. 식비·공과금 등 생활비로 사용하였습니다(가계부 정리·영수증 첨부).</p>
+          <p>인출액 3,000,000원과 사용 합계 3,000,000원이 일치하며, 상세 내역은 별첨 사용내역표와 같습니다.</p>
+          <p class="text-right">2026. ○. ○.<br>채무자 박 ○ 수 (날인)</p>
+        </div>
+        <ul class="text-xs text-slate-600 mt-3 space-y-1 leading-relaxed">
+          <li>· 시간 순서 + 구체적 금액 + 증빙 연결이 소명서의 기본 구조입니다.</li>
+          <li>· 인출액과 사용 합계가 일치해야 합니다 — 소명 못 한 금액은 재산 은닉으로 의심받을 수 있습니다.</li>
+        </ul>`
+    },
+    {
+      icon: '🧾', name: '사용내역표',
+      html: CAVEAT + `
+        <p class="text-xs text-slate-500 mb-2">소명서에 붙이는 상세 내역표입니다. 엑셀이나 표로 정리해 증빙과 함께 제출합니다.</p>
+        <div class="overflow-x-auto"><table class="w-full text-xs border-collapse">
+          <tr><th class="${TH}">일자</th><th class="${TH}">구분</th><th class="${TH} text-right">금액(원)</th><th class="${TH}">사용처·내용</th><th class="${TH}">증빙</th></tr>
+          <tr class="bg-blue-50"><td class="${TD}">2025.10.15</td><td class="${TD}">인출</td><td class="${TD} ${AMT}">+3,000,000</td><td class="${TD}">○○은행 계좌 현금 인출</td><td class="${TD}">통장 거래내역</td></tr>
+          <tr><td class="${TD}">2025.10.15</td><td class="${TD}">지출</td><td class="${TD} ${AMT}">−1,200,000</td><td class="${TD}">허리 수술비 잔금 (○○병원)</td><td class="${TD}">진료비 영수증</td></tr>
+          <tr><td class="${TD}">2025.10.16</td><td class="${TD}">지출</td><td class="${TD} ${AMT}">−800,000</td><td class="${TD}">연체 월세 2개월분 (임대인 정○○)</td><td class="${TD}">이체내역</td></tr>
+          <tr><td class="${TD}">2025.10.~12.</td><td class="${TD}">지출</td><td class="${TD} ${AMT}">−1,000,000</td><td class="${TD}">생활비 (식비·공과금)</td><td class="${TD}">가계부·영수증</td></tr>
+          <tr class="font-semibold bg-slate-50"><td class="${TD}" colspan="2">사용 합계</td><td class="${TD} ${AMT}">3,000,000</td><td class="${TD}" colspan="2">인출액과 일치</td></tr>
+        </table></div>
+        <ul class="text-xs text-slate-600 mt-3 space-y-1 leading-relaxed">
+          <li>· 합계가 끝까지 맞아떨어지게 정리하는 것이 핵심입니다.</li>
+          <li>· 증빙이 없는 항목은 사유를 소명서 본문에서 설명하세요.</li>
+        </ul>`
+    },
+  ] : [
+    {
+      icon: '📄', name: '보정서',
+      html: CAVEAT + `
+        <div class="bg-white border border-slate-200 rounded-xl p-4 text-xs text-slate-700 leading-relaxed space-y-3">
+          <p class="font-bold text-sm text-slate-800 text-center">보 정 서</p>
+          <p>사건번호: 20○○개회○○○○ (보정권고서에 기재된 번호 그대로)<br>채무자(신청인): 김 ○ 민</p>
+          <div>
+            <p class="font-semibold mb-1">1. 보정권고 요구사항 ①(◇◇저축은행 대출금 7,000,000원의 사용처 소명)에 대하여</p>
+            <p>위 대출금은 연체 카드대금 상환 3,200,000원, 연체 월세 3개월분 1,350,000원, 부친 병원비 480,000원, 생활비 1,970,000원에 사용하였습니다. 상세 내역과 증빙은 별첨 소명서 및 사용내역서(첨부 1)와 같습니다.</p>
+          </div>
+          <div>
+            <p class="font-semibold mb-1">2. 요구사항 ②(최근 3개월 급여 입금내역 제출)에 대하여</p>
+            <p>급여 입금 통장의 최근 3개월 거래내역서(첨부 2)를 제출합니다.</p>
+          </div>
+          <div>
+            <p class="font-semibold mb-1">첨부서류</p>
+            <p>1. 소명서 및 사용내역서(이체확인증·영수증 사본 포함) 1부<br>2. 급여 입금 통장 거래내역서 1부</p>
+          </div>
+          <p class="text-right">2026. ○. ○.<br>위 채무자 김 ○ 민 (서명 또는 날인)<br>○○법원 귀중</p>
+        </div>
+        <ul class="text-xs text-slate-600 mt-3 space-y-1 leading-relaxed">
+          <li>· 요구사항 번호 순서 그대로 답변하고, 답마다 첨부 번호를 연결하세요.</li>
+          <li>· 제출 전 사본을 보관하고, 기한(보정권고서 기재)을 반드시 지키세요.</li>
+        </ul>`
+    },
+    {
+      icon: '✍️', name: '소명서',
+      html: CAVEAT + `
+        <div class="bg-white border border-slate-200 rounded-xl p-4 text-xs text-slate-700 leading-relaxed space-y-3">
+          <p class="font-bold text-sm text-slate-800 text-center">소 명 서 (대출금 사용처)</p>
+          <p>채무자 김○민은 2025. 11. 10. ◇◇저축은행에서 대출받은 7,000,000원의 사용처를 아래와 같이 소명합니다.</p>
+          <p>① 대출 당일인 2025. 11. 10. 연체 중이던 △△카드 대금 3,200,000원을 상환하였습니다(이체확인증 첨부).</p>
+          <p>② 2025. 11. 12. 연체된 월세 3개월분 1,350,000원을 임대인에게 이체하였습니다(이체내역·임대차계약서 첨부).</p>
+          <p>③ 2025. 11. 20. 부친의 병원비 480,000원을 납부하였습니다(진료비 영수증 첨부).</p>
+          <p>④ 나머지 1,970,000원은 2025. 11.~2026. 1. 식비·교통비·공과금 등 생활비로 4회에 나누어 인출·사용하였습니다(출금내역·가계부 정리 첨부).</p>
+          <p>대출금 7,000,000원과 사용 합계 7,000,000원이 일치하며, 상세 내역은 별첨 사용내역서와 같습니다.</p>
+          <p class="text-right">2026. ○. ○.<br>채무자 김 ○ 민 (서명 또는 날인)</p>
+        </div>
+        <ul class="text-xs text-slate-600 mt-3 space-y-1 leading-relaxed">
+          <li>· 시간 순서 + 구체적 금액 + 증빙 연결이 소명서의 기본 구조입니다.</li>
+          <li>· 소명하지 못한 금액은 재산(청산가치)으로 계산되어 변제금이 늘 수 있습니다.</li>
+        </ul>`
+    },
+    {
+      icon: '🧾', name: '사용내역표',
+      html: CAVEAT + `
+        <p class="text-xs text-slate-500 mb-2">소명서에 붙이는 상세 내역표입니다. 개인회생 셀프 진행센터의 "대출금 사용내역서" 예시와 같은 사례입니다.</p>
+        <div class="overflow-x-auto"><table class="w-full text-xs border-collapse">
+          <tr><th class="${TH}">일자</th><th class="${TH}">구분</th><th class="${TH} text-right">금액(원)</th><th class="${TH}">사용처·내용</th><th class="${TH}">증빙</th></tr>
+          <tr class="bg-blue-50"><td class="${TD}">2025.11.10</td><td class="${TD}">입금</td><td class="${TD} ${AMT}">+7,000,000</td><td class="${TD}">◇◇저축은행 대출금 입금</td><td class="${TD}">통장 거래내역</td></tr>
+          <tr><td class="${TD}">2025.11.10</td><td class="${TD}">지출</td><td class="${TD} ${AMT}">−3,200,000</td><td class="${TD}">△△카드 연체대금 상환</td><td class="${TD}">이체확인증</td></tr>
+          <tr><td class="${TD}">2025.11.12</td><td class="${TD}">지출</td><td class="${TD} ${AMT}">−1,350,000</td><td class="${TD}">연체 월세 3개월분 (임대인)</td><td class="${TD}">이체내역, 임대차계약서</td></tr>
+          <tr><td class="${TD}">2025.11.20</td><td class="${TD}">지출</td><td class="${TD} ${AMT}">−480,000</td><td class="${TD}">부친 병원비 (○○병원)</td><td class="${TD}">진료비 영수증</td></tr>
+          <tr><td class="${TD}">2025.11.~2026.1.</td><td class="${TD}">지출</td><td class="${TD} ${AMT}">−1,970,000</td><td class="${TD}">생활비 (식비·교통·공과금, 4회 분할 인출)</td><td class="${TD}">출금내역, 가계부 정리</td></tr>
+          <tr class="font-semibold bg-slate-50"><td class="${TD}" colspan="2">사용 합계</td><td class="${TD} ${AMT}">7,000,000</td><td class="${TD}" colspan="2">입금액과 일치</td></tr>
+        </table></div>
+        <ul class="text-xs text-slate-600 mt-3 space-y-1 leading-relaxed">
+          <li>· 입금액과 사용 합계가 끝까지 맞아떨어지게 정리하는 것이 핵심입니다.</li>
+          <li>· 현금 인출분은 인출 날짜·사유를 설명하고 가계부·영수증으로 뒷받침하세요.</li>
+        </ul>`
+    },
+  ];
+
+  function renderExampleButtons() {
+    document.getElementById('doc-example-buttons').innerHTML = DOC_EXAMPLES.map((d, i) => `
+      <button onclick="showDocExample(${i})" class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-700 hover:border-blue-300 hover:bg-blue-50 transition-colors">
+        <span>${d.icon}</span><span class="font-medium">${d.name}</span>
+      </button>`).join('');
+  }
+
+  function itemDetailHtml(item) {
+    const links = (item.links || []).map(l =>
+      `<a href="${l.url}"${l.url.startsWith('http') ? ' target="_blank" rel="noopener"' : ''} class="inline-flex items-center gap-1 text-[11px] text-blue-700 bg-white border border-blue-200 px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors">${l.label} ${l.url.startsWith('http') ? '↗' : '→'}</a>`).join(' ');
+    const exBtn = item.ex
+      ? `<button onclick="showExample('${encodeURIComponent(item.ex.title)}','${encodeURIComponent(item.ex.content)}')" class="text-[11px] text-blue-700 bg-white border border-blue-200 px-2 py-1 rounded-lg hover:bg-blue-50 transition-colors">📝 이 항목 작성예시</button>`
+      : '';
+    return `
+      <div id="detail-${item.id}" class="hidden ml-7 mr-1 mb-2 bg-slate-50 border border-slate-100 rounded-xl p-3.5">
+        <span class="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full mb-1.5 ${MUST_STYLE[item.must] || MUST_STYLE['권장']}">${item.must || '권장'}</span>
+        <p class="text-xs text-slate-600 leading-relaxed">${item.guide.replace(/\n/g, '<br>')}</p>
+        ${(links || exBtn) ? `<div class="flex flex-wrap gap-1.5 mt-2.5">${links} ${exBtn}</div>` : ''}
+      </div>`;
+  }
+
+  function renderSteps() {
+    const saved = Storage.load(CHECK_KEY) || {};
+    let total = 0, done = 0;
+    const html = SUPP_STEPS.map(step => {
+      const items = step.items.map(item => {
+        total++;
+        const checked = !!saved[item.id];
+        if (checked) done++;
+        return `
+          <div class="py-1">
+            <div class="checklist-item flex items-start gap-3 py-2 ${checked ? 'completed' : ''}" id="wrap-${item.id}">
+              <input type="checkbox" id="${item.id}" ${checked ? 'checked' : ''}
+                onchange="toggleCheck('${item.id}')"
+                class="mt-0.5 w-4 h-4 accent-blue-700 flex-shrink-0 cursor-pointer">
+              <label for="${item.id}" class="cursor-pointer flex-1 min-w-0">
+                <span class="item-name text-sm font-medium text-slate-700">${item.text}</span>
+                <span class="block text-xs text-slate-400 mt-0.5">${item.hint}</span>
+              </label>
+              <button onclick="toggleDetail('${item.id}')" id="dbtn-${item.id}"
+                class="shrink-0 text-xs text-blue-700 border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-50 transition-colors whitespace-nowrap mt-0.5">자세히</button>
+            </div>
+            ${itemDetailHtml(item)}
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div class="flex items-center justify-between p-5 border-b border-slate-100">
+            <h3 class="font-bold text-slate-800">${step.title}</h3>
+            <button onclick="showExample('${encodeURIComponent(step.example.title)}','${encodeURIComponent(step.example.content)}')"
+              class="text-xs text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors whitespace-nowrap ml-2">
+              상세안내
+            </button>
+          </div>
+          <div class="px-5 py-3 divide-y divide-slate-50">${items}</div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('steps-container').innerHTML = html;
+    updateProgress(done, total);
+  }
+
+  function toggleDetail(id) {
+    const panel = document.getElementById('detail-' + id);
+    const btn = document.getElementById('dbtn-' + id);
+    const nowHidden = panel.classList.toggle('hidden');
+    if (btn) btn.textContent = nowHidden ? '자세히' : '접기';
+  }
+
+  function toggleCheck(id) {
+    const saved = Storage.load(CHECK_KEY) || {};
+    const el = document.getElementById(id);
+    saved[id] = el.checked;
+    Storage.save(CHECK_KEY, saved);
+    const wrap = document.getElementById('wrap-' + id);
+    if (wrap) wrap.classList.toggle('completed', el.checked);
+
+    let total = 0, done = 0;
+    SUPP_STEPS.forEach(s => s.items.forEach(i => { total++; if (saved[i.id]) done++; }));
+    updateProgress(done, total);
+    if (el.checked) showToast('항목을 완료했습니다.', 'success');
+  }
+
+  function updateProgress(done, total) {
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    document.getElementById('supp-bar').style.width = pct + '%';
+    document.getElementById('supp-pct').textContent = pct + '% (' + done + '/' + total + ')';
+  }
+
+  function showExample(title, content) {
+    document.getElementById('modal-title').textContent = decodeURIComponent(title);
+    const box = document.getElementById('modal-content');
+    box.classList.add('whitespace-pre-line');
+    box.textContent = decodeURIComponent(content);
+    document.getElementById('example-modal').style.removeProperty('display');
+  }
+
+  function showDocExample(i) {
+    const d = DOC_EXAMPLES[i];
+    document.getElementById('modal-title').textContent = d.name + ' — 작성예시';
+    const box = document.getElementById('modal-content');
+    box.classList.remove('whitespace-pre-line');
+    box.innerHTML = d.html;
+    document.getElementById('example-modal').style.removeProperty('display');
+  }
+
+  function closeModal() {
+    document.getElementById('example-modal').style.setProperty('display', 'none', 'important');
+  }
+
+  renderSteps();
+  renderExampleButtons();
+</script>
+</body>
+</html>
