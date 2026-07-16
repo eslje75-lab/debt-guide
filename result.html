@@ -362,15 +362,6 @@
     if (c) c.textContent = b.classList.contains('hidden') ? '펼치기 ▼' : '접기 ▲';
   }
 
-  function toggleAllSections() {
-    const bodies = document.querySelectorAll('.acc-body');
-    const anyHidden = Array.from(bodies).some(b => b.classList.contains('hidden'));
-    bodies.forEach(b => b.classList.toggle('hidden', !anyHidden));
-    document.querySelectorAll('.acc-chev').forEach(c => { c.textContent = anyHidden ? '접기 ▲' : '펼치기 ▼'; });
-    const btn = document.getElementById('expand-all-btn');
-    if (btn) btn.textContent = anyHidden ? '상세 정보 전체 접기' : '상세 정보 전체 펼치기';
-  }
-
   // ── 핵심 숫자 요약 (첫 화면) ──
   function buildKeyNumbers(scores, data, repay, winnerType) {
     const best = Math.max(scores.rehab, scores.bankrupt);
@@ -734,8 +725,6 @@
         </div>`;
       const mini = document.getElementById('mini-disclaimer');
       if (mini) mini.style.display = 'none';
-      const expandWrap = document.getElementById('expand-all-wrap');
-      if (expandWrap) expandWrap.style.display = 'none';
       return;
     }
     const rawScores = Storage.load('diagnosis_scores') || { rehab:0, bankrupt:0 };
@@ -864,7 +853,8 @@
         <div class="disclaimer-box">
           <p class="font-medium text-slate-700 mb-1">⚖️ 법적 근거</p>
           <ul class="space-y-0.5 text-xs text-slate-500 mb-2">
-            <li>· 채무자 회생 및 파산에 관한 법률 제579조 (변제계획 인가 요건)</li>
+            <li>· 채무자 회생 및 파산에 관한 법률 제579조 제4호 (가용소득 — 소득에서 생계비 등을 공제한 금액)</li>
+            <li>· 채무자 회생 및 파산에 관한 법률 제614조 (변제계획의 인부 — 청산가치 보장 등 인가 요건)</li>
             <li>· 보건복지부 고시 — 2026년 기준중위소득 (가구원 수별 표준생계비 산정 기준)</li>
             <li>· 법원 실무 — 변제계획안 작성 시 기준중위소득 60%를 표준생계비로 적용</li>
           </ul>

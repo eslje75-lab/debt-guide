@@ -15,7 +15,6 @@ function goStep(n) {
 
   currentStep = n;
   updateStepNav();
-  updateProgress();
 
   const prevBtn   = document.getElementById('btn-prev');
   const nextBtn   = document.getElementById('btn-next');
@@ -48,14 +47,6 @@ function updateStepNav() {
       line.className = 'step-line ' + (i < currentStep ? 'done' : 'pending');
     }
   }
-}
-
-function updateProgress() {
-  const bar = document.getElementById('progress-bar');
-  const pct = document.getElementById('progress-pct');
-  const val = Math.round((currentStep / TOTAL_STEPS) * 100);
-  if (bar) bar.style.width = val + '%';
-  if (pct) pct.textContent = val + '%';
 }
 
 // ── 단계별 유효성 검사 ──
@@ -343,7 +334,10 @@ function calcRepayment(d) {
 
 // ── 제출 처리 ──
 function submitDiagnosis() {
-  if (!validateStep(TOTAL_STEPS)) return;
+  // 전 단계 재검증 — goStep 직접 호출 등으로 필수 입력을 건너뛴 채 제출되는 것 방지
+  for (let s = 1; s <= TOTAL_STEPS; s++) {
+    if (!validateStep(s)) { goStep(s); return; }
+  }
 
   const data    = collectFormData();
   const scores  = calcScores(data);
