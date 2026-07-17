@@ -115,6 +115,9 @@
   <!-- 맞춤 결과 -->
   <div id="result-area" class="hidden mt-8"></div>
 
+  <!-- 관할법원 찾기 -->
+  <div id="court-finder" class="mt-6"></div>
+
   <div class="disclaimer-box mt-6">
     <strong>⚠️ 참고용 안내</strong><br>
     이 진단은 입력하신 답변을 기준으로 일반적인 필요 서류를 규칙에 따라 골라내는 참고용 기능입니다.
@@ -327,6 +330,8 @@
     document.getElementById('prefill-notice').classList.remove('hidden');
     syncConditionalQuestions();
   })();
+
+  initCourtFinder('court-finder');
 
   // '해당 없음' 선택 시 다른 재산 체크 해제, 반대도 동일
   document.querySelectorAll('input[name="q-asset"]').forEach(el => {

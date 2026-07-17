@@ -330,6 +330,97 @@ function formatWon(n) {
   return (parts.length ? parts.join(' ') : '0') + '원';
 }
 
+/* ── 관할법원 찾기 (개인회생·파산 공용) ──
+   기준: 채무자의 보통재판적(=주민등록상 주소) 소재지 관할 지방법원 본원·회생법원 전속(채무자회생법 제3조).
+   지원(支院)은 접수하지 않음 — 춘천지법 강릉지원만 예외. 회생법원 6곳(2026. 3. 대전·대구·광주 추가 개원) 기준.
+   alt = 본래 관할 외에 선택적으로 신청할 수 있는 회생법원(제3조 특례). */
+const COURT_FINDER_DATA = {
+  '서울특별시': { court: '서울회생법원' },
+  '부산광역시': { court: '부산회생법원' },
+  '인천광역시': { court: '인천지방법원' },
+  '대구광역시': { court: '대구회생법원' },
+  '광주광역시': { court: '광주회생법원' },
+  '대전광역시': { court: '대전회생법원' },
+  '울산광역시': { court: '울산지방법원', alt: '부산회생법원' },
+  '세종특별자치시': { court: '대전회생법원' },
+  '경기도': { sub: [
+    { label: '수원·성남·안양·안산·용인·화성·평택·광명·시흥·과천·의왕·군포·오산·하남·광주·이천·여주·양평·안성 (경기 남부)', court: '수원회생법원' },
+    { label: '의정부·고양·파주·남양주·구리·양주·동두천·포천·연천·가평 (경기 북부)', court: '의정부지방법원' },
+    { label: '부천시·김포시', court: '인천지방법원' },
+  ]},
+  '강원특별자치도': { sub: [
+    { label: '춘천·원주·강릉 외 지역 등 (강원 서부)', court: '춘천지방법원' },
+    { label: '강릉·동해·삼척·속초·양양·고성 (강원 동부)', court: '춘천지방법원 강릉지원', note: '지원 중 유일하게 회생·파산 사건을 접수하는 예외입니다.' },
+  ]},
+  '충청북도': { court: '청주지방법원', alt: '대전회생법원' },
+  '충청남도': { court: '대전회생법원' },
+  '전북특별자치도': { court: '전주지방법원', alt: '광주회생법원' },
+  '전라남도': { court: '광주회생법원' },
+  '경상북도': { court: '대구회생법원' },
+  '경상남도': { sub: [
+    { label: '창원·김해·진주·통영·밀양·거창 등 (양산 제외)', court: '창원지방법원', alt: '부산회생법원' },
+    { label: '양산시', court: '울산지방법원', alt: '부산회생법원' },
+  ]},
+  '제주특별자치도': { court: '제주지방법원', alt: '광주회생법원' },
+};
+
+function initCourtFinder(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const regions = Object.keys(COURT_FINDER_DATA);
+  el.innerHTML = `
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <h3 class="font-bold text-slate-800 mb-0.5 text-sm">🏛️ 내 관할법원 찾기</h3>
+      <p class="text-xs text-slate-500 mb-3">개인회생·파산은 <strong>주민등록상 주소지</strong> 관할 법원(지방법원 본원·회생법원)에만 신청할 수 있습니다. 거주 지역을 선택하세요.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+        <select id="cf-region" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white">
+          <option value="">시·도 선택</option>
+          ${regions.map(r => `<option value="${r}">${r}</option>`).join('')}
+        </select>
+        <select id="cf-sub" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white hidden">
+          <option value="">시·군 선택</option>
+        </select>
+      </div>
+      <div id="cf-result"></div>
+      <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">
+        ※ 2026. 3. 기준(회생법원 6곳). 실거주지가 주민등록상 주소와 다르면 전입신고부터 정리하세요. 전자소송으로 접수하면 관할 법원이 자동 안내되며,
+        최종 확인은 <a href="https://www.scourt.go.kr/region/location/RegionSearchListAction.work" target="_blank" rel="noopener" class="text-blue-600 hover:underline">대법원 관할법원 찾기 ↗</a>에서 할 수 있습니다.
+      </p>
+    </div>`;
+
+  const regionSel = document.getElementById('cf-region');
+  const subSel = document.getElementById('cf-sub');
+  const result = document.getElementById('cf-result');
+
+  function showResult(entry) {
+    if (!entry) { result.innerHTML = ''; return; }
+    result.innerHTML = `
+      <div class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+        <p class="text-sm text-slate-700">관할법원: <strong class="text-blue-700">${entry.court}</strong></p>
+        ${entry.alt ? `<p class="text-xs text-slate-500 mt-1">본래 관할 외에 <strong>${entry.alt}</strong>에도 신청할 수 있습니다(채무자회생법 제3조 특례 — 원하는 쪽 선택 가능).</p>` : ''}
+        ${entry.note ? `<p class="text-xs text-slate-500 mt-1">${entry.note}</p>` : ''}
+      </div>`;
+  }
+
+  regionSel.addEventListener('change', () => {
+    const data = COURT_FINDER_DATA[regionSel.value];
+    result.innerHTML = '';
+    if (!data) { subSel.classList.add('hidden'); return; }
+    if (data.sub) {
+      subSel.innerHTML = '<option value="">시·군 선택</option>' + data.sub.map((s, i) => `<option value="${i}">${s.label}</option>`).join('');
+      subSel.classList.remove('hidden');
+    } else {
+      subSel.classList.add('hidden');
+      showResult(data);
+    }
+  });
+  subSel.addEventListener('change', () => {
+    const data = COURT_FINDER_DATA[regionSel.value];
+    if (data && data.sub && subSel.value !== '') showResult(data.sub[Number(subSel.value)]);
+    else result.innerHTML = '';
+  });
+}
+
 /* ── 플로팅 임시저장 버튼 (셀프 진행 체크리스트 페이지 전용) ──
    체크리스트는 항목 변경 시 자동 저장되므로, 이 버튼은 현재 상태를 저장 확인하고
    마지막 저장 시각을 표시해 사용자에게 "저장되고 있다"는 확신을 준다.
