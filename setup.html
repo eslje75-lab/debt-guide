@@ -29,8 +29,8 @@
   <!-- 질문지 -->
   <div class="space-y-4" id="question-area">
 
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-      <p class="text-sm font-semibold text-slate-800 mb-3">1. 현재 소득 형태는 무엇인가요?</p>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 q-card">
+      <p class="text-sm font-semibold text-slate-800 mb-3"><span class="q-num">1.</span> 현재 소득 형태는 무엇인가요?</p>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-income" value="employed_insured" class="accent-blue-700"> 급여소득 (4대보험 가입)</label>
         <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-income" value="employed_uninsured" class="accent-blue-700"> 급여소득 (보험 미가입·일용 등)</label>
@@ -40,8 +40,8 @@
       </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-      <p class="text-sm font-semibold text-slate-800 mb-1">2. 현재 재직 중인가요? (퇴직금이 쌓이는 직장)</p>
+    <div id="q-employed-card" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 q-card">
+      <p class="text-sm font-semibold text-slate-800 mb-1"><span class="q-num">2.</span> 현재 재직 중인가요? (퇴직금이 쌓이는 직장)</p>
       <p class="text-xs text-slate-400 mb-3">재직 중이면 예상 퇴직금의 절반이 재산(청산가치)으로 계산됩니다.</p>
       <div class="flex gap-2">
         <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-employed" value="yes" class="accent-blue-700"> 예</label>
@@ -49,8 +49,8 @@
       </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-      <p class="text-sm font-semibold text-slate-800 mb-1">3. 보유한 재산을 모두 선택하세요</p>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 q-card">
+      <p class="text-sm font-semibold text-slate-800 mb-1"><span class="q-num">3.</span> 보유한 재산을 모두 선택하세요</p>
       <p class="text-xs text-slate-400 mb-3">보험은 가입 여부와 무관하게 전 보험사 해약환급금 조회가 필요하므로 묻지 않습니다.</p>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="checkbox" name="q-asset" value="property" class="accent-blue-700"> 부동산 (주택·토지 등)</label>
@@ -60,8 +60,8 @@
       </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-      <p class="text-sm font-semibold text-slate-800 mb-1">4. 지인·가족·사채 등 개인 간 채무가 있나요?</p>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 q-card">
+      <p class="text-sm font-semibold text-slate-800 mb-1"><span class="q-num">4.</span> 지인·가족·사채 등 개인 간 채무가 있나요?</p>
       <p class="text-xs text-slate-400 mb-3">개인 간 채무도 채권자목록에 반드시 포함해야 면책 효력을 받습니다.</p>
       <div class="flex gap-2">
         <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-personal" value="yes" class="accent-blue-700"> 예</label>
@@ -69,40 +69,40 @@
       </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-      <p class="text-sm font-semibold text-slate-800 mb-1">5. 담보가 잡힌 채무가 있나요? (주택담보대출·자동차 할부 등)</p>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 q-card">
+      <p class="text-sm font-semibold text-slate-800 mb-1"><span class="q-num">5.</span> 담보가 잡힌 채무가 있나요? (주택담보대출·자동차 할부 등)</p>
       <div class="flex gap-2 mt-3">
         <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-secured" value="yes" class="accent-blue-700"> 예</label>
         <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-secured" value="no" class="accent-blue-700"> 아니요</label>
       </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-      <p class="text-sm font-semibold text-slate-800 mb-1">6. 압류·소송·지급명령 등 법적 조치가 진행 중인가요?</p>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 q-card">
+      <p class="text-sm font-semibold text-slate-800 mb-1"><span class="q-num">6.</span> 압류·소송·지급명령 등 법적 조치가 진행 중인가요?</p>
       <div class="flex gap-2 mt-3">
         <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-legal" value="yes" class="accent-blue-700"> 예</label>
         <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-legal" value="no" class="accent-blue-700"> 아니요</label>
       </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-      <p class="text-sm font-semibold text-slate-800 mb-1">7. 주된 소득 외에 부수입이 있나요? (임대·플랫폼·아르바이트 등)</p>
+    <div id="q-side-card" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 q-card">
+      <p class="text-sm font-semibold text-slate-800 mb-1"><span class="q-num">7.</span> 주된 소득 외에 부수입이 있나요? (임대·플랫폼·아르바이트 등)</p>
       <div class="flex gap-2 mt-3">
         <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-side" value="yes" class="accent-blue-700"> 예</label>
         <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-side" value="no" class="accent-blue-700"> 아니요</label>
       </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 bankrupt-only hidden">
-      <p class="text-sm font-semibold text-slate-800 mb-1">8. 사업(자영업)을 폐업한 이력이 있나요?</p>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 bankrupt-only hidden q-card">
+      <p class="text-sm font-semibold text-slate-800 mb-1"><span class="q-num">8.</span> 사업(자영업)을 폐업한 이력이 있나요?</p>
       <div class="flex gap-2 mt-3">
         <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-closed" value="yes" class="accent-blue-700"> 예</label>
         <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-closed" value="no" class="accent-blue-700"> 아니요</label>
       </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 bankrupt-only hidden">
-      <p class="text-sm font-semibold text-slate-800 mb-1">9. 최근 2년 안에 부동산·차량·보증금 등을 처분(매도·이전)한 적이 있나요?</p>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 bankrupt-only hidden q-card">
+      <p class="text-sm font-semibold text-slate-800 mb-1"><span class="q-num">9.</span> 최근 2년 안에 부동산·차량·보증금 등을 처분(매도·이전)한 적이 있나요?</p>
       <div class="flex gap-2 mt-3">
         <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-disposed" value="yes" class="accent-blue-700"> 예</label>
         <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-disposed" value="no" class="accent-blue-700"> 아니요</label>
@@ -179,16 +179,46 @@
   function radioVal(name) { const el = document.querySelector(`input[name="${name}"]:checked`); return el ? el.value : ''; }
   function setRadio(name, value) { const el = document.querySelector(`input[name="${name}"][value="${value}"]`); if (el) el.checked = true; }
 
+  // ── 소득 형태에 따라 무관한 질문 숨김 (모순 조합 방지) ──
+  //    재직 여부(퇴직금)는 급여소득일 때만, 부수입은 '소득 없음'이 아닐 때만 의미가 있음
+  function isEmployedIncome() { const v = radioVal('q-income'); return v === 'employed_insured' || v === 'employed_uninsured'; }
+
+  function syncConditionalQuestions() {
+    const employedCard = document.getElementById('q-employed-card');
+    const sideCard = document.getElementById('q-side-card');
+    const income = radioVal('q-income');
+
+    const showEmployed = isEmployedIncome();
+    employedCard.classList.toggle('hidden', !showEmployed);
+    if (!showEmployed) setRadio('q-employed', 'no');
+
+    const showSide = income !== 'none';
+    sideCard.classList.toggle('hidden', !showSide);
+    if (!showSide) setRadio('q-side', 'no');
+
+    // 보이는 질문만 1부터 다시 번호 매김
+    let n = 0;
+    document.querySelectorAll('.q-card').forEach(card => {
+      if (card.classList.contains('hidden')) return;
+      n++;
+      const num = card.querySelector('.q-num');
+      if (num) num.textContent = n + '.';
+    });
+  }
+  document.querySelectorAll('input[name="q-income"]').forEach(el => el.addEventListener('change', syncConditionalQuestions));
+
   function collectAnswers() {
     const assets = Array.from(document.querySelectorAll('input[name="q-asset"]:checked')).map(el => el.value).filter(v => v !== 'none');
+    const income = radioVal('q-income');
     return {
-      income: radioVal('q-income'),
-      employed: radioVal('q-employed') === 'yes',
+      income,
+      // 급여소득이 아니면 '재직 중(퇴직금)'은 성립하지 않음 — 숨김 처리와 별개로 값도 강제
+      employed: isEmployedIncome() && radioVal('q-employed') === 'yes',
       assets,
       personalDebt: radioVal('q-personal') === 'yes',
       securedDebt: radioVal('q-secured') === 'yes',
       legalAction: radioVal('q-legal') === 'yes',
-      sideIncome: radioVal('q-side') === 'yes',
+      sideIncome: income !== 'none' && radioVal('q-side') === 'yes',
       closedBiz: radioVal('q-closed') === 'yes',
       disposed: radioVal('q-disposed') === 'yes',
     };
@@ -196,8 +226,8 @@
 
   function saveProfile() {
     const p = collectAnswers();
-    if (!p.income) { showToast('1번 소득 형태를 선택해 주세요.', 'warn'); return; }
-    if (!radioVal('q-employed') || !radioVal('q-personal') || !radioVal('q-secured') || !radioVal('q-legal') || !radioVal('q-side')) {
+    if (!p.income) { showToast('소득 형태를 선택해 주세요.', 'warn'); return; }
+    if ((isEmployedIncome() && !radioVal('q-employed')) || !radioVal('q-personal') || !radioVal('q-secured') || !radioVal('q-legal') || (p.income !== 'none' && !radioVal('q-side'))) {
       showToast('모든 질문에 답해 주세요.', 'warn'); return;
     }
     if (TYPE === 'bankrupt' && (!radioVal('q-closed') || !radioVal('q-disposed'))) {
@@ -279,11 +309,12 @@
       setRadio('q-side', saved.sideIncome ? 'yes' : 'no');
       if (saved.closedBiz !== undefined) setRadio('q-closed', saved.closedBiz ? 'yes' : 'no');
       if (saved.disposed !== undefined) setRadio('q-disposed', saved.disposed ? 'yes' : 'no');
+      syncConditionalQuestions();
       renderResult(saved, saved.autoNA || computeNA(saved));
       return;
     }
     const d = Storage.load('diagnosis_data');
-    if (!d) return;
+    if (!d) { syncConditionalQuestions(); return; }
     const incomeMap = { employed_insured: 'employed_insured', employed_uninsured: 'employed_uninsured', freelance: 'self', self: 'self', pension: 'pension' };
     if (!d.hasIncome) setRadio('q-income', 'none');
     else if (incomeMap[d.incomeType]) setRadio('q-income', incomeMap[d.incomeType]);
@@ -294,6 +325,7 @@
     if (d.hasLegalAction !== undefined) setRadio('q-legal', d.hasLegalAction ? 'yes' : 'no');
     if ((d.securedDebt || 0) > 0) setRadio('q-secured', 'yes');
     document.getElementById('prefill-notice').classList.remove('hidden');
+    syncConditionalQuestions();
   })();
 
   // '해당 없음' 선택 시 다른 재산 체크 해제, 반대도 동일
