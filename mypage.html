@@ -166,8 +166,8 @@
     }
 
     // 실제 항목 수로 계산 — rehabilitation.html REHAB_STEPS / bankruptcy.html BANKRUPT_STEPS와 반드시 일치시킬 것
-    const rehabItems = 4+5+4+5+4+6+6+7+4;   // 9단계, 45항목 (7단계 6개·8단계 7개 — rehabilitation.html REHAB_STEPS와 일치)
-    const bankruptItems = 4+4+4+5+4+5+5+5;  // 8단계, 36항목
+    const rehabItems = 3+3+2+2+4+6+6+7+4;   // 9단계, 37항목 (서류 발급은 서류센터로 위임 후 1~4단계 축소)
+    const bankruptItems = 2+4+4+2+4+5+5+5;  // 8단계, 31항목 (1·4단계 서류 발급 위임 후 축소)
 
     const rp = calcProgress('rehab_checks', rehabItems);
     const bp = calcProgress('bankrupt_checks', bankruptItems);
