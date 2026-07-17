@@ -330,6 +330,43 @@ function formatWon(n) {
   return (parts.length ? parts.join(' ') : '0') + '원';
 }
 
+/* ── 플로팅 임시저장 버튼 (셀프 진행 체크리스트 페이지 전용) ──
+   체크리스트는 항목 변경 시 자동 저장되므로, 이 버튼은 현재 상태를 저장 확인하고
+   마지막 저장 시각을 표시해 사용자에게 "저장되고 있다"는 확신을 준다.
+   getStatus() → { done, total } (진행 상황 표시용, 없어도 됨) */
+function initTempSave(getStatus) {
+  if (document.getElementById('temp-save-btn')) return;
+  const btn = document.createElement('button');
+  btn.id = 'temp-save-btn';
+  btn.type = 'button';
+  btn.title = '진행 상황 임시저장';
+  const setLabel = (icon, text) => {
+    btn.innerHTML = `<span class="ts-ic">${icon}</span><span class="ts-label">${text}</span>`;
+  };
+  setLabel('💾', '임시저장');
+
+  btn.onclick = () => {
+    let s = null;
+    try { s = (typeof getStatus === 'function') ? getStatus() : null; } catch (e) {}
+    // 데이터는 이미 자동 저장됨 — 저장 시각 기록 + 확인 표시
+    let stamp = '';
+    try {
+      const now = new Date();
+      stamp = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+      btn.dataset.savedAt = stamp;
+    } catch (e) {}
+    btn.classList.add('saved');
+    setLabel('✓', '저장됨');
+    showToast(s ? `진행 상황을 저장했습니다 · ${s.done}/${s.total} 처리 완료` : '진행 상황을 저장했습니다.', 'success');
+    clearTimeout(btn._t);
+    btn._t = setTimeout(() => {
+      btn.classList.remove('saved');
+      setLabel('💾', btn.dataset.savedAt ? `${btn.dataset.savedAt} 저장됨` : '임시저장');
+    }, 1800);
+  };
+  document.body.appendChild(btn);
+}
+
 /* ── Scroll-to-top button ── */
 function initScrollTop() {
   const btn = document.createElement('button');

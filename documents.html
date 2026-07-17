@@ -427,6 +427,10 @@
 
   applyPkgUI();
   renderDocs();
+  initTempSave(() => {
+    const docs = visibleDocs();
+    return { done: docs.filter(docHandled).length, total: docs.length };
+  });
 </script>
 </body>
 </html>

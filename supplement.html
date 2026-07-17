@@ -473,6 +473,7 @@
 
   renderSteps();
   renderExampleButtons();
+  initTempSave(() => countProgress(Storage.load(CHECK_KEY) || {}));
 </script>
 </body>
 </html>

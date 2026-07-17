@@ -569,6 +569,7 @@
 
   renderSteps();
   renderExampleButtons();
+  initTempSave(() => countProgress(Storage.load('bankrupt_checks') || {}));
 </script>
 </body>
 </html>

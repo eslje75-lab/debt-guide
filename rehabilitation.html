@@ -603,6 +603,7 @@
 
   renderSteps();
   renderExampleButtons();
+  initTempSave(() => countProgress(Storage.load('rehab_checks') || {}));
 </script>
 </body>
 </html>

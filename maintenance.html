@@ -431,6 +431,7 @@
 
   renderSteps();
   renderExampleButtons();
+  initTempSave(() => countProgress(Storage.load('maintain_checks') || {}));
 </script>
 </body>
 </html>
