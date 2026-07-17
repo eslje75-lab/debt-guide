@@ -101,9 +101,10 @@
 <script>
   initPage('mypage');
 
+  // 서류 '준비 완료' 개수 — 실제 체크(true)만 카운트('해당없음' 처리는 제외)
   function calcChecks(key) {
     const saved = Storage.load(key) || {};
-    return Object.values(saved).filter(Boolean).length;
+    return Object.values(saved).filter(v => v === true).length;
   }
 
   function renderPage() {
@@ -157,9 +158,10 @@
     }
 
     // ── 진행률 ──
+    // 각 진행센터와 동일 기준: 체크 완료(true) + 해당없음 처리('na') 모두 '처리 완료'로 카운트
     function calcProgress(key, totalItems) {
       const saved = Storage.load(key) || {};
-      const done  = Object.values(saved).filter(Boolean).length;
+      const done  = Object.values(saved).filter(v => v === true || v === 'na').length;
       return { done, total: totalItems };
     }
 

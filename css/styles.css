@@ -269,6 +269,8 @@ input[type="number"][class*="pr-14"] { text-align: right; }
 .checklist-item { transition: opacity 0.2s; }
 .checklist-item.completed { opacity: 0.5; }
 .checklist-item.completed .item-name { text-decoration: line-through; color: var(--c-ink-mute); }
+.checklist-item.na { opacity: 0.55; }
+.checklist-item.na .item-name { color: var(--c-ink-mute); }
 
 /* ── FAQ accordion ── */
 .faq-answer { display: none; animation: fadeSlide 0.2s ease; }

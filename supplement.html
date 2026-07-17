@@ -339,30 +339,56 @@
       </div>`;
   }
 
+  // 필수가 아닌 항목은 상황에 따라 '해당없음' 처리 가능
+  function isOptional(item) { return (item.must || '권장') !== '필수'; }
+
+  function stateOf(saved, item) {
+    const v = saved[item.id];
+    if (v === true) return 'done';
+    if (v === 'na' && isOptional(item)) return 'na';
+    return '';
+  }
+
+  function itemRowHtml(item, state) {
+    const checked = state === 'done';
+    const na = state === 'na';
+    const naBtn = isOptional(item) ? `
+      <button onclick="toggleNA('${item.id}')" id="nabtn-${item.id}"
+        class="shrink-0 text-xs px-2.5 py-1 rounded-lg border transition-colors whitespace-nowrap mt-0.5 ${na ? 'bg-slate-200 text-slate-600 border-slate-300 font-semibold' : 'text-slate-500 border-slate-200 hover:bg-slate-50'}">해당없음</button>` : '';
+    return `
+      <div class="py-1">
+        <div class="checklist-item flex items-start gap-3 py-2 ${checked ? 'completed' : ''} ${na ? 'na' : ''}" id="wrap-${item.id}">
+          <input type="checkbox" id="${item.id}" ${checked ? 'checked' : ''} ${na ? 'disabled' : ''}
+            onchange="toggleCheck('${item.id}')"
+            class="mt-0.5 w-4 h-4 accent-blue-700 flex-shrink-0 cursor-pointer ${na ? 'opacity-40' : ''}">
+          <label for="${item.id}" class="cursor-pointer flex-1 min-w-0">
+            <span class="item-name text-sm font-medium text-slate-700">${item.text}</span>
+            ${na ? '<span class="inline-block ml-1 text-[11px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full align-middle">해당없음 처리</span>' : ''}
+            <span class="block text-xs text-slate-400 mt-0.5">${item.hint}</span>
+          </label>
+          ${naBtn}
+          <button onclick="toggleDetail('${item.id}')" id="dbtn-${item.id}"
+            class="shrink-0 text-xs text-blue-700 border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-50 transition-colors whitespace-nowrap mt-0.5">자세히</button>
+        </div>
+        ${itemDetailHtml(item)}
+      </div>`;
+  }
+
+  // 진행률: 필수는 체크만, 선택 항목은 체크 또는 '해당없음'이면 처리 완료로 카운트
+  function countProgress(saved) {
+    let total = 0, done = 0;
+    SUPP_STEPS.forEach(s => s.items.forEach(item => {
+      total++;
+      const st = stateOf(saved, item);
+      if (st === 'done' || st === 'na') done++;
+    }));
+    return { total, done };
+  }
+
   function renderSteps() {
     const saved = Storage.load(CHECK_KEY) || {};
-    let total = 0, done = 0;
     const html = SUPP_STEPS.map(step => {
-      const items = step.items.map(item => {
-        total++;
-        const checked = !!saved[item.id];
-        if (checked) done++;
-        return `
-          <div class="py-1">
-            <div class="checklist-item flex items-start gap-3 py-2 ${checked ? 'completed' : ''}" id="wrap-${item.id}">
-              <input type="checkbox" id="${item.id}" ${checked ? 'checked' : ''}
-                onchange="toggleCheck('${item.id}')"
-                class="mt-0.5 w-4 h-4 accent-blue-700 flex-shrink-0 cursor-pointer">
-              <label for="${item.id}" class="cursor-pointer flex-1 min-w-0">
-                <span class="item-name text-sm font-medium text-slate-700">${item.text}</span>
-                <span class="block text-xs text-slate-400 mt-0.5">${item.hint}</span>
-              </label>
-              <button onclick="toggleDetail('${item.id}')" id="dbtn-${item.id}"
-                class="shrink-0 text-xs text-blue-700 border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-50 transition-colors whitespace-nowrap mt-0.5">자세히</button>
-            </div>
-            ${itemDetailHtml(item)}
-          </div>`;
-      }).join('');
+      const items = step.items.map(item => itemRowHtml(item, stateOf(saved, item))).join('');
 
       return `
         <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -378,6 +404,7 @@
     }).join('');
 
     document.getElementById('steps-container').innerHTML = html;
+    const { total, done } = countProgress(saved);
     updateProgress(done, total);
   }
 
@@ -391,15 +418,30 @@
   function toggleCheck(id) {
     const saved = Storage.load(CHECK_KEY) || {};
     const el = document.getElementById(id);
-    saved[id] = el.checked;
+    if (el.checked) saved[id] = true; else delete saved[id];
     Storage.save(CHECK_KEY, saved);
     const wrap = document.getElementById('wrap-' + id);
     if (wrap) wrap.classList.toggle('completed', el.checked);
 
-    let total = 0, done = 0;
-    SUPP_STEPS.forEach(s => s.items.forEach(i => { total++; if (saved[i.id]) done++; }));
+    const { total, done } = countProgress(saved);
     updateProgress(done, total);
     if (el.checked) showToast('항목을 완료했습니다.', 'success');
+  }
+
+  // '해당없음' 토글 — 체크 또는 해당없음이면 처리 완료로 진행률에 반영
+  function toggleNA(id) {
+    const saved = Storage.load(CHECK_KEY) || {};
+    const isNA = saved[id] === 'na';
+    if (isNA) { delete saved[id]; } else { saved[id] = 'na'; }
+    Storage.save(CHECK_KEY, saved);
+    const item = SUPP_STEPS.flatMap(s => s.items).find(i => i.id === id);
+    if (item) {
+      const row = document.getElementById('wrap-' + id).parentElement;
+      row.outerHTML = itemRowHtml(item, stateOf(saved, item));
+    }
+    const { total, done } = countProgress(saved);
+    updateProgress(done, total);
+    if (!isNA) showToast('해당없음으로 표시했습니다.', 'info');
   }
 
   function updateProgress(done, total) {
