@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>맞춤 준비 진단 | 챔로드</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-slate-50">
+<div id="header-placeholder"></div>
+
+<!-- 히어로 -->
+<section class="bg-blue-700 text-white py-8">
+  <div class="max-w-3xl mx-auto px-4 text-center">
+    <h1 class="text-2xl md:text-3xl font-bold mb-1">맞춤 준비 진단</h1>
+    <p class="text-blue-100 text-sm" id="hero-sub">내 상황에 맞는 서류와 할 일만 골라서 안내해 드립니다 (약 1분)</p>
+  </div>
+</section>
+
+<div class="max-w-3xl mx-auto px-4 py-8">
+
+  <div id="prefill-notice" class="hidden bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-5 text-sm text-slate-600">
+    💡 무료 채무진단에서 입력하신 정보를 미리 채워두었습니다. 내용을 확인하고 다르면 수정하세요.
+  </div>
+
+  <!-- 질문지 -->
+  <div class="space-y-4" id="question-area">
+
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <p class="text-sm font-semibold text-slate-800 mb-3">1. 현재 소득 형태는 무엇인가요?</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-income" value="employed_insured" class="accent-blue-700"> 급여소득 (4대보험 가입)</label>
+        <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-income" value="employed_uninsured" class="accent-blue-700"> 급여소득 (보험 미가입·일용 등)</label>
+        <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-income" value="self" class="accent-blue-700"> 자영업·프리랜서</label>
+        <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-income" value="pension" class="accent-blue-700"> 연금·기타 소득</label>
+        <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-income" value="none" class="accent-blue-700"> 소득 없음</label>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <p class="text-sm font-semibold text-slate-800 mb-1">2. 현재 재직 중인가요? (퇴직금이 쌓이는 직장)</p>
+      <p class="text-xs text-slate-400 mb-3">재직 중이면 예상 퇴직금의 절반이 재산(청산가치)으로 계산됩니다.</p>
+      <div class="flex gap-2">
+        <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-employed" value="yes" class="accent-blue-700"> 예</label>
+        <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-employed" value="no" class="accent-blue-700"> 아니요</label>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <p class="text-sm font-semibold text-slate-800 mb-1">3. 보유한 재산을 모두 선택하세요</p>
+      <p class="text-xs text-slate-400 mb-3">보험은 가입 여부와 무관하게 전 보험사 해약환급금 조회가 필요하므로 묻지 않습니다.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="checkbox" name="q-asset" value="property" class="accent-blue-700"> 부동산 (주택·토지 등)</label>
+        <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="checkbox" name="q-asset" value="car" class="accent-blue-700"> 자동차</label>
+        <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="checkbox" name="q-asset" value="deposit" class="accent-blue-700"> 임차보증금 (전·월세 보증금)</label>
+        <label class="flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="checkbox" name="q-asset" value="none" id="asset-none" class="accent-blue-700"> 해당 없음</label>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <p class="text-sm font-semibold text-slate-800 mb-1">4. 지인·가족·사채 등 개인 간 채무가 있나요?</p>
+      <p class="text-xs text-slate-400 mb-3">개인 간 채무도 채권자목록에 반드시 포함해야 면책 효력을 받습니다.</p>
+      <div class="flex gap-2">
+        <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-personal" value="yes" class="accent-blue-700"> 예</label>
+        <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-personal" value="no" class="accent-blue-700"> 아니요</label>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <p class="text-sm font-semibold text-slate-800 mb-1">5. 담보가 잡힌 채무가 있나요? (주택담보대출·자동차 할부 등)</p>
+      <div class="flex gap-2 mt-3">
+        <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-secured" value="yes" class="accent-blue-700"> 예</label>
+        <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-secured" value="no" class="accent-blue-700"> 아니요</label>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <p class="text-sm font-semibold text-slate-800 mb-1">6. 압류·소송·지급명령 등 법적 조치가 진행 중인가요?</p>
+      <div class="flex gap-2 mt-3">
+        <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-legal" value="yes" class="accent-blue-700"> 예</label>
+        <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-legal" value="no" class="accent-blue-700"> 아니요</label>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <p class="text-sm font-semibold text-slate-800 mb-1">7. 주된 소득 외에 부수입이 있나요? (임대·플랫폼·아르바이트 등)</p>
+      <div class="flex gap-2 mt-3">
+        <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-side" value="yes" class="accent-blue-700"> 예</label>
+        <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-side" value="no" class="accent-blue-700"> 아니요</label>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 bankrupt-only hidden">
+      <p class="text-sm font-semibold text-slate-800 mb-1">8. 사업(자영업)을 폐업한 이력이 있나요?</p>
+      <div class="flex gap-2 mt-3">
+        <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-closed" value="yes" class="accent-blue-700"> 예</label>
+        <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-closed" value="no" class="accent-blue-700"> 아니요</label>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 bankrupt-only hidden">
+      <p class="text-sm font-semibold text-slate-800 mb-1">9. 최근 2년 안에 부동산·차량·보증금 등을 처분(매도·이전)한 적이 있나요?</p>
+      <div class="flex gap-2 mt-3">
+        <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-disposed" value="yes" class="accent-blue-700"> 예</label>
+        <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-disposed" value="no" class="accent-blue-700"> 아니요</label>
+      </div>
+    </div>
+
+    <button onclick="saveProfile()" class="w-full bg-blue-700 text-white py-3.5 rounded-xl font-semibold text-sm hover:bg-blue-800 transition-colors">저장하고 맞춤 결과 보기</button>
+  </div>
+
+  <!-- 맞춤 결과 -->
+  <div id="result-area" class="hidden mt-8"></div>
+
+  <div class="disclaimer-box mt-6">
+    <strong>⚠️ 참고용 안내</strong><br>
+    이 진단은 입력하신 답변을 기준으로 일반적인 필요 서류를 규칙에 따라 골라내는 참고용 기능입니다.
+    실제 요구 서류는 법원·담당 재판부에 따라 달라질 수 있으며, 법률상담·법률대리·결과 보장을 제공하지 않습니다.
+  </div>
+</div>
+
+<div id="footer-placeholder"></div>
+<div id="toast"></div>
+<script src="js/main.js"></script>
+<script>
+  initPage('setup');
+
+  // ── 절차 유형: ?type= 우선, 없으면 구매 패키지에서 유추 ──
+  const params = new URLSearchParams(window.location.search);
+  const PKG_PROC = { 'rehab-full': 'rehab', 'maintain': 'rehab', 'correction-rehab': 'rehab', 'bankrupt-full': 'bankrupt', 'correction-bankrupt': 'bankrupt' };
+  const TYPE = (params.get('type') === 'bankrupt' || params.get('type') === 'rehab')
+    ? params.get('type')
+    : (PKG_PROC[Storage.load('plan_package')] || 'rehab');
+  const TYPE_LABEL = TYPE === 'bankrupt' ? '개인파산·면책' : '개인회생';
+  const CENTER_URL = TYPE === 'bankrupt' ? 'bankruptcy.html' : 'rehabilitation.html';
+  document.getElementById('hero-sub').textContent = TYPE_LABEL + ' 준비에 필요한 서류와 할 일만 골라서 안내해 드립니다 (약 1분)';
+  if (TYPE === 'bankrupt') document.querySelectorAll('.bankrupt-only').forEach(el => el.classList.remove('hidden'));
+
+  // ── '해당없음' 자동 처리 대상 이름표 ──
+  const NA_LABELS = {
+    'd-i1': '근로소득원천징수영수증', 'd-i2': '최근 3개월 급여명세서', 'd-i3': '소득금액증명원',
+    'd-i4': '고용보험 피보험자격 이력', 'd-a2': '부동산 등기사항전부증명서', 'd-a3': '차량등록증 사본',
+    'd-a5': '임대차계약서 사본', 'd-d3': '지급명령·압류 관련 서류',
+    'r2-3': '개인 간 채무 별도 정리', 'r3-2': '근로 외 소득 반영', 'r7-6': '중지·금지명령 신청서 준비',
+    'b3-3': '담보 채무·담보목적물 정리',
+  };
+
+  // ── 답변 → 해당없음 매핑 (규칙 기반 — 정확성이 보장되는 결정 로직) ──
+  function computeNA(p) {
+    const docs = [], rehab = [], bankrupt = [];
+    if (p.income === 'employed_insured' || p.income === 'employed_uninsured') docs.push('d-i3');
+    else if (p.income === 'self') docs.push('d-i1', 'd-i2');
+    else if (p.income === 'pension' || p.income === 'none') docs.push('d-i1', 'd-i2', 'd-i3');
+    if (p.income !== 'none') docs.push('d-i4'); // 고용보험 이력은 무직 기간 소명용
+    if (!p.assets.includes('property')) docs.push('d-a2');
+    if (!p.assets.includes('car')) docs.push('d-a3');
+    if (!p.assets.includes('deposit')) docs.push('d-a5');
+    if (!p.legalAction) { docs.push('d-d3'); rehab.push('r7-6'); }
+    if (!p.personalDebt) rehab.push('r2-3');
+    if (!p.sideIncome) rehab.push('r3-2');
+    if (!p.securedDebt) bankrupt.push('b3-3');
+    return { docs, rehab, bankrupt };
+  }
+
+  // ── 자동 반영: 미처리 항목만 'na'로. 이전 자동 처리분 중 이번에 해당하게 된 것은 해제.
+  //    사용자가 직접 체크(true)했거나 직접 해당없음 처리한 항목은 건드리지 않음. ──
+  function applyNA(storageKey, ids, prevIds) {
+    const saved = Storage.load(storageKey) || {};
+    (prevIds || []).forEach(id => {
+      if (!ids.includes(id) && saved[id] === 'na') delete saved[id];
+    });
+    ids.forEach(id => { if (saved[id] === undefined) saved[id] = 'na'; });
+    Storage.save(storageKey, saved);
+  }
+
+  function radioVal(name) { const el = document.querySelector(`input[name="${name}"]:checked`); return el ? el.value : ''; }
+  function setRadio(name, value) { const el = document.querySelector(`input[name="${name}"][value="${value}"]`); if (el) el.checked = true; }
+
+  function collectAnswers() {
+    const assets = Array.from(document.querySelectorAll('input[name="q-asset"]:checked')).map(el => el.value).filter(v => v !== 'none');
+    return {
+      income: radioVal('q-income'),
+      employed: radioVal('q-employed') === 'yes',
+      assets,
+      personalDebt: radioVal('q-personal') === 'yes',
+      securedDebt: radioVal('q-secured') === 'yes',
+      legalAction: radioVal('q-legal') === 'yes',
+      sideIncome: radioVal('q-side') === 'yes',
+      closedBiz: radioVal('q-closed') === 'yes',
+      disposed: radioVal('q-disposed') === 'yes',
+    };
+  }
+
+  function saveProfile() {
+    const p = collectAnswers();
+    if (!p.income) { showToast('1번 소득 형태를 선택해 주세요.', 'warn'); return; }
+    if (!radioVal('q-employed') || !radioVal('q-personal') || !radioVal('q-secured') || !radioVal('q-legal') || !radioVal('q-side')) {
+      showToast('모든 질문에 답해 주세요.', 'warn'); return;
+    }
+    if (TYPE === 'bankrupt' && (!radioVal('q-closed') || !radioVal('q-disposed'))) {
+      showToast('모든 질문에 답해 주세요.', 'warn'); return;
+    }
+    const prev = Storage.load('profile');
+    const na = computeNA(p);
+    applyNA('docs_checks', na.docs, prev && prev.autoNA ? prev.autoNA.docs : []);
+    applyNA('rehab_checks', na.rehab, prev && prev.autoNA ? prev.autoNA.rehab : []);
+    applyNA('bankrupt_checks', na.bankrupt, prev && prev.autoNA ? prev.autoNA.bankrupt : []);
+    p.autoNA = na;
+    p.savedAt = new Date().toLocaleDateString('ko-KR');
+    Storage.save('profile', p);
+    renderResult(p, na);
+    showToast('맞춤 진단이 저장되었습니다.', 'success');
+  }
+
+  function incomeLabel(v) {
+    return { employed_insured: '급여소득(4대보험)', employed_uninsured: '급여소득(보험 미가입)', self: '자영업·프리랜서', pension: '연금·기타 소득', none: '소득 없음' }[v] || v;
+  }
+
+  function renderResult(p, na) {
+    const naIds = [...na.docs, ...(TYPE === 'bankrupt' ? na.bankrupt : na.rehab)];
+    const naList = naIds.map(id => NA_LABELS[id] || id);
+
+    const extra = [];
+    if (p.legalAction) extra.push('압류·법적 조치 진행 중 — 신청서와 함께 <strong>중지·금지명령 신청</strong>을 준비하면 추심·강제집행을 빨리 멈출 수 있습니다(진행센터 체크리스트에 포함).');
+    if (p.personalDebt) extra.push('개인 간 채무는 채권자목록에 <strong>반드시 포함</strong>하세요 — 이체내역·대화 기록으로 금액과 경위를 정리해 두면 됩니다.');
+    if (p.employed) extra.push('재직 중이므로 <strong>예상 퇴직금의 절반</strong>이 재산(청산가치)으로 계산됩니다 — 회사에 예상 퇴직금을 확인해 두세요.');
+    if (p.income === 'pension') extra.push('연금·기타 소득은 <strong>수급증명서·입금내역</strong> 등으로 소득을 증빙합니다.');
+    if (p.income === 'self') extra.push('자영업·프리랜서는 <strong>소득금액증명원(홈택스)</strong> 기준으로 소득을 증빙하고, 신고 소득과 실수입이 다르면 매출 입금내역으로 보완합니다.');
+    if (TYPE === 'bankrupt' && p.closedBiz) extra.push('폐업 이력이 있으므로 <strong>폐업사실증명원(홈택스 발급)</strong>을 진술서 증빙으로 준비하세요.');
+    if (TYPE === 'bankrupt' && p.disposed) extra.push('최근 2년 내 재산 처분 이력은 <strong>처분 시기·상대방·금액·대금 사용처</strong>를 표로 정리해 두세요 — 심문·보정에서 반드시 확인됩니다.');
+    if (p.securedDebt) extra.push('담보 채무는 채권자목록에 <strong>담보물·설정액</strong>을 함께 표시해야 합니다.');
+
+    document.getElementById('result-area').classList.remove('hidden');
+    document.getElementById('result-area').innerHTML = `
+      <div class="bg-white rounded-2xl border-2 border-blue-500 shadow-md p-6">
+        <h2 class="font-bold text-slate-800 text-lg mb-1">🎯 ${TYPE_LABEL} 맞춤 준비 결과</h2>
+        <div class="flex flex-wrap gap-1.5 mb-4 mt-2">
+          <span class="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-medium">${incomeLabel(p.income)}</span>
+          <span class="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-medium">${p.assets.length ? '재산 ' + p.assets.length + '종 보유' : '주요 재산 없음'}</span>
+          ${p.legalAction ? '<span class="text-xs bg-red-50 text-red-600 px-2.5 py-1 rounded-full font-medium">압류·법적조치 진행 중</span>' : ''}
+          ${p.personalDebt ? '<span class="text-xs bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full font-medium">개인 간 채무 있음</span>' : ''}
+        </div>
+
+        ${naList.length ? `
+        <div class="bg-slate-50 rounded-xl p-4 mb-4">
+          <p class="text-sm font-semibold text-slate-700 mb-2">내 상황에서 준비하지 않아도 되는 항목 <span class="text-blue-700">${naList.length}건</span> — 자동으로 '해당없음' 처리했습니다</p>
+          <ul class="text-xs text-slate-500 space-y-1">${naList.map(n => `<li>· ${n}</li>`).join('')}</ul>
+          <p class="text-xs text-slate-400 mt-2">서류 체크센터와 진행센터 체크리스트에 반영되어, 남은 항목만 체크하면 100%가 됩니다.</p>
+        </div>` : ''}
+
+        ${extra.length ? `
+        <div class="bg-amber-50 border border-amber-100 rounded-xl p-4 mb-4">
+          <p class="text-sm font-semibold text-amber-800 mb-2">📌 내 상황에서 특히 챙길 것</p>
+          <ul class="text-xs text-slate-600 space-y-1.5">${extra.map(e => `<li class="flex gap-1.5"><span class="shrink-0">▸</span><span>${e}</span></li>`).join('')}</ul>
+        </div>` : ''}
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <a href="${CENTER_URL}" class="bg-blue-700 text-white py-3 rounded-xl font-semibold text-sm hover:bg-blue-800 transition-colors text-center">${TYPE_LABEL} 진행센터에서 시작 →</a>
+          <a href="documents.html" class="border border-slate-300 py-3 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors rounded-xl text-center">내 필요 서류 확인 (서류 체크센터)</a>
+        </div>
+      </div>`;
+    document.getElementById('result-area').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ── 프리필: 저장된 프로필 우선, 없으면 무료진단 데이터 ──
+  (function prefill() {
+    const saved = Storage.load('profile');
+    if (saved) {
+      setRadio('q-income', saved.income);
+      setRadio('q-employed', saved.employed ? 'yes' : 'no');
+      (saved.assets || []).forEach(a => { const el = document.querySelector(`input[name="q-asset"][value="${a}"]`); if (el) el.checked = true; });
+      if (!(saved.assets || []).length) { const n = document.getElementById('asset-none'); if (n) n.checked = true; }
+      setRadio('q-personal', saved.personalDebt ? 'yes' : 'no');
+      setRadio('q-secured', saved.securedDebt ? 'yes' : 'no');
+      setRadio('q-legal', saved.legalAction ? 'yes' : 'no');
+      setRadio('q-side', saved.sideIncome ? 'yes' : 'no');
+      if (saved.closedBiz !== undefined) setRadio('q-closed', saved.closedBiz ? 'yes' : 'no');
+      if (saved.disposed !== undefined) setRadio('q-disposed', saved.disposed ? 'yes' : 'no');
+      renderResult(saved, saved.autoNA || computeNA(saved));
+      return;
+    }
+    const d = Storage.load('diagnosis_data');
+    if (!d) return;
+    const incomeMap = { employed_insured: 'employed_insured', employed_uninsured: 'employed_uninsured', freelance: 'self', self: 'self', pension: 'pension' };
+    if (!d.hasIncome) setRadio('q-income', 'none');
+    else if (incomeMap[d.incomeType]) setRadio('q-income', incomeMap[d.incomeType]);
+    setRadio('q-employed', (d.severanceValue || 0) > 0 ? 'yes' : 'no');
+    if ((d.propertyValue || 0) > 0) document.querySelector('input[name="q-asset"][value="property"]').checked = true;
+    if ((d.carValue || 0) > 0) document.querySelector('input[name="q-asset"][value="car"]').checked = true;
+    if ((d.depositValue || 0) > 0) document.querySelector('input[name="q-asset"][value="deposit"]').checked = true;
+    if (d.hasLegalAction !== undefined) setRadio('q-legal', d.hasLegalAction ? 'yes' : 'no');
+    if ((d.securedDebt || 0) > 0) setRadio('q-secured', 'yes');
+    document.getElementById('prefill-notice').classList.remove('hidden');
+  })();
+
+  // '해당 없음' 선택 시 다른 재산 체크 해제, 반대도 동일
+  document.querySelectorAll('input[name="q-asset"]').forEach(el => {
+    el.addEventListener('change', () => {
+      if (el.value === 'none' && el.checked) {
+        document.querySelectorAll('input[name="q-asset"]').forEach(o => { if (o.value !== 'none') o.checked = false; });
+      } else if (el.value !== 'none' && el.checked) {
+        document.getElementById('asset-none').checked = false;
+      }
+    });
+  });
+</script>
+</body>
+</html>

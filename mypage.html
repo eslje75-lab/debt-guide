@@ -260,7 +260,7 @@
     if (confirm('저장된 모든 데이터(진단결과·진행률·검토기록)를 삭제하시겠습니까?')) {
       ['diagnosis_data','diagnosis_scores','diagnosis_levels','diagnosis_repay','diagnosis_date',
        'rehab_checks','bankrupt_checks','docs_checks','ai_records','ai_reviewed','plan','plan_type',
-       'plan_package','plan_package_name','plan_packages','maintain_checks','supplement_checks_rehab','supplement_checks_bankrupt'].forEach(k => Storage.remove(k));
+       'plan_package','plan_package_name','plan_packages','maintain_checks','supplement_checks_rehab','supplement_checks_bankrupt','profile'].forEach(k => Storage.remove(k));
       showToast('모든 데이터가 초기화되었습니다.', 'info');
       setTimeout(() => renderPage(), 500);
     }

@@ -161,6 +161,7 @@ Claude 자동 브라우저 테스트용으로는 `.claude/launch.json`의 `chamr
 | `bankruptcy.html` | 개인파산·면책 절차 안내 |
 | `maintenance.html` | 변제기간 관리 센터 (변제계획 변경·실직 대처·특별면책 — 변제기간 관리 패키지 전용) |
 | `supplement.html` | 보정 대응 센터 (`?type=rehab\|bankrupt` — 보정 추가 대응 전용) |
+| `setup.html` | 맞춤 준비 진단 (?type=rehab\|bankrupt — 상황 질문지 → 필요 서류 선별 + 체크리스트·서류센터 '해당없음' 자동 반영, cdg_profile 저장) |
 | `documents.html` | 서류 체크리스트 |
 | `ai-review.html` | AI 서류 검토 기능 |
 | `resources.html` | FAQ·자료실 |
