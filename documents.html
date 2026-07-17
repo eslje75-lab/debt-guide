@@ -31,9 +31,8 @@
 <div class="max-w-5xl mx-auto px-4 py-8">
 
   <!-- 구매 패키지 맞춤 표시 안내 -->
-  <div id="pkg-filter-notice" class="hidden items-center justify-between gap-3 bg-white border border-blue-200 rounded-xl px-4 py-3 mb-4" style="display:none">
+  <div id="pkg-filter-notice" class="hidden items-center gap-3 bg-white border border-blue-200 rounded-xl px-4 py-3 mb-4" style="display:none">
     <span id="pkg-filter-text" class="text-xs text-slate-600 leading-relaxed"></span>
-    <button onclick="toggleShowAll()" id="pkg-filter-toggle" class="text-xs text-blue-600 hover:underline whitespace-nowrap shrink-0"></button>
   </div>
 
   <!-- 법원 공식 양식 다운로드 -->
@@ -125,10 +124,9 @@
   const PKG = Storage.load('plan_package');
   const PKG_NAME = Storage.load('plan_package_name') || '구매하신 패키지';
   const PROC_FILTER = PKG_PROC[PKG] || null;   // null이면 전체 표시 (미구매)
-  let showAll = false;
 
   function visibleDocs() {
-    if (!PROC_FILTER || showAll) return ALL_DOCS;
+    if (!PROC_FILTER) return ALL_DOCS;
     const excluded = PROC_FILTER === 'rehab' ? 'bankrupt' : 'rehab';
     return ALL_DOCS.filter(d => d.cat !== excluded);
   }
@@ -136,24 +134,16 @@
   function applyPkgUI() {
     if (!PROC_FILTER) return; // 미구매 — 전체 표시, 안내 없음
     const label = PROC_FILTER === 'rehab' ? '개인회생' : '개인파산';
-    const other = PROC_FILTER === 'rehab' ? '개인파산' : '개인회생';
     const excluded = PROC_FILTER === 'rehab' ? 'bankrupt' : 'rehab';
+    // 구매한 절차의 서류만 표시 — 반대 절차 탭·양식 링크 숨김 (전환 토글 없음)
     document.getElementById('pkg-filter-notice').style.display = 'flex';
-    document.getElementById('pkg-filter-text').innerHTML = showAll
-      ? `현재 <strong>전체 서류</strong>(${other} 포함)를 표시하고 있습니다.`
-      : `💡 <strong>${PKG_NAME}</strong> 이용 중 — <strong>${label}</strong> 진행에 필요한 서류만 표시하고 있습니다.`;
-    document.getElementById('pkg-filter-toggle').textContent = showAll ? label + ' 서류만 보기' : '전체 서류 보기';
-    document.getElementById('tab-' + excluded).style.display = showAll ? '' : 'none';
+    document.getElementById('pkg-filter-text').innerHTML =
+      `💡 <strong>${PKG_NAME}</strong> 이용 중 — <strong>${label}</strong> 진행에 필요한 서류만 표시하고 있습니다.`;
+    document.getElementById('tab-' + excluded).style.display = 'none';
     document.querySelectorAll('[data-proc]').forEach(a => {
-      a.style.display = (showAll || a.dataset.proc === PROC_FILTER) ? '' : 'none';
+      a.style.display = (a.dataset.proc === PROC_FILTER) ? '' : 'none';
     });
-    if (!showAll && currentTab === excluded) currentTab = 'all';
-  }
-
-  function toggleShowAll() {
-    showAll = !showAll;
-    applyPkgUI();
-    setTab(currentTab);
+    if (currentTab === excluded) currentTab = 'all';
   }
 
   const ALL_DOCS = [

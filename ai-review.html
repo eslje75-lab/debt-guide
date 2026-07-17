@@ -58,9 +58,8 @@
   <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
     <h3 class="font-semibold text-slate-800 mb-1">검토할 서류 유형을 선택하세요</h3>
     <p class="text-xs text-slate-400 mb-4">법원에 내는 서류 세트 전체를 유형별로 검토할 수 있습니다. 검토를 마친 서류에는 ✓ 표시가 붙습니다.</p>
-    <div id="pkg-filter-notice" class="items-center justify-between gap-3 bg-purple-50 border border-purple-100 rounded-xl px-4 py-2.5 mb-4" style="display:none">
+    <div id="pkg-filter-notice" class="items-center gap-3 bg-purple-50 border border-purple-100 rounded-xl px-4 py-2.5 mb-4" style="display:none">
       <span id="pkg-filter-text" class="text-xs text-slate-600 leading-relaxed"></span>
-      <button onclick="toggleShowAllGroups()" id="pkg-filter-toggle" class="text-xs text-purple-700 hover:underline whitespace-nowrap shrink-0"></button>
     </div>
     <div id="doc-type-groups"></div>
   </div>
@@ -164,10 +163,9 @@
   const PKG_NAME = Storage.load('plan_package_name') || '구매하신 패키지';
   const PROC_FILTER = PKG_PROC[PKG] || null;   // null이면 전체 표시 (미구매)
   const IS_CORRECTION = PKG === 'correction-rehab' || PKG === 'correction-bankrupt';
-  let showAllGroups = false;
 
   function visibleGroups() {
-    if (!PROC_FILTER || showAllGroups) return DOC_GROUPS;
+    if (!PROC_FILTER) return DOC_GROUPS;
     let gs = DOC_GROUPS.filter(g => g.key === PROC_FILTER || g.key === 'correction');
     if (IS_CORRECTION) gs = [...gs.filter(g => g.key === 'correction'), ...gs.filter(g => g.key !== 'correction')];
     return gs;
@@ -183,18 +181,9 @@
     if (!PROC_FILTER) return;
     const label = PROC_FILTER === 'rehab' ? '개인회생' : '개인파산';
     document.getElementById('pkg-filter-notice').style.display = 'flex';
-    document.getElementById('pkg-filter-text').innerHTML = showAllGroups
-      ? '현재 <strong>전체 서류 유형</strong>을 표시하고 있습니다.'
-      : (IS_CORRECTION
-        ? `💡 <strong>${PKG_NAME}</strong> 이용 중 — 보정·소명 서류와 ${label} 서류 유형만 표시하고 있습니다.`
-        : `💡 <strong>${PKG_NAME}</strong> 이용 중 — <strong>${label}</strong> 서류 유형만 표시하고 있습니다.`);
-    document.getElementById('pkg-filter-toggle').textContent = showAllGroups ? '패키지 서류만 보기' : '전체 유형 보기';
-  }
-
-  function toggleShowAllGroups() {
-    showAllGroups = !showAllGroups;
-    applyPkgNotice();
-    renderTypeGroups(currentType());
+    document.getElementById('pkg-filter-text').innerHTML = IS_CORRECTION
+      ? `💡 <strong>${PKG_NAME}</strong> 이용 중 — 보정·소명 서류와 ${label} 서류 유형만 표시하고 있습니다.`
+      : `💡 <strong>${PKG_NAME}</strong> 이용 중 — <strong>${label}</strong> 서류 유형만 표시하고 있습니다.`;
   }
 
   // 서류 유형별 필수 항목 정의
