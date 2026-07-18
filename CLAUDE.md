@@ -164,7 +164,7 @@ Claude 자동 브라우저 테스트용으로는 `.claude/launch.json`의 `chamr
 | `setup.html` | 맞춤 준비 진단 (?type=rehab\|bankrupt — 상황 질문지 → 필요 서류 선별 + 체크리스트·서류센터 '해당없음' 자동 반영, cdg_profile 저장) |
 | `documents.html` | 서류 체크리스트 |
 | `ai-review.html` | AI 서류 검토 기능 |
-| `resources.html` | FAQ·자료실 |
+| `resources.html` | FAQ (23문항, 4개 카테고리: 제도 이해/자격·비용/진행 중 생활·상황/결과·이후) |
 | `pricing.html` | 요금제 안내 및 구매 |
 | `mypage.html` | 마이페이지 |
 | `about.html` | 운영자 소개 |
