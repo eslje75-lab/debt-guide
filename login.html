@@ -8,6 +8,10 @@
   <link rel="stylesheet" href="css/styles.css">
   <meta name="robots" content="noindex">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#533afd">
   <style>
     .auth-tab { transition: color 0.2s, border-color 0.2s; }
     .auth-tab.active { color: #1d4ed8; border-bottom: 2px solid #1d4ed8; }
@@ -238,7 +242,8 @@
       : `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>`;
   }
 
-  function doLogin() {
+  let _authBusy = false;
+  async function doLogin() {
     hideAlerts();
     const email    = document.getElementById('l-email').value.trim();
     const password = document.getElementById('l-pw').value;
@@ -246,15 +251,17 @@
     let hasErr = false;
     if (!email)    { fieldError('l-email', 'l-email-err', '이메일을 입력해주세요.'); hasErr = true; }
     if (!password) { fieldError('l-pw', 'l-pw-err', '비밀번호를 입력해주세요.'); hasErr = true; }
-    if (hasErr) return;
+    if (hasErr || _authBusy) return;
 
-    const result = Auth.login(email, password, false);
+    _authBusy = true;
+    const result = await Auth.login(email, password, false);
+    _authBusy = false;
     if (!result.ok) { showAlert('login-alert', result.error); return; }
 
     location.replace(getNextUrl());
   }
 
-  function doSignup() {
+  async function doSignup() {
     hideAlerts();
     const name  = document.getElementById('s-name').value.trim();
     const email = document.getElementById('s-email').value.trim();
@@ -272,9 +279,11 @@
       e.textContent = '이용약관에 동의해주세요.'; e.classList.add('show');
       hasErr = true;
     }
-    if (hasErr) return;
+    if (hasErr || _authBusy) return;
 
-    const result = Auth.signup(name, email, pw);
+    _authBusy = true;
+    const result = await Auth.signup(name, email, pw);
+    _authBusy = false;
     if (!result.ok) { showAlert('signup-alert', result.error); return; }
 
     location.replace(getNextUrl());

@@ -8,6 +8,10 @@
   <link rel="stylesheet" href="css/styles.css">
   <meta name="robots" content="noindex">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#533afd">
 </head>
 <body class="bg-slate-50">
 <div id="header-placeholder"></div>
@@ -84,6 +88,29 @@
       <a href="pricing.html" class="text-xs text-blue-600 hover:underline">요금제 보기</a>
     </div>
     <div id="plan-status"></div>
+  </div>
+
+  <!-- 계정 설정 (로그인 시에만 표시) -->
+  <div id="account-section" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 hidden">
+    <h3 class="font-bold text-slate-700 mb-3">🔒 계정 설정</h3>
+    <div id="account-info" class="text-sm text-slate-500 mb-4"></div>
+    <button id="pw-toggle-btn" onclick="togglePwForm()" class="border border-slate-300 px-5 py-2.5 text-slate-700 text-sm hover:bg-slate-50 transition-colors rounded-xl">비밀번호 변경</button>
+    <div id="pw-change-form" class="hidden mt-4 space-y-3 max-w-sm">
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">현재 비밀번호</label>
+        <input id="pw-current" type="password" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm" autocomplete="current-password">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">새 비밀번호 <span class="text-slate-400 font-normal text-xs">(8자 이상)</span></label>
+        <input id="pw-new" type="password" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm" autocomplete="new-password">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">새 비밀번호 확인</label>
+        <input id="pw-new2" type="password" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm" autocomplete="new-password">
+      </div>
+      <p id="pw-change-err" class="text-xs text-red-500 hidden"></p>
+      <button id="pw-submit-btn" onclick="doChangePassword()" class="bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors">변경하기</button>
+    </div>
   </div>
 
   <!-- 데이터 초기화 -->
@@ -256,17 +283,56 @@
         </div>`;
   }
 
+  // ── 계정 설정 (로그인 시에만 표시) ──
+  function renderAccountSection() {
+    const user = Auth.getCurrentUser();
+    if (!user) return;
+    document.getElementById('account-section').classList.remove('hidden');
+    document.getElementById('account-info').innerHTML =
+      `<strong class="text-slate-700">${user.name}</strong> · ${user.email}`;
+  }
+
+  function togglePwForm() {
+    document.getElementById('pw-change-form').classList.toggle('hidden');
+  }
+
+  let _pwBusy = false;
+  async function doChangePassword() {
+    const errEl = document.getElementById('pw-change-err');
+    errEl.classList.add('hidden');
+    const current = document.getElementById('pw-current').value;
+    const next    = document.getElementById('pw-new').value;
+    const next2   = document.getElementById('pw-new2').value;
+
+    const fail = (msg) => { errEl.textContent = msg; errEl.classList.remove('hidden'); };
+    if (!current)          return fail('현재 비밀번호를 입력해주세요.');
+    if (next.length < 8)   return fail('새 비밀번호는 8자 이상이어야 합니다.');
+    if (next !== next2)    return fail('새 비밀번호가 일치하지 않습니다.');
+    if (_pwBusy) return;
+
+    _pwBusy = true;
+    const r = await Auth.changePassword(current, next);
+    _pwBusy = false;
+    if (!r.ok) return fail(r.error);
+
+    ['pw-current','pw-new','pw-new2'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('pw-change-form').classList.add('hidden');
+    showToast('비밀번호가 변경되었습니다.', 'info');
+  }
+
   function confirmReset() {
     if (confirm('저장된 모든 데이터(진단결과·진행률·검토기록)를 삭제하시겠습니까?')) {
       ['diagnosis_data','diagnosis_scores','diagnosis_levels','diagnosis_repay','diagnosis_date',
        'rehab_checks','bankrupt_checks','docs_checks','ai_records','ai_reviewed','plan','plan_type',
        'plan_package','plan_package_name','plan_packages','maintain_checks','supplement_checks_rehab','supplement_checks_bankrupt','profile'].forEach(k => Storage.remove(k));
+      DataSync.clearServer();   // 로그인 상태면 서버 데이터도 전체 삭제
       showToast('모든 데이터가 초기화되었습니다.', 'info');
       setTimeout(() => renderPage(), 500);
     }
   }
 
   renderPage();
+  renderAccountSection();
 </script>
 </body>
 </html>

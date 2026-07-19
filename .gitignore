@@ -1,2 +1,5 @@
 .claude/
 채무해결플랫폼/
+api/.dev.vars
+api/.wrangler/
+api/node_modules/

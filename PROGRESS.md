@@ -4,6 +4,60 @@
 
 ## 현재 상태 (최신이 위로)
 
+### 2026-07-20 — 백엔드 Phase 4: 결제(포트원 PortOne V2) ✅실결제 E2E 검증 완료
+
+- **자격증명 설정 완료(프로덕션 시크릿)**: `PORTONE_STORE_ID`(store-…), `PORTONE_CHANNEL_KEY`(channel-key-…), `PORTONE_API_SECRET`(값은 포트원 콘솔에서만 확인). 테스트 채널 = 토스페이먼츠 테스트. 설정 중 삽질 교훈: ①V1 아닌 **V2** 채널이어야 store-/channel-key- 형식 ②**채널 키**(포트원 생성)와 PG **클라이언트 키**(test_ck_) 혼동 주의 ③API Secret은 **연동정보→식별코드·API Keys→V2**에 있고, **복사 버튼**으로 전체 복사(드래그하면 …로 잘림→401).
+- **실결제 E2E 성공(토스 테스트모드, 실제 무출금)**: 결제창 호출→카드결제→서버 complete가 포트원 조회로 status=PAID+금액 149000/29000 일치 검증→`maintain` 패키지 부여(plan=premium, plan_packages=["maintain"])→마이페이지 "이용 중" 표시까지 전 과정 확인. 최초 시도는 "해지된 카드" PG거부로 FAILED(정상 동작, 카드 문제)—토스 테스트는 별도 테스트카드 없이 실제 유효카드 입력(무출금).
+- **프론트 버그 수정**: 결제 실패 시 조용히 삼키던 것 → `payRes.message` 그대로 표시.
+- **정리 완료**: 임시 디버그 엔드포인트·PAY_DEBUG 제거, main.js API_BASE 원복(localhost 분기 복원), 로컬 정적서버 종료, 테스트 데이터 전량 삭제(users/payments/user_data=0).
+- **⚠️ 실서비스 전환 시**: 사업자등록 후 포트원 콘솔에서 **라이브 채널** 연결→라이브 store/channel/secret로 시크릿 교체. 현재는 테스트채널이라 실결제 안 됨.
+
+### 2026-07-19 (5차) — 백엔드 Phase 4: 결제(포트원 PortOne V2) 코드 완성·구조검증 (완료, 위 5차→최종은 7/20 항목)
+
+- **PG 결정(사용자)**: 포트원(PortOne) — 여러 PG·간편결제(카카오/네이버페이)를 하나의 연동으로 확장 가능. V2 SDK 사용.
+- **흐름**: 브라우저 `PortOne.requestPayment()` → paymentId → 서버가 `GET api.portone.io/payments/{id}`(API Secret)로 **status=PAID + amount.total 일치 검증** → 패키지 부여. 금액은 서버 `PACKAGES` 표가 소스(클라 금액 불신, 위변조 방지).
+- **DB**: `payments(payment_id PK, user_id, package, amount, status pending|paid|failed, created_at, paid_at)`.
+- **API**: `POST /api/payment/prepare`(Bearer — 주문 생성, 서버가 paymentId·금액 확정, storeId·channelKey 반환) / `POST /api/payment/complete`(Bearer — 포트원 조회·검증·확정, 멱등 처리, `grantPackage`가 user_data의 plan·plan_packages·plan_package(_name)·plan_type에 부여 — 부가옵션 correction-*는 대표 패키지 안 덮음).
+- **프론트(`pricing.html`)**: 목업 모달 제거. `mockPayment/mockComplete` → `passesPurchaseGuards`(자격·오구매 가드 전량 보존) + `startPayment`(로그인 게이트 → prepare → PortOne 결제창 → complete → 서버가 준 plan 로컬 반영 → 패키지 페이지 이동). SDK `https://cdn.portone.io/v2/browser-sdk.js`.
+- **가격**: rehab-full 149,000 / maintain 29,000 / bankrupt-full 49,000 / correction-rehab·correction-bankrupt 각 19,000 (기존 pricing.html과 동일, 서버 PACKAGES에 확정).
+- **구조검증 통과**: 무인증401 / 알수없는상품400 / prepare200(paymentId·서버확정금액149000·storeId 반환) / complete 더미시크릿502 / **남의 주문 404(소유권)** / 서버 금액권위 확인. 전부 로컬. 프로덕션 DB 청결(users/payments/user_data=0).
+- **활성화 남은 작업(자격증명 3개 필요)**: 포트원 콘솔에서 ① 테스트 채널 연결(토스/이니시스 등 테스트 PG) ② Store ID·Channel Key·V2 API Secret 확보 → 프로덕션에 `wrangler secret put PORTONE_STORE_ID / PORTONE_CHANNEL_KEY / PORTONE_API_SECRET` 설정. 설정 전엔 prepare/complete가 503으로 정상 실패. 실결제는 사업자등록 후 라이브 채널로 교체.
+
+### 2026-07-19 (4차) — 백엔드 Phase 3: AI 서류검토 실제 Claude API ✅배포·실검증 완료
+
+- **목업 제거**: `ai-review.html`의 `runReview()`가 규칙 기반 키워드 검사 → **실제 Claude API 호출**로 전환. 목업 흉내 금지 방침대로, 실패 시 옛 키워드 검사로 위장하지 않고 정직한 오류만 표시.
+- **법적 안전 설계(변호사법 리스크 대응)**: Worker 시스템 프롬프트가 AI를 '서류 완성도 점검 보조자'로 엄격 제약 — 법률자문·결과예측·법적결론 금지, 누락·불명확·수치불일치·형식·개인정보노출만 지적. 응답은 {summary, issues[], confirmed[], suggestions[]} JSON.
+- **엔드포인트**: `POST /api/ai/review`(Bearer 필수). 입력 30~6000자. `ai_usage(user_id, day, count)` 테이블로 **일 30회 제한**(비용·남용 방지, 성공 시에만 증가). 프론트는 로그인 게이트(게스트는 로그인 유도) + 주민번호 패턴 사전 경고 + 정적 작성팁·세트 진행률 유지.
+- **모델**: `AI_MODEL = 'claude-sonnet-5'` — **검증 완료**. ⚠️ 이 계열은 **assistant 프리필 미지원**(400 "does not support assistant message prefill"). 그래서 JSON 프리필 기법 제거하고 messages는 user로 끝냄 + 응답에서 text 블록만 뽑아 JSON 파싱(코드펜스 대비 {…} 정규식 폴백). `ANTHROPIC_VERSION='2023-06-01'`.
+- **API 키**: 사용자가 발급해 `wrangler secret put ANTHROPIC_API_KEY`로 프로덕션 시크릿 설정 완료(Cloudflare 암호화 보관, 코드·깃 미노출). 만료 없음 + 월 지출 한도 권장.
+- **실검증(프로덕션, 실제 과금)**: 진술서 초안(일부러 모호 요소 포함)으로 호출 → HTTP 200, ~12.6초. AI가 "대략 6천만원→정확금액 필요"·모호한 날짜·채권자명 누락 정확히 지적, 마스킹 인식, **결과예측·단정 표현 0건(법적안전 통과)**. 구조 테스트도 전부 통과(401/503/400/413/502). 검증 계정·디버그 시크릿 전부 삭제(users/ai_usage/sessions=0).
+- **관찰**: 응답 ~12초로 다소 김(버튼에 "AI가 검토 중입니다..." 표시로 대응). 필요 시 모델을 Haiku로 낮추면 비용↓·속도↑(정확도 트레이드오프).
+
+### 2026-07-19 (3차) — 백엔드 Phase 2: 사용자 데이터 서버 저장 ✅배포·검증 완료
+
+- **설계 원칙**: 기존 동기 localStorage를 **캐시로 유지**하고 로그인 시에만 서버 미러링 — 수십 개 `Storage.load` 호출부를 async로 안 바꿔도 되고 게스트도 그대로 작동.
+- **DB**: `user_data(user_id, key, value TEXT=JSON, updated_at, PK(user_id,key))` 신설(프로덕션+로컬 적용).
+- **API 추가**(`api/src/index.js`): `GET /api/data`(전체 조회 {key:value}), `POST /api/data/sync`({put:{k:v}, del:[k], clearAll} 배치 upsert/삭제, D1 batch=트랜잭션). 한도: 키 64자·값 100KB·요청당 60키·본문 512KB. 전부 Bearer 필수.
+- **프론트(`js/main.js`)**: `Storage.save/remove`가 로컬 즉시 반영 + `DataSync`로 700ms 디바운스 백그라운드 푸시(로그인 시만). `pagehide`에 keepalive 플러시로 이탈 시 유실 방지. **`DataSync.syncOnLogin()`**(로그인/가입 직후 자동): 서버에 데이터 있으면 **서버 우선**(로컬 앱데이터 교체 — 다른 기기·이전 게스트 잔여 제거), 서버 비어있으면 **게스트 로컬데이터를 계정으로 이관**. auth 키(`cdg_auth*`)는 동기화 제외. `mypage` 초기화는 `DataSync.clearServer()`로 서버까지 삭제.
+- **검증**: 로컬 통합 10/10(게스트→가입 이관, 기기A↔B pull, 서버 우선 재로그인, 로그아웃 중 게스트저장 서버격리, clearServer) + 프로덕션 스모크 8/8(한글값 보존·put/del/clearAll·무인증401). 검증 계정 전부 삭제(users/data/sessions=0).
+- **미완**: 페이지 로드마다 실시간 pull은 미구현(로그인 시점 동기화로 커버 — 같은 세션 유지 중 타기기 변경은 재로그인 때 반영). Phase 3(AI검토)·4(결제) 남음.
+
+### 2026-07-19 (2차) — 파비콘 자산 보강 + 도메인 방침
+
+- **파비콘 완비**: 기존 `favicon.svg`(전 페이지 연결됨)에 더해 `apple-touch-icon.png`(180, iOS 홈화면·full-bleed), `icon-192.png`·`icon-512.png`(PWA), `favicon.ico`(16+32 멀티, 구버전·크롤러) 생성. `manifest.json` 신설(테마색 #533afd). **20개 전 HTML head에 apple-touch-icon·manifest·favicon.ico·theme-color 링크 삽입**(404.html은 `/debt-guide/` 절대경로, 나머지는 상대). sharp+png-to-ico로 SVG에서 렌더(도구는 scratchpad, 프로젝트 미포함).
+- **도메인 방침(사용자 결정 2026-07-19)**: 브랜드 romanization = **`chamroad`**(API·D1과 일치). 사이트 비공개(push 보류) 중이라 **구매는 공개 시점에**. 이름만 확정, 연 비용 절감. 공개 시 `chamroad.co.kr`(또는 .kr/.com) 구매 → GitHub Pages(CNAME) + `api.chamroad.*`를 Cloudflare Worker 커스텀 도메인으로 연결(Worker가 이미 Cloudflare라 간단). 구매 시 main.js `API_BASE`도 커스텀 도메인으로 교체.
+
+### 2026-07-19 — 백엔드 착수: Cloudflare Workers + D1 인증 API (Phase 1) ✅로컬 검증 완료
+
+- **결정(사용자)**: 스택 = Cloudflare Workers + D1 / 결제 = 토스페이먼츠 테스트 모드로 개발(사업자등록 후 라이브 키 교체) / 순서 = 회원·인증 → (다음) 데이터 저장 → AI 검토 → 결제.
+- **인프라**: D1 `chamroad` 생성(id `a3de34d7-6d87-4f7e-abc0-8a1a3c5d6827`, APAC). 프로덕션 DB에 스키마 적용 완료 — `users`(PBKDF2 해시), `sessions`(토큰 SHA-256 해시만 저장).
+- **`api/` 신규(Worker 프로젝트)**: `wrangler.jsonc`(D1 바인딩) / `schema.sql` / `src/index.js` — 엔드포인트: signup·login·logout·me·change-password. 보안: PBKDF2-SHA256 10만회 + PEPPER(서버 시크릿, HMAC 프리해시), 세션토큰 32바이트(DB엔 해시만), 로그인 실패 메시지 통일(이메일 존재 노출 방지), CORS 화이트리스트(github.io + localhost 3456/5500), timingSafeEqual, 비번 변경 시 타 세션 전체 무효화. `.dev.vars`(로컬 PEPPER)는 gitignore.
+- **프론트 교체**: `js/main.js` Auth 객체 → API 연동(login/signup/changePassword는 async fetch, 세션 캐시는 localStorage `cdg_auth_session`에 유지해 getSession/isLoggedIn 동기 조회 보존, logout은 로컬 즉시+서버 백그라운드). base64 비밀번호 저장(`cdg_auth_users`) 폐기. `login.html` doLogin/doSignup async 전환+중복제출 방지. **`API_BASE` 프로덕션 URL은 배포 후 교체 필요(`CHAMROAD_API_URL_TODO` 플레이스홀더)**.
+- **find-account.html 전면 교체**: 이름+이메일만으로 비밀번호 재설정은 서버에선 계정탈취 경로라 제공 안 함(목업 금지 원칙) → "이메일 인증 방식 준비 중 + 문의(eslje75@gmail.com) + 로그인 상태면 마이페이지에서 변경" 정직 안내로 재작성. **mypage.html에 계정 설정 카드(비밀번호 변경 UI) 신규** — change-password API 실연동.
+- **검증**: wrangler dev 로컬에서 curl 11개 시나리오(가입/중복409/오입력401/로그인/me/로그아웃/비번변경/옛비번 거부/검증400/CORS 허용·차단) + UTF-8 한글 저장 + **실제 main.js Auth 코드를 node로 로드해 로컬 API 상대 통합 테스트 7항목 전부 통과**.
+- **✅ 배포 완료(2026-07-19)**: `npx wrangler login`(인증됨) → 프로덕션 PEPPER 시크릿 설정(로컬과 다른 새 값) → `npx wrangler deploy`. **엔드포인트: `https://chamroad-api.eslje75.workers.dev`**. main.js `API_BASE`를 이 URL로 교체 완료(localhost는 8787 dev로 자동 분기). 프로덕션 D1에 스키마 반영 확인(users/sessions/idx). **실배포 검증 통과**: 가입/로그인/me/틀린비번401/CORS 허용헤더/HTTPS + node fetch로 한글(홍길동) 왕복 정상 확인. 검증용 테스트 계정은 프로덕션 DB에서 삭제 정리함(현재 users 0건).
+- **배포 계정**: Cloudflare `eslje75` 계정. Worker 이름 `chamroad-api`. 재배포는 `cd api && npx wrangler deploy`. 시크릿 변경은 `npx wrangler secret put PEPPER`(변경 시 기존 비밀번호 검증이 전부 깨지므로 주의 — 초기 운영 중엔 건드리지 말 것).
+
 ### 2026-07-18 (4차) — 결핍 감사 반영: 생활·불안 안내 대폭 보강 (gap-auditor 결과)
 
 - **배경**: 결핍 감사 결과 "절차 안내는 탄탄한데 신청서 바깥의 삶(비용·노출·생계·진행 중 제약)이 비어 있음" → 우선순위 G2→G1→G3→G4 + G5~G9 FAQ 묶음으로 반영. **모든 수치·법리 공식 출처 검증**(easylaw·scourt·law.go.kr·서울회생법원 실무).
@@ -302,7 +356,12 @@ DESIGN-stripe.md 기준으로 전체 사이트 디자인 시스템 적용.
 - PROGRESS.md 신설. 작업 추적 체계 도입.
 
 ## 다음에 할 일 / 미정 사항
-- **1순위 = 백엔드 구축**(사용자 결정: 백엔드 완성 후 일괄 공개). 회원·인증·진단/plan 저장·결제·AI 서류검토 실제 API. `Auth`/`Storage` 객체 본문 교체가 핵심 진입점. **관리자 페이지·개인정보처리방침 개정도 이때 함께.**
+- **백엔드 진행 중** (2026-07-19 착수, 스택 = Cloudflare Workers + D1):
+  - ✅ Phase 1 회원·인증 — 배포·검증 완료(`https://chamroad-api.eslje75.workers.dev`).
+  - ✅ Phase 2 사용자 데이터 서버 저장 — 배포·검증 완료(user_data 테이블, GET/POST /api/data, DataSync 동기화 계층).
+  - ✅ Phase 3 AI 서류검토 — 배포·실검증 완료(POST /api/ai/review, claude-sonnet-5, 일 30회 제한, ANTHROPIC_API_KEY 시크릿 설정됨).
+  - ✅ Phase 4 결제 — 포트원 PortOne V2, 실결제 E2E 검증 완료(prepare/complete, payments 테이블, 서버 금액검증, maintain 부여 확인). 테스트채널=토스 테스트.
+  - **백엔드 4개 Phase 전부 완료.** 남은 것: 실서비스 전환 작업 = 사업자등록 → 포트원 라이브 채널 교체 + **관리자 페이지 구축 + 개인정보처리방침 개정**(서버 저장 시작하므로 필수) → 공개 배포(git push). SEO·약관은 공개 시점 확정.
 - **공개 배포는 백엔드 완성 후** `git push origin main` — 그때까지 커밋은 하되 push 보류(또는 로컬 유지). 미배포 중이라 약관/방침·SEO는 초안 상태.
 - **OG 이미지**: ✅ 완료(`og-image.png` 1200×630, 12페이지 연결). 문구·디자인 바꾸려면 카드 HTML 재렌더. 배포 후 카톡 공유 디버거(developers.kakao.com)로 캐시 갱신 권장.
 - **3순위(공개 시)**: GA4 방문자 분석(측정 ID G-XXXX 필요, main.js 공통 삽입) / 커스텀 도메인(선택). 문의 채널은 이메일로 확정, 이미 푸터·약관에 노출.
@@ -310,5 +369,5 @@ DESIGN-stripe.md 기준으로 전체 사이트 디자인 시스템 적용.
 
 ## 알아둘 것
 - Inter 폰트 Google Fonts에서 로드 (한글 지원 있음, 일부 글자는 시스템 폴백)
-- `compare.html`, `documents.html`, `ai-review.html`, `find-account.html` 파일은 CSS 규칙으로만 처리 (별도 HTML 수정 없음). `app.html`은 2026-07-02 삭제됨 — 다시 만들지 말 것
+- `compare.html`, `documents.html`, `ai-review.html` 파일은 CSS 규칙으로만 처리 (별도 HTML 수정 없음). `find-account.html`은 2026-07-19 정직 안내 페이지로 전면 교체됨(백엔드 인증 도입). `app.html`은 2026-07-02 삭제됨 — 다시 만들지 말 것
 - `login.html` 인라인 `<style>` 블록의 `.btn-primary` 등은 `styles.css`의 `!important` 규칙이 우선 적용

@@ -8,6 +8,10 @@
   <link rel="stylesheet" href="css/styles.css">
   <meta name="description" content="챔로드 셀프진행 패키지 안내. 무료 채무진단은 지금 이용, 유료 패키지는 정식 출시 준비 중입니다.">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#533afd">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="챔로드">
   <meta property="og:image" content="https://eslje75-lab.github.io/debt-guide/og-image.png">
@@ -133,7 +137,7 @@
         </div>
         <div class="sm:text-right shrink-0 flex sm:flex-col items-center sm:items-end gap-3 sm:gap-0">
           <div class="text-xl font-extrabold text-slate-800">149,000<span class="text-sm font-normal">원</span></div>
-          <button onclick="mockPayment('회생 완주 패키지', 149000, 'rehab-full')"
+          <button onclick="startPayment('회생 완주 패키지', 149000, 'rehab-full')"
             class="sm:mt-2 block text-center px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-medium transition-colors whitespace-nowrap">
             구매하기
           </button>
@@ -165,7 +169,7 @@
           <div class="text-xl font-extrabold text-slate-700">29,000<span class="text-sm font-normal">원</span></div>
           <div class="flex sm:flex-col items-center gap-2 sm:gap-0">
             <div class="text-xs text-slate-600 sm:mt-0.5">일시불</div>
-            <button onclick="mockPayment('변제기간 관리 패키지', 29000, 'maintain')"
+            <button onclick="startPayment('변제기간 관리 패키지', 29000, 'maintain')"
               class="sm:mt-2 block text-center px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors whitespace-nowrap">
               구매하기
             </button>
@@ -184,7 +188,7 @@
         </div>
         <div class="sm:text-right shrink-0 flex sm:flex-col items-center sm:items-end gap-3 sm:gap-0">
           <div class="font-bold text-slate-700 text-base">19,000<span class="text-xs font-normal text-slate-700">원/회</span></div>
-          <button onclick="mockPayment('보정권고 추가 대응', 19000, 'correction-rehab')"
+          <button onclick="startPayment('보정권고 추가 대응', 19000, 'correction-rehab')"
             class="sm:mt-1.5 block text-center px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors whitespace-nowrap">
             구매하기
           </button>
@@ -285,7 +289,7 @@
         </div>
         <div class="sm:text-right shrink-0 flex sm:flex-col items-center sm:items-end gap-3 sm:gap-0">
           <div class="text-xl font-extrabold text-slate-800">49,000<span class="text-sm font-normal">원</span></div>
-          <button onclick="mockPayment('파산 완주 패키지', 49000, 'bankrupt-full')"
+          <button onclick="startPayment('파산 완주 패키지', 49000, 'bankrupt-full')"
             class="sm:mt-2 block text-center px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors whitespace-nowrap">
             구매하기
           </button>
@@ -303,7 +307,7 @@
         </div>
         <div class="sm:text-right shrink-0 flex sm:flex-col items-center sm:items-end gap-3 sm:gap-0">
           <div class="font-bold text-slate-700 text-base">19,000<span class="text-xs font-normal text-slate-700">원/회</span></div>
-          <button onclick="mockPayment('보정명령 추가 대응', 19000, 'correction-bankrupt')"
+          <button onclick="startPayment('보정명령 추가 대응', 19000, 'correction-bankrupt')"
             class="sm:mt-1.5 block text-center px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition-colors whitespace-nowrap">
             구매하기
           </button>
@@ -314,20 +318,6 @@
   </div><!-- /content-bankrupt -->
 
 
-</div>
-
-<!-- 결제 모달 (mock) -->
-<div id="pay-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" style="display:none!important">
-  <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl">
-    <h3 class="font-bold text-slate-800 text-lg mb-1">결제 안내</h3>
-    <p class="text-slate-500 text-sm mb-4">서비스 준비 중</p>
-    <div id="pay-info" class="bg-slate-50 rounded-xl p-4 text-sm text-slate-700 mb-4"></div>
-    <p class="text-xs text-slate-600 mb-4">실제 결제 기능은 서비스 정식 출시 시 연동됩니다. 현재는 모든 기능을 체험해보실 수 있습니다.</p>
-    <div class="flex gap-3">
-      <button onclick="closePay()" class="flex-1 py-2.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">닫기</button>
-      <button onclick="mockComplete()" class="flex-1 py-2.5 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 transition-colors">체험 시작</button>
-    </div>
-  </div>
 </div>
 
 <!-- 법률대리 고지 -->
@@ -343,6 +333,7 @@
 <div id="footer-placeholder"></div>
 <div id="toast"></div>
 
+<script src="https://cdn.portone.io/v2/browser-sdk.js"></script>
 <script src="js/main.js"></script>
 <script>
   initPage('pricing');
@@ -393,7 +384,8 @@
   const defaultTab = params.get('type') === 'bankrupt' ? 'bankrupt' : 'rehab';
   switchTab(defaultTab);
 
-  function mockPayment(plan, price, pkg) {
+  // 구매 전 자격 확인 가드 — 통과하면 true (실제 결제 진행)
+  function passesPurchaseGuards(pkg) {
     // ① 하드블록(신청 자체 불가) 사유 우선 확인 — result.html applyHardBlocks와 동일 규칙
     //    (maintain·correction-*는 이미 진행 중인 사용자가 사는 상품이므로 ongoing을 차단 사유로 쓰지 않음)
     const data = Storage.load('diagnosis_data');
@@ -401,12 +393,12 @@
       const priors = data.priorAdjustments || [];
       const blocked = priors.includes('rehab-done-recent') || priors.includes('rehab-ongoing') ||
         (data.unsecuredDebt || 0) > 1_000_000_000 || (data.securedDebt || 0) > 1_500_000_000;
-      if (blocked && !confirm('무료 진단 입력 기준, 현재는 개인회생 신청 자체가 어려운 상태로 확인됩니다(면책 후 5년 미경과, 진행 중인 사건, 채무 한도 초과 등).\n\n진단 결과 페이지에서 사유를 먼저 확인해 보세요. 그래도 이 패키지를 선택하시겠습니까?')) return;
+      if (blocked && !confirm('무료 진단 입력 기준, 현재는 개인회생 신청 자체가 어려운 상태로 확인됩니다(면책 후 5년 미경과, 진행 중인 사건, 채무 한도 초과 등).\n\n진단 결과 페이지에서 사유를 먼저 확인해 보세요. 그래도 이 패키지를 선택하시겠습니까?')) return false;
     }
     if (data && pkg === 'bankrupt-full') {
       const priors = data.priorAdjustments || [];
       const blocked = priors.includes('bankrupt-done-recent') || priors.includes('bankrupt-ongoing');
-      if (blocked && !confirm('무료 진단 입력 기준, 파산 면책 후 7년 미경과 또는 진행 중인 사건이 있어 면책 받기 어려울 수 있습니다.\n\n진단 결과 페이지에서 사유를 먼저 확인해 보세요. 그래도 이 패키지를 선택하시겠습니까?')) return;
+      if (blocked && !confirm('무료 진단 입력 기준, 파산 면책 후 7년 미경과 또는 진행 중인 사건이 있어 면책 받기 어려울 수 있습니다.\n\n진단 결과 페이지에서 사유를 먼저 확인해 보세요. 그래도 이 패키지를 선택하시겠습니까?')) return false;
     }
     // ② 진단 결과와 반대 절차의 패키지 선택 시 오구매 방지 확인
     const scores = Storage.load('diagnosis_scores');
@@ -414,42 +406,74 @@
       const isRehabPkg    = ['rehab-full', 'maintain', 'correction-rehab'].includes(pkg);
       const isBankruptPkg = ['bankrupt-full', 'correction-bankrupt'].includes(pkg);
       if (isRehabPkg && scores.rehab < 30 && scores.bankrupt > scores.rehab) {
-        if (!confirm('무료 진단 결과, 현재 상황에서는 개인회생 신청이 어려운 것으로 나타났습니다(예: 소득 없음·한도 초과 등).\n\n개인파산·면책 패키지가 더 적합할 수 있습니다. 그래도 이 패키지를 선택하시겠습니까?')) return;
+        if (!confirm('무료 진단 결과, 현재 상황에서는 개인회생 신청이 어려운 것으로 나타났습니다(예: 소득 없음·한도 초과 등).\n\n개인파산·면책 패키지가 더 적합할 수 있습니다. 그래도 이 패키지를 선택하시겠습니까?')) return false;
       }
       if (isBankruptPkg && scores.bankrupt < 30 && scores.rehab > scores.bankrupt) {
-        if (!confirm('무료 진단 결과, 현재 상황에서는 개인회생이 더 적합한 것으로 나타났습니다.\n\n개인회생 패키지를 먼저 확인해 보시겠습니까? 그래도 이 패키지를 선택하시려면 확인을 누르세요.')) return;
+        if (!confirm('무료 진단 결과, 현재 상황에서는 개인회생이 더 적합한 것으로 나타났습니다.\n\n개인회생 패키지를 먼저 확인해 보시겠습니까? 그래도 이 패키지를 선택하시려면 확인을 누르세요.')) return false;
       }
     }
-    currentPlan = plan;
-    currentPackage = pkg;
-    document.getElementById('pay-info').innerHTML =
-      `<strong>${plan}</strong><br>금액: ${price.toLocaleString()}원<br><span class="text-slate-400">※ 현재 체험 모드로 운영 중입니다.</span>`;
-    document.getElementById('pay-modal').style.removeProperty('display');
+    return true;
   }
 
-  function closePay() {
-    document.getElementById('pay-modal').style.setProperty('display', 'none', 'important');
-  }
+  let _payBusy = false;
+  async function startPayment(plan, price, pkg) {
+    if (_payBusy) return;
+    if (!passesPurchaseGuards(pkg)) return;
 
-  function mockComplete() {
-    Storage.save('plan', 'premium');
-    // 보유 패키지 목록(누적) — 추가 구매 시에도 기존 구매 기록 유지
-    const owned = Storage.load('plan_packages') || [];
-    if (!owned.includes(currentPackage)) owned.push(currentPackage);
-    Storage.save('plan_packages', owned);
-    // 대표 패키지(plan_package·plan_type): 완주·관리 패키지 보유 중에 보정 추가옵션을 사면 덮어쓰지 않음
-    const prevPkg = Storage.load('plan_package');
-    const isAddon = currentPackage.startsWith('correction-');
-    const prevIsMain = prevPkg && !prevPkg.startsWith('correction-');
-    if (!(isAddon && prevIsMain)) {
-      Storage.save('plan_type', currentPlanType);
-      Storage.save('plan_package', currentPackage);
-      Storage.save('plan_package_name', currentPlan);
+    // 결제는 로그인 후 — 결제 내역이 계정에 귀속돼야 함
+    if (!Auth.isLoggedIn()) {
+      if (confirm('결제는 로그인 후 진행할 수 있습니다. 로그인 화면으로 이동할까요?')) {
+        location.href = 'login.html?next=' + encodeURIComponent(location.href);
+      }
+      return;
     }
-    closePay();
-    showToast(currentPlan + ' 체험 모드가 활성화되었습니다.', 'success');
-    const dest = PACKAGE_DEST[currentPackage] || (currentPlanType === 'bankrupt' ? 'bankruptcy.html' : 'rehabilitation.html');
-    setTimeout(() => { window.location.href = dest; }, 1200);
+
+    _payBusy = true;
+    try {
+      // 1) 서버에 주문 생성 요청 — 금액·주문번호는 서버가 확정(위변조 방지)
+      const prep = await fetch(API_BASE + '/api/payment/prepare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.getSession().token },
+        body: JSON.stringify({ package: pkg }),
+      }).then(r => r.json());
+      if (!prep.ok) { showToast(prep.error || '결제 준비에 실패했습니다.', 'warn'); return; }
+
+      // 2) 포트원 결제창 호출
+      const payRes = await PortOne.requestPayment({
+        storeId: prep.storeId,
+        channelKey: prep.channelKey,
+        paymentId: prep.paymentId,
+        orderName: prep.orderName,
+        totalAmount: prep.amount,
+        currency: 'CURRENCY_KRW',
+        payMethod: 'CARD',
+      });
+      if (payRes.code !== undefined) {
+        // 사용자가 창을 닫았거나 결제 실패 — 사유를 그대로 안내
+        showToast(payRes.message || '결제가 취소되었거나 완료되지 않았습니다.', 'warn');
+        return;
+      }
+
+      // 3) 서버 검증(금액·상태) 후 패키지 부여
+      const done = await fetch(API_BASE + '/api/payment/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.getSession().token },
+        body: JSON.stringify({ paymentId: prep.paymentId }),
+      }).then(r => r.json());
+      if (!done.ok) { showToast(done.error || '결제 확인에 실패했습니다.', 'warn'); return; }
+
+      // 서버가 부여한 plan 데이터를 로컬에 반영(즉시 UI 반영)
+      const g = done.granted || {};
+      Object.entries(g).forEach(([k, v]) => Storage.save(k, v));
+
+      showToast(plan + ' 결제가 완료되었습니다.', 'success');
+      const dest = PACKAGE_DEST[pkg] || (currentPlanType === 'bankrupt' ? 'bankruptcy.html' : 'rehabilitation.html');
+      setTimeout(() => { window.location.href = dest; }, 1200);
+    } catch (e) {
+      showToast('결제 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 'warn');
+    } finally {
+      _payBusy = false;
+    }
   }
 </script>
 </body>

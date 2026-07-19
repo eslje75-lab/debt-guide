@@ -1,0 +1,15 @@
+{
+  "name": "챔로드 — 개인회생·파산 셀프 진행 안내",
+  "short_name": "챔로드",
+  "description": "개인회생·파산을 스스로 진행하도록 돕는 정보 제공 플랫폼",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f6f9fc",
+  "theme_color": "#533afd",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -208,33 +208,176 @@ function renderDisclaimer(containerId) {
   `;
 }
 
-/* ── localStorage helpers ── */
+/* ── Storage: localStorage 동기 캐시 + 로그인 시 서버 미러링(Phase 2) ──
+   - 읽기(load)는 항상 로컬 캐시에서 동기로 — 기존 모든 호출부 무수정.
+   - 쓰기(save/remove)는 로컬에 즉시 반영 + 로그인 상태면 서버로 디바운스 푸시.
+   - 로그인 시(syncOnLogin): 서버에 데이터가 있으면 서버가 소스(로컬 교체),
+     서버가 비어있으면 게스트 로컬데이터를 서버로 이관.
+   - auth 키(cdg_auth*)는 동기화 대상에서 제외. */
 const Storage = {
   save(key, data) {
     try { localStorage.setItem('cdg_' + key, JSON.stringify(data)); } catch(e) {}
+    DataSync.queuePut(key, data);
   },
   load(key) {
     try { return JSON.parse(localStorage.getItem('cdg_' + key)); } catch(e) { return null; }
   },
   remove(key) {
     try { localStorage.removeItem('cdg_' + key); } catch(e) {}
+    DataSync.queueDel(key);
   }
 };
 
-/* ── Auth (프론트엔드 mock — localStorage 기반) ── */
+const DataSync = {
+  _put: new Map(),   // key -> data (최신값)
+  _del: new Set(),   // 삭제할 key
+  _timer: null,
+  DEBOUNCE_MS: 700,
+
+  _on() { return typeof Auth !== 'undefined' && Auth.isLoggedIn(); },
+
+  // cdg_ 앱데이터 키(prefix 제거) 목록 — auth 키 제외
+  _localKeys() {
+    const out = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const full = localStorage.key(i);
+        if (full && full.startsWith('cdg_') && !full.startsWith('cdg_auth')) out.push(full.slice(4));
+      }
+    } catch (e) {}
+    return out;
+  },
+  _collectLocal() {
+    const d = {};
+    for (const k of this._localKeys()) { const v = Storage.load(k); if (v !== null) d[k] = v; }
+    return d;
+  },
+  _clearLocal() {
+    for (const k of this._localKeys()) { try { localStorage.removeItem('cdg_' + k); } catch (e) {} }
+  },
+
+  queuePut(key, data) {
+    if (!this._on()) return;
+    this._del.delete(key);
+    this._put.set(key, data);
+    this._schedule();
+  },
+  queueDel(key) {
+    if (!this._on()) return;
+    this._put.delete(key);
+    this._del.add(key);
+    this._schedule();
+  },
+  _schedule() {
+    if (this._timer) clearTimeout(this._timer);
+    this._timer = setTimeout(() => this.flush(), this.DEBOUNCE_MS);
+  },
+
+  async flush(keepalive = false) {
+    if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    if (!this._on() || (this._put.size === 0 && this._del.size === 0)) return;
+    const put = {}; for (const [k, v] of this._put) put[k] = v;
+    const del = [...this._del];
+    this._put.clear(); this._del.clear();
+    const s = Auth.getSession();
+    try {
+      await fetch(API_BASE + '/api/data/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + s.token },
+        body: JSON.stringify({ put, del }),
+        keepalive,
+      });
+    } catch (e) { /* 실패 시 다음 저장·로그인에서 재동기화 */ }
+  },
+
+  // 로그인 직후 호출 — 서버/로컬 병합 정책 적용
+  async syncOnLogin() {
+    const s = Auth.getSession();
+    if (!s) return;
+    try {
+      const res = await fetch(API_BASE + '/api/data', { headers: { 'Authorization': 'Bearer ' + s.token } });
+      const j = await res.json();
+      if (!j.ok) return;
+      const server = j.data || {};
+      if (Object.keys(server).length > 0) {
+        // 서버 데이터 우선 — 로컬 앱데이터 교체(다른 기기·이전 게스트 잔여 제거)
+        this._clearLocal();
+        for (const [k, v] of Object.entries(server)) {
+          try { localStorage.setItem('cdg_' + k, JSON.stringify(v)); } catch (e) {}
+        }
+      } else {
+        // 서버 비어있음 — 게스트로 만든 로컬데이터를 계정으로 이관
+        const local = this._collectLocal();
+        if (Object.keys(local).length) {
+          await fetch(API_BASE + '/api/data/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + s.token },
+            body: JSON.stringify({ put: local }),
+          });
+        }
+      }
+    } catch (e) { /* 오프라인 등 — 로컬 캐시로 계속 동작 */ }
+  },
+
+  // 서버 데이터 전체 삭제(계정 데이터 초기화)
+  async clearServer() {
+    if (!this._on()) return;
+    const s = Auth.getSession();
+    try {
+      await fetch(API_BASE + '/api/data/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + s.token },
+        body: JSON.stringify({ clearAll: true }),
+      });
+    } catch (e) {}
+  },
+};
+
+// 페이지 이탈 시 대기 중인 변경을 keepalive로 마지막 플러시
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => { try { DataSync.flush(true); } catch (e) {} });
+}
+
+/* ── Auth (백엔드 API 연동 — Cloudflare Worker) ── */
+// 세션 캐시는 localStorage(cdg_auth_session)에 두고 동기 조회(getSession 등)는 캐시로,
+// 로그인·가입·비밀번호 변경은 서버 API로 처리한다.
+const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://localhost:8787'
+  : 'https://chamroad-api.eslje75.workers.dev';
+
 const Auth = {
-  _KU: 'cdg_auth_users',
   _KS: 'cdg_auth_session',
 
-  _enc(s) { try { return btoa(unescape(encodeURIComponent(s))); } catch { return btoa(s); } },
-  _users() { try { return JSON.parse(localStorage.getItem(this._KU)) || []; } catch { return []; } },
-  _save(u)  { try { localStorage.setItem(this._KU, JSON.stringify(u)); } catch {} },
+  async _api(path, { method = 'POST', body = null, auth = false } = {}) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (auth) {
+      const s = this.getSession();
+      if (s && s.token) headers['Authorization'] = 'Bearer ' + s.token;
+    }
+    try {
+      const res = await fetch(API_BASE + path, {
+        method, headers, body: body ? JSON.stringify(body) : null,
+      });
+      return await res.json();
+    } catch (e) {
+      return { ok: false, error: '서버에 연결할 수 없습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요.' };
+    }
+  },
+
+  _saveSession(token, user) {
+    const session = { token, email: user.email, name: user.name, expiresAt: user.expiresAt };
+    try { localStorage.setItem(this._KS, JSON.stringify(session)); } catch {}
+    return session;
+  },
 
   getSession() {
     try {
       const s = JSON.parse(localStorage.getItem(this._KS));
       if (!s) return null;
-      if (s.expiresAt && Date.now() > s.expiresAt) { this.logout(); return null; }
+      if (s.expiresAt && Date.now() > s.expiresAt) {
+        try { localStorage.removeItem(this._KS); } catch {}
+        return null;
+      }
       return s;
     } catch { return null; }
   },
@@ -242,50 +385,41 @@ const Auth = {
   isLoggedIn()    { return !!this.getSession(); },
   getCurrentUser(){ return this.getSession(); },
 
-  login(email, password, remember = false) {
-    const u = this._users().find(u => u.email === email.toLowerCase().trim());
-    if (!u || u.password !== this._enc(password))
-      return { ok: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' };
-    const session = { email: u.email, name: u.name, expiresAt: Date.now() + (remember ? 30 : 1) * 86400000 };
-    try { localStorage.setItem(this._KS, JSON.stringify(session)); } catch {}
-    return { ok: true, user: session };
+  async login(email, password, remember = false) {
+    const r = await this._api('/api/auth/login', {
+      body: { email: email.toLowerCase().trim(), password, remember },
+    });
+    if (!r.ok) return r;
+    const user = this._saveSession(r.token, r.user);
+    await DataSync.syncOnLogin();   // 서버 데이터 pull(또는 게스트 데이터 이관)
+    return { ok: true, user };
   },
 
-  signup(name, email, password) {
-    name = name.trim(); email = email.toLowerCase().trim();
-    if (!name)                return { ok: false, error: '이름을 입력해주세요.' };
-    if (!email.includes('@')) return { ok: false, error: '올바른 이메일 주소를 입력해주세요.' };
-    if (password.length < 8)  return { ok: false, error: '비밀번호는 8자 이상이어야 합니다.' };
-    const users = this._users();
-    if (users.find(u => u.email === email)) return { ok: false, error: '이미 사용 중인 이메일입니다.' };
-    users.push({ email, name, password: this._enc(password), createdAt: new Date().toISOString() });
-    this._save(users);
-    return this.login(email, password, false);
+  async signup(name, email, password) {
+    const r = await this._api('/api/auth/signup', {
+      body: { name: name.trim(), email: email.toLowerCase().trim(), password },
+    });
+    if (!r.ok) return r;
+    const user = this._saveSession(r.token, r.user);
+    await DataSync.syncOnLogin();   // 새 계정: 게스트로 만든 로컬데이터를 계정으로 이관
+    return { ok: true, user };
   },
 
-  logout() { try { localStorage.removeItem(this._KS); } catch {} },
-
-  findEmail(name) {
-    const u = this._users().find(u => u.name === name.trim());
-    if (!u) return { ok: false, error: '일치하는 회원 정보를 찾을 수 없습니다.' };
-    const [local, domain] = u.email.split('@');
-    const masked = local.slice(0, 2) + '*'.repeat(Math.max(local.length - 2, 2)) + '@' + domain;
-    return { ok: true, maskedEmail: masked };
+  async changePassword(currentPassword, newPassword) {
+    return this._api('/api/auth/change-password', {
+      auth: true, body: { currentPassword, newPassword },
+    });
   },
 
-  verifyForReset(name, email) {
-    const u = this._users().find(u => u.name === name.trim() && u.email === email.toLowerCase().trim());
-    return !!u;
-  },
-
-  resetPassword(email, newPassword) {
-    if (newPassword.length < 8) return { ok: false, error: '비밀번호는 8자 이상이어야 합니다.' };
-    const users = this._users();
-    const idx = users.findIndex(u => u.email === email.toLowerCase().trim());
-    if (idx === -1) return { ok: false, error: '회원 정보를 찾을 수 없습니다.' };
-    users[idx].password = this._enc(newPassword);
-    this._save(users);
-    return { ok: true };
+  logout() {
+    const s = this.getSession();
+    try { localStorage.removeItem(this._KS); } catch {}
+    // 서버 세션 무효화는 백그라운드로 (실패해도 로컬 로그아웃은 완료)
+    if (s && s.token) {
+      fetch(API_BASE + '/api/auth/logout', {
+        method: 'POST', headers: { 'Authorization': 'Bearer ' + s.token },
+      }).catch(() => {});
+    }
   },
 
   requireLogin() {

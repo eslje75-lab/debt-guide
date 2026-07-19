@@ -6,6 +6,10 @@
   <meta name="robots" content="noindex">
   <title>맞춤 준비 진단 | 챔로드</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" href="favicon.ico" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#533afd">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -257,7 +261,7 @@
     const naList = naIds.map(id => NA_LABELS[id] || id);
 
     const extra = [];
-    if (p.legalAction) extra.push('압류·법적 조치 진행 중 — 신청서와 함께 <strong>중지·금지명령 신청</strong>을 준비하면 추심·강제집행을 빨리 멈출 수 있습니다. 급여 압류 중이라도 급여의 1/2(최저 월 250만원)은 압류금지이고, 생활이 어려우면 <strong>압류금지채권 범위변경 신청</strong>으로 생계비를 확보할 수 있습니다(FAQ "급여·통장 압류" 참고).');
+    if (p.legalAction) extra.push('압류·법적 조치 진행 중 — 신청서와 함께 <strong>중지·금지명령 신청</strong>을 준비하면 추심·강제집행을 빨리 멈출 수 있습니다. 급여 압류 중이라도 급여의 1/2(최저 월 250만원, 단 급여가 많으면 상한이 있어 실제 보호액은 절반보다 적을 수 있음)은 압류금지이고, 생활이 어려우면 <strong>압류금지채권 범위변경 신청</strong>으로 생계비를 확보할 수 있습니다(FAQ "급여·통장 압류" 참고).');
     if (p.personalDebt) extra.push('개인 간 채무는 채권자목록에 <strong>반드시 포함</strong>하세요 — 이체내역·대화 기록으로 금액과 경위를 정리해 두면 됩니다.');
     if (p.employed) extra.push('재직 중이므로 <strong>예상 퇴직금의 절반</strong>이 재산(청산가치)으로 계산됩니다 — 회사에 예상 퇴직금을 확인해 두세요.');
     if (p.income === 'pension') extra.push('연금·기타 소득은 <strong>수급증명서·입금내역</strong> 등으로 소득을 증빙합니다.');

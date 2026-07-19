@@ -1,0 +1,17 @@
+{
+  // 챔로드 백엔드 API — Cloudflare Worker
+  // 로컬 개발: npx wrangler dev  (http://localhost:8787)
+  // 배포:      npx wrangler deploy  (최초 1회 npx wrangler login 필요)
+  // 시크릿:    npx wrangler secret put PEPPER  (배포 전 필수 — .dev.vars 참고)
+  "name": "chamroad-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "chamroad",
+      "database_id": "a3de34d7-6d87-4f7e-abc0-8a1a3c5d6827"
+    }
+  ],
+  "observability": { "enabled": true }
+}
