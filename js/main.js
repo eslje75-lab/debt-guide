@@ -4,6 +4,17 @@
 
 const SITE_NAME = '챔로드';
 
+// 비밀번호 정책(서버와 동일): 8자 이상 + 영문·숫자·특수문자. 위반 시 사유, 통과 시 null.
+function passwordError(pw) {
+  pw = pw || '';
+  if (pw.length < 8) return '비밀번호는 8자 이상이어야 합니다.';
+  if (pw.length > 128) return '비밀번호는 128자 이하로 입력해주세요.';
+  if (!/[A-Za-z]/.test(pw)) return '비밀번호에 영문자를 포함해주세요.';
+  if (!/[0-9]/.test(pw)) return '비밀번호에 숫자를 포함해주세요.';
+  if (!/[^A-Za-z0-9]/.test(pw)) return '비밀번호에 특수문자(!@#$ 등)를 포함해주세요.';
+  return null;
+}
+
 const NAV_LINKS = [
   { href: 'index.html',          label: '홈',        id: 'home' },
   { href: 'about.html',          label: '소개글',     id: 'about' },

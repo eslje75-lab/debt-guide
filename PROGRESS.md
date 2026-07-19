@@ -4,6 +4,22 @@
 
 ## 현재 상태 (최신이 위로)
 
+### 2026-07-20 (3차) — 비밀번호 정책 강화
+
+- **정책**: 8자 이상 + **영문·숫자·특수문자 모두 포함**. 서버(`passwordError` — validateSignup·change-password 공용)와 클라(`js/main.js` 동일 `passwordError` — login 가입·mypage 비번변경)에 이중 적용. 위반 시 구체적 사유 표시.
+- **UI**: 가입·비번변경 화면 라벨/플레이스홀더에 "(8자 이상, 영문·숫자·특수문자 포함)" 안내.
+- **검증**: 프로덕션에서 8자미만/영문없음/숫자없음/특수문자없음 각각 400 + 정책충족 200 확인.
+- **이메일 중복체크**: 이미 있음(가입 시 409 "이미 사용 중인 이메일" + DB email UNIQUE). 추가 작업 불필요.
+- **이메일 인증**: 미구현. 이메일 발송 서비스(Resend 등) 필요 → 도메인·실서비스 전환 시 password reset과 함께 도입 검토(find-account.html이 "이메일 인증 준비 중"으로 안내 중).
+
+### 2026-07-20 (2차) — 관리자 페이지(운영 대시보드) ✅배포·검증
+
+- **`admin.html` 신설**(noindex·nofollow, 네비 미노출 — 운영자가 URL 직접 접근): 통계카드(전체회원·오늘가입·결제완료건·누적매출·AI검토누적) + 결제내역 표(최근100, 일시·이메일·패키지·금액·상태badge) + 회원목록 표(최근100). 미로그인/비관리자는 "접근 권한 없음" + 로그인 링크.
+- **서버**: `requireAdmin`(세션 이메일 === `ADMIN_EMAIL`) + `GET /api/admin/overview`(통계+회원100+결제100 한 번에). 프로덕션 시크릿 `ADMIN_EMAIL=eslje75@gmail.com` 설정.
+- **검증**: 관리자 200(통계·목록 정상)/비관리자 403/무인증 403 — 로컬 통과 + 프로덕션 게이팅(403) 확인.
+- ⚠️ **운영자는 `eslje75@gmail.com` 계정을 반드시 (강한 비번으로) 가입해야 관리자 접근 가능.** 그 이메일로 로그인한 세션만 admin API 통과. 공개 전 선점 가입 권장.
+- **미커밋**(직전 커밋 9807271 이후 admin.html·index.js·PROGRESS 변경분).
+
 ### 2026-07-20 — 백엔드 Phase 4: 결제(포트원 PortOne V2) ✅실결제 E2E 검증 완료
 
 - **자격증명 설정 완료(프로덕션 시크릿)**: `PORTONE_STORE_ID`(store-…), `PORTONE_CHANNEL_KEY`(channel-key-…), `PORTONE_API_SECRET`(값은 포트원 콘솔에서만 확인). 테스트 채널 = 토스페이먼츠 테스트. 설정 중 삽질 교훈: ①V1 아닌 **V2** 채널이어야 store-/channel-key- 형식 ②**채널 키**(포트원 생성)와 PG **클라이언트 키**(test_ck_) 혼동 주의 ③API Secret은 **연동정보→식별코드·API Keys→V2**에 있고, **복사 버튼**으로 전체 복사(드래그하면 …로 잘림→401).
@@ -361,7 +377,12 @@ DESIGN-stripe.md 기준으로 전체 사이트 디자인 시스템 적용.
   - ✅ Phase 2 사용자 데이터 서버 저장 — 배포·검증 완료(user_data 테이블, GET/POST /api/data, DataSync 동기화 계층).
   - ✅ Phase 3 AI 서류검토 — 배포·실검증 완료(POST /api/ai/review, claude-sonnet-5, 일 30회 제한, ANTHROPIC_API_KEY 시크릿 설정됨).
   - ✅ Phase 4 결제 — 포트원 PortOne V2, 실결제 E2E 검증 완료(prepare/complete, payments 테이블, 서버 금액검증, maintain 부여 확인). 테스트채널=토스 테스트.
-  - **백엔드 4개 Phase 전부 완료.** 남은 것: 실서비스 전환 작업 = 사업자등록 → 포트원 라이브 채널 교체 + **관리자 페이지 구축 + 개인정보처리방침 개정**(서버 저장 시작하므로 필수) → 공개 배포(git push). SEO·약관은 공개 시점 확정.
+  - **백엔드 4개 Phase + 관리자 페이지 완료.** 남은 것 = **실서비스 전환**:
+    1. 사업자등록 → 포트원 **라이브 채널** 교체(테스트→라이브 store/channel/secret)
+    2. **도메인**(chamroad.co.kr 등) 구매 → GitHub Pages CNAME + `api.챔로드도메인` Cloudflare Worker 커스텀 도메인 + main.js API_BASE 교체
+    3. **이메일 인증 + 비밀번호 재설정** 도입(사용자 결정 2026-07-20: 도메인 설정 시점에 함께). Resend 등 발송서비스 + 도메인 SPF/DKIM. find-account.html을 실제 재설정 플로우로 교체. users에 email_verified 컬럼 추가.
+    4. **개인정보처리방침 개정**(서버 저장 시작하므로 필수) + 관리자 계정(eslje75@gmail.com) 선점 가입
+    5. 공개 배포(git push). SEO·약관 공개 시점 확정.
 - **공개 배포는 백엔드 완성 후** `git push origin main` — 그때까지 커밋은 하되 push 보류(또는 로컬 유지). 미배포 중이라 약관/방침·SEO는 초안 상태.
 - **OG 이미지**: ✅ 완료(`og-image.png` 1200×630, 12페이지 연결). 문구·디자인 바꾸려면 카드 HTML 재렌더. 배포 후 카톡 공유 디버거(developers.kakao.com)로 캐시 갱신 권장.
 - **3순위(공개 시)**: GA4 방문자 분석(측정 ID G-XXXX 필요, main.js 공통 삽입) / 커스텀 도메인(선택). 문의 채널은 이메일로 확정, 이미 푸터·약관에 노출.

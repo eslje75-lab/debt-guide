@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>운영 대시보드 | 챔로드</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#533afd">
+</head>
+<body class="bg-slate-50">
+<div id="header-placeholder"></div>
+
+<section class="bg-slate-800 text-white py-8">
+  <div class="max-w-5xl mx-auto px-4">
+    <h1 class="text-2xl md:text-3xl font-bold mb-1">운영 대시보드</h1>
+    <p class="text-slate-400 text-sm">회원 · 결제 · AI 검토 현황 (운영자 전용)</p>
+  </div>
+</section>
+
+<div class="max-w-5xl mx-auto px-4 py-8">
+
+  <!-- 로딩 -->
+  <div id="loading" class="text-center py-16 text-slate-400 text-sm">불러오는 중...</div>
+
+  <!-- 권한 없음 -->
+  <div id="denied" class="hidden text-center py-16">
+    <div class="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+    </div>
+    <p class="text-slate-700 font-semibold mb-1">접근 권한이 없습니다</p>
+    <p class="text-slate-400 text-sm mb-4">운영자 계정으로 로그인해야 합니다.</p>
+    <a href="login.html?next=admin.html" class="inline-block bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-blue-800 transition-colors">로그인</a>
+  </div>
+
+  <!-- 대시보드 -->
+  <div id="dashboard" class="hidden space-y-6">
+    <!-- 통계 카드 -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+        <div class="text-xs text-slate-500 mb-1">전체 회원</div>
+        <div class="text-2xl font-extrabold text-slate-800"><span id="s-users">-</span><span class="text-sm font-normal text-slate-400">명</span></div>
+        <div class="text-xs text-blue-600 mt-1">오늘 +<span id="s-today">0</span></div>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+        <div class="text-xs text-slate-500 mb-1">결제 완료</div>
+        <div class="text-2xl font-extrabold text-slate-800"><span id="s-paid">-</span><span class="text-sm font-normal text-slate-400">건</span></div>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+        <div class="text-xs text-slate-500 mb-1">누적 매출</div>
+        <div class="text-2xl font-extrabold text-blue-700"><span id="s-revenue">-</span></div>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+        <div class="text-xs text-slate-500 mb-1">AI 검토 누적</div>
+        <div class="text-2xl font-extrabold text-slate-800"><span id="s-ai">-</span><span class="text-sm font-normal text-slate-400">회</span></div>
+      </div>
+    </div>
+
+    <!-- 결제 내역 -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <h2 class="font-bold text-slate-800 mb-3">💳 결제 내역 <span class="text-xs font-normal text-slate-400">(최근 100건)</span></h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs text-slate-400 border-b border-slate-100">
+              <th class="py-2 pr-3 font-medium">일시</th>
+              <th class="py-2 pr-3 font-medium">이메일</th>
+              <th class="py-2 pr-3 font-medium">패키지</th>
+              <th class="py-2 pr-3 font-medium text-right">금액</th>
+              <th class="py-2 font-medium">상태</th>
+            </tr>
+          </thead>
+          <tbody id="pay-rows"></tbody>
+        </table>
+      </div>
+      <div id="pay-empty" class="hidden text-center py-8 text-slate-400 text-sm">결제 내역이 없습니다.</div>
+    </div>
+
+    <!-- 회원 목록 -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <h2 class="font-bold text-slate-800 mb-3">👥 회원 목록 <span class="text-xs font-normal text-slate-400">(최근 100명)</span></h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs text-slate-400 border-b border-slate-100">
+              <th class="py-2 pr-3 font-medium">가입일</th>
+              <th class="py-2 pr-3 font-medium">이름</th>
+              <th class="py-2 font-medium">이메일</th>
+            </tr>
+          </thead>
+          <tbody id="user-rows"></tbody>
+        </table>
+      </div>
+      <div id="user-empty" class="hidden text-center py-8 text-slate-400 text-sm">회원이 없습니다.</div>
+    </div>
+  </div>
+</div>
+
+<div id="footer-placeholder"></div>
+<div id="toast"></div>
+
+<script src="js/main.js"></script>
+<script>
+  initPage('admin');
+
+  const PACKAGE_NAMES = {
+    'rehab-full': '회생 완주', 'maintain': '변제기간 관리', 'correction-rehab': '보정권고 대응',
+    'bankrupt-full': '파산 완주', 'correction-bankrupt': '보정명령 대응',
+  };
+  const STATUS_BADGE = {
+    paid: '<span class="text-green-700 bg-green-50 px-2 py-0.5 rounded-full text-xs">완료</span>',
+    pending: '<span class="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full text-xs">대기</span>',
+    failed: '<span class="text-red-600 bg-red-50 px-2 py-0.5 rounded-full text-xs">실패</span>',
+  };
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const won = (n) => (n || 0).toLocaleString('ko-KR') + '원';
+  const fmtDate = (ms) => { if (!ms) return '-'; const d = new Date(ms); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+  const fmtDateStr = (s) => s ? String(s).slice(0, 10) : '-';
+
+  async function load() {
+    if (!Auth.isLoggedIn()) { showDenied(); return; }
+    try {
+      const res = await fetch(API_BASE + '/api/admin/overview', {
+        headers: { 'Authorization': 'Bearer ' + Auth.getSession().token },
+      });
+      if (res.status === 403 || res.status === 401) { showDenied(); return; }
+      const j = await res.json();
+      if (!j.ok) { showDenied(); return; }
+      render(j);
+    } catch (e) {
+      document.getElementById('loading').textContent = '서버에 연결할 수 없습니다.';
+    }
+  }
+
+  function showDenied() {
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('denied').classList.remove('hidden');
+  }
+
+  function render(j) {
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('dashboard').classList.remove('hidden');
+
+    const s = j.stats;
+    document.getElementById('s-users').textContent = s.users;
+    document.getElementById('s-today').textContent = s.todayUsers;
+    document.getElementById('s-paid').textContent = s.paidCount;
+    document.getElementById('s-revenue').textContent = won(s.revenue);
+    document.getElementById('s-ai').textContent = s.aiReviews;
+
+    // 결제
+    const payRows = document.getElementById('pay-rows');
+    if (!j.payments.length) document.getElementById('pay-empty').classList.remove('hidden');
+    payRows.innerHTML = j.payments.map(p => `
+      <tr class="border-b border-slate-50 last:border-0">
+        <td class="py-2 pr-3 text-slate-500 text-xs whitespace-nowrap">${fmtDate(p.created_at)}</td>
+        <td class="py-2 pr-3 text-slate-700">${esc(p.email)}</td>
+        <td class="py-2 pr-3 text-slate-600">${PACKAGE_NAMES[p.package] || esc(p.package)}</td>
+        <td class="py-2 pr-3 text-right font-medium text-slate-800 whitespace-nowrap">${won(p.amount)}</td>
+        <td class="py-2">${STATUS_BADGE[p.status] || esc(p.status)}</td>
+      </tr>`).join('');
+
+    // 회원
+    const userRows = document.getElementById('user-rows');
+    if (!j.users.length) document.getElementById('user-empty').classList.remove('hidden');
+    userRows.innerHTML = j.users.map(u => `
+      <tr class="border-b border-slate-50 last:border-0">
+        <td class="py-2 pr-3 text-slate-500 text-xs whitespace-nowrap">${fmtDateStr(u.created_at)}</td>
+        <td class="py-2 pr-3 text-slate-700">${esc(u.name)}</td>
+        <td class="py-2 text-slate-600">${esc(u.email)}</td>
+      </tr>`).join('');
+  }
+
+  load();
+</script>
+</body>
+</html>

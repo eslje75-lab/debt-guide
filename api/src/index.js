@@ -170,6 +170,17 @@ async function getSessionUser(db, request) {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// 비밀번호 정책: 8자 이상 + 영문·숫자·특수문자 포함. 위반 시 사유 문자열, 통과 시 null.
+function passwordError(pw) {
+  pw = pw || '';
+  if (pw.length < 8) return '비밀번호는 8자 이상이어야 합니다.';
+  if (pw.length > 128) return '비밀번호는 128자 이하로 입력해주세요.';
+  if (!/[A-Za-z]/.test(pw)) return '비밀번호에 영문자를 포함해주세요.';
+  if (!/[0-9]/.test(pw)) return '비밀번호에 숫자를 포함해주세요.';
+  if (!/[^A-Za-z0-9]/.test(pw)) return '비밀번호에 특수문자(!@#$ 등)를 포함해주세요.';
+  return null;
+}
+
 function validateSignup(body) {
   const name = (body.name || '').trim();
   const email = (body.email || '').toLowerCase().trim();
@@ -177,8 +188,8 @@ function validateSignup(body) {
   if (!name) return { error: '이름을 입력해주세요.' };
   if (name.length > 50) return { error: '이름은 50자 이하로 입력해주세요.' };
   if (!EMAIL_RE.test(email) || email.length > 254) return { error: '올바른 이메일 주소를 입력해주세요.' };
-  if (password.length < 8) return { error: '비밀번호는 8자 이상이어야 합니다.' };
-  if (password.length > 128) return { error: '비밀번호는 128자 이하로 입력해주세요.' };
+  const pwErr = passwordError(password);
+  if (pwErr) return { error: pwErr };
   return { name, email, password };
 }
 
@@ -254,8 +265,8 @@ async function handleChangePassword(request, env, origin) {
   if (!body) return err(400, '잘못된 요청입니다.', origin);
   const current = body.currentPassword || '';
   const next = body.newPassword || '';
-  if (next.length < 8) return err(400, '비밀번호는 8자 이상이어야 합니다.', origin);
-  if (next.length > 128) return err(400, '비밀번호는 128자 이하로 입력해주세요.', origin);
+  const pwErr = passwordError(next);
+  if (pwErr) return err(400, pwErr, origin);
 
   const user = await env.DB.prepare('SELECT password_hash FROM users WHERE id = ?')
     .bind(session.id).first();
@@ -544,9 +555,56 @@ async function handlePaymentComplete(request, env, origin) {
   return ok({ granted }, origin);
 }
 
+/* ── 관리자 (운영자 전용 대시보드) ── */
+// 접근 권한: 로그인 세션의 이메일이 ADMIN_EMAIL과 일치할 때만.
+
+async function requireAdmin(db, request, env) {
+  const session = await getSessionUser(db, request);
+  if (!session) return null;
+  if (!env.ADMIN_EMAIL || session.email !== env.ADMIN_EMAIL.toLowerCase().trim()) return null;
+  return session;
+}
+
+async function handleAdminOverview(request, env, origin) {
+  const admin = await requireAdmin(env.DB, request, env);
+  if (!admin) return err(403, '접근 권한이 없습니다.', origin);
+
+  const userCount = await env.DB.prepare('SELECT COUNT(*) AS c FROM users').first();
+  const payStats = await env.DB.prepare(
+    "SELECT COUNT(*) AS c, COALESCE(SUM(amount), 0) AS s FROM payments WHERE status = 'paid'"
+  ).first();
+  const aiStat = await env.DB.prepare('SELECT COALESCE(SUM(count), 0) AS c FROM ai_usage').first();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayUsers = await env.DB.prepare(
+    "SELECT COUNT(*) AS c FROM users WHERE substr(created_at,1,10) = ?"
+  ).bind(todayStr).first();
+
+  const recentUsers = await env.DB.prepare(
+    'SELECT id, email, name, created_at FROM users ORDER BY id DESC LIMIT 100'
+  ).all();
+  const recentPayments = await env.DB.prepare(
+    `SELECT p.payment_id, p.package, p.amount, p.status, p.created_at, p.paid_at, u.email
+     FROM payments p JOIN users u ON u.id = p.user_id
+     ORDER BY p.created_at DESC LIMIT 100`
+  ).all();
+
+  return ok({
+    stats: {
+      users: userCount.c,
+      todayUsers: todayUsers.c,
+      paidCount: payStats.c,
+      revenue: payStats.s,
+      aiReviews: aiStat.c,
+    },
+    users: recentUsers.results || [],
+    payments: recentPayments.results || [],
+  }, origin);
+}
+
 /* ── 엔트리 ── */
 
 const ROUTES = {
+  'GET /api/admin/overview': handleAdminOverview,
   'POST /api/auth/signup': handleSignup,
   'POST /api/auth/login': handleLogin,
   'POST /api/auth/logout': handleLogout,

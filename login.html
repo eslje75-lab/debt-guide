@@ -132,9 +132,9 @@
               </div>
 
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1.5">비밀번호 <span class="text-slate-400 font-normal text-xs">(8자 이상)</span></label>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">비밀번호 <span class="text-slate-400 font-normal text-xs">(8자 이상, 영문·숫자·특수문자 포함)</span></label>
                 <div class="relative">
-                  <input id="s-pw" type="password" class="input-field pr-10" placeholder="8자 이상 입력" autocomplete="new-password">
+                  <input id="s-pw" type="password" class="input-field pr-10" placeholder="영문·숫자·특수문자 포함 8자 이상" autocomplete="new-password">
                   <button type="button" class="pw-toggle" onclick="togglePw('s-pw', this)" tabindex="-1">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -272,7 +272,8 @@
     let hasErr = false;
     if (!name)  { fieldError('s-name',  's-name-err',  '이름을 입력해주세요.'); hasErr = true; }
     if (!email || !email.includes('@')) { fieldError('s-email', 's-email-err', '올바른 이메일을 입력해주세요.'); hasErr = true; }
-    if (pw.length < 8) { fieldError('s-pw', 's-pw-err', '비밀번호는 8자 이상이어야 합니다.'); hasErr = true; }
+    const pwErr = passwordError(pw);
+    if (pwErr) { fieldError('s-pw', 's-pw-err', pwErr); hasErr = true; }
     if (pw !== pw2) { fieldError('s-pw2', 's-pw2-err', '비밀번호가 일치하지 않습니다.'); hasErr = true; }
     if (!terms) {
       const e = document.getElementById('s-terms-err');

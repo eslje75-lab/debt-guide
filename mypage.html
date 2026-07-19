@@ -101,7 +101,7 @@
         <input id="pw-current" type="password" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm" autocomplete="current-password">
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1.5">새 비밀번호 <span class="text-slate-400 font-normal text-xs">(8자 이상)</span></label>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">새 비밀번호 <span class="text-slate-400 font-normal text-xs">(8자 이상, 영문·숫자·특수문자 포함)</span></label>
         <input id="pw-new" type="password" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm" autocomplete="new-password">
       </div>
       <div>
@@ -306,7 +306,8 @@
 
     const fail = (msg) => { errEl.textContent = msg; errEl.classList.remove('hidden'); };
     if (!current)          return fail('현재 비밀번호를 입력해주세요.');
-    if (next.length < 8)   return fail('새 비밀번호는 8자 이상이어야 합니다.');
+    const pwErr = passwordError(next);
+    if (pwErr)             return fail(pwErr);
     if (next !== next2)    return fail('새 비밀번호가 일치하지 않습니다.');
     if (_pwBusy) return;
 
