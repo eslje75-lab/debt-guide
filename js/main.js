@@ -455,9 +455,19 @@ const Auth = {
     return { ok: true };
   },
 
+  // 로그아웃 시 지우는 이용권 캐시 키(cdg_ 접두사 제외).
+  // 남겨 두면 공용 PC에서 다음 사용자에게 "○○ 패키지 이용 중"이 계속 보인다.
+  // ⚠️ Storage.remove()를 쓰면 안 된다 — DataSync가 서버 user_data에서도 지워
+  //    handleGetData의 plan_packages가 비어 정상 구매자가 잠긴다. 로컬만 지운다.
+  _PLAN_CACHE: ['plan', 'plan_type', 'plan_package', 'plan_package_name', 'plan_packages', 'entitlements'],
+
   logout() {
     const s = this.getSession();
     try { localStorage.removeItem(this._KS); } catch {}
+    // 다음 로그인 때 syncOnLogin이 서버에서 다시 받아오므로 캐시만 비우면 된다
+    for (const k of this._PLAN_CACHE) {
+      try { localStorage.removeItem('cdg_' + k); } catch {}
+    }
     // 서버 세션 무효화는 백그라운드로 (실패해도 로컬 로그아웃은 완료)
     if (s && s.token) {
       fetch(API_BASE + '/api/auth/logout', {

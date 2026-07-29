@@ -57,7 +57,9 @@ API 라우트 20개 중 메일 관련 0건. Resend/SendGrid/SMTP 등 발송 코�
 - 검증: `mypage`·`pricing`·`terms` 인라인 스크립트 구문 파싱 PASS(`new Function`).
 - **jsdom 12종 PASS**(실제 `mypage.html` + `js/main.js` 실행, `GET /api/data` 목킹): 패키지별 만료일 렌더 / 서버가 만료 이용권을 빼면 그 칸은 **빈칸**(날짜를 지어내지 않음) / 캐시로 즉시 표시 후 **서버 값이 캐시를 덮어씀** / 오프라인이면 캐시 유지 / 비로그인은 `/api/data`를 부르지 않고 만료일 칸 자체를 만들지 않음 / `entitlements`가 배열이 아니거나 `expiresAt`이 null이어도 예외 없이 빈칸. 스크립트는 스크래치패드 `test-expiry.js`(미커밋).
 - ⚠️**실데이터·브라우저 픽셀은 여전히 미확인** — 관리자 테스트 지급이 선행돼야 함(`ADMIN_EMAIL` 계정 미가입).
-- 🔎**부수 발견(미수정)**: `Auth.logout()`은 세션 키만 지우고 `cdg_plan*`을 남긴다 → 로그아웃 후에도 마이페이지가 "○○ 패키지 이용 중"으로 보인다(콘텐츠 접근은 서버 게이트가 막으므로 표시만의 문제). 공용 PC에서 다음 사용자에게 구매 사실이 보이는 셈. 고치려면 logout에서 `plan`·`plan_packages`·`plan_type`·`plan_package`·`plan_package_name`·`entitlements` 제거(재로그인 시 `syncOnLogin`이 서버에서 복구하므로 안전).
+- 🐛**로그아웃 시 이용권 캐시 잔존 — 수정 완료**: `Auth.logout()`이 세션 키만 지워 로그아웃 후에도 마이페이지가 "○○ 패키지 이용 중"으로 보였다(공용 PC에서 다음 사용자에게 구매 사실 노출. 콘텐츠 접근 자체는 서버 게이트가 막으므로 표시만의 문제였다). `Auth._PLAN_CACHE` 6개 키를 **raw `localStorage.removeItem`으로** 제거하도록 수정.
+  - ⚠️**`Storage.remove()`를 쓰면 안 된다** — `DataSync.queueDel`이 서버 `user_data`에서도 지우는데, `handleGetData`가 `plan_packages`를 user_data에서 읽으므로 **정상 구매자가 잠긴다**. 코드 주석에 근거를 남겨 뒀다. jsdom 테스트가 `/api/data/sync` 미호출을 검사한다.
+- 🔎**미수정·서버측 관련 결함**: 같은 이유로 **마이페이지 '저장된 데이터 전체 초기화'(`confirmReset`)가 유료 접근을 날린다** — `Storage.remove('plan_packages')` + `DataSync.clearServer()`(clearAll)로 서버 user_data가 비워지고, `handleGetData`가 `owned`(=user_data.plan_packages)를 기준으로 필터링하므로 **`entitlements` 행이 멀쩡히 살아 있어도 `plan_packages: []`가 되어 잠긴다**. 현재는 확인창이 "이용권 정보가 사라지니 문의하라"고 안내할 뿐. 근본 수정안: `handleGetData`가 `owned`를 필터링하는 대신 **활성 `entitlements`와 합집합**을 만들도록 바꾸면(레거시 키는 그대로 통과) 초기화·동기화 사고에도 유료 접근이 자동 복구된다. `handleSyncData`의 **del 경로에 `PLAN_KEYS` 가드가 없는 것**(put에는 있음)도 함께 볼 것. → **Worker 재배포 필요**.
 
 ### 2026-07-27 — 진단 단순화(퇴직금 제거) + 법률 용어 자동 툴팁 ✅jsdom 검증
 
