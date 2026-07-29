@@ -7,6 +7,7 @@
  *   POST /api/auth/logout           (Authorization: Bearer <token>)
  *   GET  /api/auth/me               (Authorization: Bearer <token>)
  *   POST /api/auth/change-password  (Bearer) {currentPassword, newPassword}
+ *   POST /api/auth/delete-account   (Bearer) {password}   — 회원탈퇴(전 데이터 삭제)
  *
  * 보안 설계:
  *   - 비밀번호: PBKDF2-SHA256(iterations 아래 상수) + 서버 시크릿(PEPPER) HMAC 프리해시
@@ -14,6 +15,11 @@
  *   - 이름+이메일만으로 비밀번호 재설정은 계정 탈취 경로라 서버에서는 제공하지 않음
  *     (이메일 인증 링크 방식은 이메일 발송 연동 시 구현)
  */
+
+// 로그인 무차별 대입 방어 — 윈도우 내 실패 한도 초과 시 잠금.
+const LOGIN_MAX_FAILS = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;   // 실패 누적 윈도우 15분
+const LOGIN_LOCK_MS = 15 * 60 * 1000;     // 초과 시 잠금 15분
 
 const PBKDF2_ITERATIONS = 100000;
 const SALT_BYTES = 16;
@@ -30,8 +36,11 @@ const DATA_BODY_BYTES = 512 * 1024;   // /api/data/sync 본문 최대
 // AI 서류검토(Phase 3)
 const AI_MODEL = 'claude-sonnet-5';   // 검증됨(2026-07-19). 주의: 이 계열은 assistant 프리필 미지원 → messages는 user로 끝나야 함
 const ANTHROPIC_VERSION = '2023-06-01';
-const AI_MAX_TOKENS = 1024;
-const DAILY_AI_LIMIT = 30;            // 사용자당 1일 검토 횟수(비용·남용 방지)
+// ⚠️ claude-sonnet-5는 thinking을 생략하면 adaptive thinking이 기본 동작이고,
+//    max_tokens는 사고 토큰 + 응답 토큰을 함께 제한한다. 1024로는 구조화 출력이 중간에 잘린다.
+const AI_MAX_TOKENS = 4096;
+const AI_EFFORT = 'medium';           // 형식·누락 점검 작업 — low는 얕고 high는 과함
+const DAILY_AI_LIMIT = 10;            // 남용 방지용 1일 상한. 실제 배분은 패키지 총량제(PACKAGE_TERMS.aiQuota)
 const AI_TEXT_MIN = 30;
 const AI_TEXT_MAX = 6000;
 const AI_BODY_BYTES = 32 * 1024;
@@ -44,6 +53,33 @@ const PACKAGES = {
   'bankrupt-full':       { name: '파산 완주 패키지',       amount: 49000,  type: 'bankrupt' },
   'correction-bankrupt': { name: '보정명령 추가 대응',     amount: 19000,  type: 'bankrupt' },
 };
+
+// 패키지별 이용기간·AI 검토 회수. 근거는 api/schema.sql의 entitlements 주석 참조.
+// ⚠️ 이 값을 바꾸면 pricing.html 카드·결제 전 확인창·terms.html 제5조의 고지도 함께 바꿔야 한다
+//    (전자상거래법 제13조② 거래조건 고지). 고지 없는 소멸은 소멸 자체보다 큰 문제가 된다.
+const PACKAGE_TERMS = {
+  'rehab-full':          { months: 24, aiQuota: 12 },
+  'bankrupt-full':       { months: 24, aiQuota: 12 },
+  'maintain':            { months: 84, aiQuota: 8 },
+  'correction-rehab':    { months: 12, aiQuota: 8 },
+  'correction-bankrupt': { months: 12, aiQuota: 8 },
+};
+const AI_TRIAL_QUOTA = 1;   // 미구매자 체험 1회(시행령 제21조의2 제3호 체험용 콘텐츠)
+
+// unix ms에 개월을 더한다. 말일 보정(1/31 + 1개월 = 2/28)까지 처리.
+function addMonths(ms, months) {
+  const d = new Date(ms);
+  const day = d.getUTCDate();
+  d.setUTCMonth(d.getUTCMonth() + months);
+  if (d.getUTCDate() < day) d.setUTCDate(0);   // 넘어간 만큼 되돌려 말일로
+  return d.getTime();
+}
+
+// 이용권 관련 키 — 서버(결제 검증)만 쓰기 가능. 클라이언트 동기화(put)에서는 거부된다.
+const PLAN_KEYS = new Set(['plan', 'plan_packages', 'plan_type', 'plan_package', 'plan_package_name']);
+
+// 자체 익명 분석 — 허용된 이벤트만 집계(임의 값 오염 방지). 개인·세션·IP는 저장하지 않는다.
+const ANALYTICS_EVENTS = new Set(['pageview', 'diag_step', 'diag_complete', 'pay_start', 'pay_complete']);
 
 // CORS 허용 오리진 — GitHub Pages 프로덕션 + 로컬 개발 서버
 const ALLOWED_ORIGINS = new Set([
@@ -142,6 +178,9 @@ async function createSession(db, userId, remember) {
   const token = b64url(crypto.getRandomValues(new Uint8Array(TOKEN_BYTES)));
   const tokenHash = await sha256hex(token);
   const expiresAt = Date.now() + (remember ? 30 : 1) * DAY_MS;
+  // 만료된 세션 행은 재접속이 없으면 남는다 — 새 세션을 만들 때 이 사용자 것부터 정리.
+  await db.prepare('DELETE FROM sessions WHERE user_id = ? AND expires_at < ?')
+    .bind(userId, Date.now()).run();
   await db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)')
     .bind(tokenHash, userId, expiresAt).run();
   return { token, expiresAt };
@@ -217,6 +256,23 @@ async function handleSignup(request, env, origin) {
   }, origin);
 }
 
+// 로그인 실패 1건 기록. 윈도우 내면 누적, 지났으면 리셋. 한도 도달 시 잠금 설정.
+async function recordLoginFail(env, email, att, now) {
+  let failCount, windowStart;
+  if (att && att.window_start && (now - att.window_start) < LOGIN_WINDOW_MS) {
+    failCount = att.fail_count + 1;
+    windowStart = att.window_start;
+  } else {
+    failCount = 1;
+    windowStart = now;
+  }
+  const lockedUntil = failCount >= LOGIN_MAX_FAILS ? now + LOGIN_LOCK_MS : null;
+  await env.DB.prepare(
+    `INSERT INTO login_attempts (email, fail_count, window_start, locked_until) VALUES (?1, ?2, ?3, ?4)
+     ON CONFLICT(email) DO UPDATE SET fail_count = ?2, window_start = ?3, locked_until = ?4`
+  ).bind(email, failCount, windowStart, lockedUntil).run();
+}
+
 async function handleLogin(request, env, origin) {
   const body = await readJson(request);
   if (!body) return err(400, '잘못된 요청입니다.', origin);
@@ -224,16 +280,34 @@ async function handleLogin(request, env, origin) {
   const password = body.password || '';
   const remember = !!body.remember;
 
+  const now = Date.now();
+  // 존재하지 않는 이메일도 카운트 대상 — 잠금 여부로 계정 존재가 새지 않게 한다.
+  const att = await env.DB.prepare(
+    'SELECT fail_count, window_start, locked_until FROM login_attempts WHERE email = ?'
+  ).bind(email).first();
+  if (att && att.locked_until && att.locked_until > now) {
+    const mins = Math.ceil((att.locked_until - now) / 60000);
+    return err(429, `로그인 시도가 많아 약 ${mins}분간 제한되었습니다. 잠시 후 다시 시도해주세요.`, origin);
+  }
+
   const user = await env.DB.prepare(
     'SELECT id, email, name, password_hash FROM users WHERE email = ?'
   ).bind(email).first();
 
   // 사용자 없음/비밀번호 불일치를 같은 메시지로 — 이메일 존재 여부 노출 방지
   const FAIL = '이메일 또는 비밀번호가 올바르지 않습니다.';
-  if (!user) return err(401, FAIL, origin);
-  const valid = await verifyPassword(password, user.password_hash, env.PEPPER);
-  if (!valid) return err(401, FAIL, origin);
+  const valid = user && await verifyPassword(password, user.password_hash, env.PEPPER);
+  if (!valid) {
+    await recordLoginFail(env, email, att, now);
+    return err(401, FAIL, origin);
+  }
 
+  // 성공 — 실패 기록 리셋
+  await env.DB.prepare('DELETE FROM login_attempts WHERE email = ?').bind(email).run();
+  // 동시 세션 1개 — 기존 세션을 모두 끊는다. 계정을 여러 명이 돌려쓰면 서로 로그아웃되어
+  // 실질적으로 공유가 성가셔진다. IP·기기 정보를 수집하지 않으므로 개인정보 방침은 그대로 유지된다.
+  // (시간을 나눠 쓰는 순차 양도까지는 막지 못한다 — 그건 본인확인 없이는 불가능하다.)
+  await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id).run();
   const session = await createSession(env.DB, user.id, remember);
   return ok({
     token: session.token,
@@ -282,6 +356,36 @@ async function handleChangePassword(request, env, origin) {
   return ok({}, origin);
 }
 
+// 회원탈퇴 — 개인정보보호법 제36조(삭제 요구권) 행사 창구.
+// users 삭제 시 sessions·user_data·ai_usage·payments가 FK CASCADE로 함께 삭제된다.
+// 단, 완료된 결제는 전자상거래법 시행령 제6조상 5년 보존 대상이라 payments_archive로 옮긴 뒤 삭제한다.
+async function handleDeleteAccount(request, env, origin) {
+  const session = await getSessionUser(env.DB, request);
+  if (!session) return err(401, '로그인이 필요합니다.', origin);
+  const body = await readJson(request);
+  if (!body) return err(400, '잘못된 요청입니다.', origin);
+  const password = body.password || '';
+  if (!password) return err(400, '탈퇴하려면 비밀번호를 입력해주세요.', origin);
+
+  const user = await env.DB.prepare('SELECT password_hash FROM users WHERE id = ?')
+    .bind(session.id).first();
+  if (!user) return err(404, '계정을 찾을 수 없습니다.', origin);
+  const valid = await verifyPassword(password, user.password_hash, env.PEPPER);
+  if (!valid) return err(401, '비밀번호가 올바르지 않습니다.', origin);
+
+  const now = Date.now();
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT OR REPLACE INTO payments_archive
+         (payment_id, email, package, amount, status, created_at, paid_at, archived_at)
+       SELECT payment_id, ?1, package, amount, status, created_at, paid_at, ?2
+         FROM payments WHERE user_id = ?3 AND status = 'paid'`
+    ).bind(session.email, now, session.id),
+    env.DB.prepare('DELETE FROM users WHERE id = ?').bind(session.id),
+  ]);
+  return ok({}, origin);
+}
+
 /* ── 사용자 데이터 저장 (Phase 2: 진단·plan·진행률 등) ── */
 // 프론트 Storage(cdg_* 키)를 서버에 미러링. 값은 JSON 문자열로 보관.
 // 로그인 사용자만. auth 키(cdg_auth*)는 프론트에서 동기화 대상에서 제외됨.
@@ -295,6 +399,24 @@ async function handleGetData(request, env, origin) {
   for (const r of (rows.results || [])) {
     try { data[r.key] = JSON.parse(r.value); } catch { /* 손상 값은 건너뜀 */ }
   }
+
+  // ⚠️ plan_packages를 만료되지 않은 이용권으로 덮어쓴다.
+  //    프론트 requirePackage()가 이 값으로 유료 콘텐츠 접근을 판정하므로, 여기서 거르지 않으면
+  //    이용기간이 지나도 계속 열린다. user_data의 원본은 건드리지 않고 응답만 필터링한다.
+  const ents = await activeEntitlements(env.DB, session.id);
+  const activeKeys = ents.map(e => e.package);
+  const known = new Set(Object.keys(PACKAGE_TERMS));
+  const owned = Array.isArray(data.plan_packages) ? data.plan_packages : [];
+  // PACKAGE_TERMS에 없는 레거시 키는 만료 개념이 없으므로 그대로 통과시킨다
+  data.plan_packages = owned.filter(k => !known.has(k) || activeKeys.includes(k));
+  data.entitlements = ents.map(e => ({
+    package: e.package,
+    expiresAt: e.expires_at,
+    aiQuota: e.ai_quota,
+    aiUsed: e.ai_used,
+    aiLeft: Math.max(0, e.ai_quota - e.ai_used),
+  }));
+
   return ok({ data }, origin);
 }
 
@@ -317,9 +439,14 @@ async function handleSyncData(request, env, origin) {
 
   if (clearAll) {
     stmts.push(env.DB.prepare('DELETE FROM user_data WHERE user_id = ?').bind(session.id));
+    // '저장된 데이터 전체 초기화'는 AI 검토 이용 이력까지 지운다 — 방침상 삭제 요청 대상.
+    stmts.push(env.DB.prepare('DELETE FROM ai_usage WHERE user_id = ?').bind(session.id));
   }
   for (const k of putKeys) {
     if (typeof k !== 'string' || k.length === 0 || k.length > MAX_KEY_LEN) continue;
+    // 이용권(plan*) 키는 결제 검증을 거친 서버(grantPackage/revokePackage)만 쓸 수 있다.
+    // 클라이언트가 localStorage에 심어 올려도 무시 — 결제 없이 프리미엄 위조 차단.
+    if (PLAN_KEYS.has(k)) continue;
     let serialized;
     try { serialized = JSON.stringify(put[k]); } catch { continue; }
     if (serialized == null) continue;                      // undefined 값은 스킵
@@ -343,29 +470,111 @@ async function handleSyncData(request, env, origin) {
 /* ── AI 서류검토 (Phase 3) ── */
 // 실제 Claude API 호출. 법률 자문·결과 예측 금지, '서류 완성도 점검'으로만 제약.
 
-const AI_SYSTEM_PROMPT = `당신은 대한민국 개인회생·파산 절차의 '서류 형식 점검 보조자'다. 사용자가 직접 작성한 법원 제출용 서류 초안을 검토한다.
+// 출력 스키마 — '판정'과 '대필'이 물리적으로 들어갈 자리가 없도록 설계했다.
+//
+// 법무사법 제2조 제1항 제1호는 '법원에 제출하는 서류의 작성'을, 변호사법 제109조 제1호는
+// '감정·법률상담·법률관계 문서 작성'을 금지한다. 두 조문 어디에도 '점검'과 '질문'은 없다.
+// 그래서 이 도구는 판정하지 않고 질문한다:
+//   · 대체 문장을 담을 필드가 없다        → 대필(서류 작성)이 구조적으로 불가능
+//   · 적합/부적합·점수·등급 필드가 없다   → 감정이 구조적으로 불가능
+//   · 지적은 반드시 question을 동반한다    → 문장은 언제나 이용자가 쓴다
+// 프롬프트로만 금지하면 모델이 넘어가므로 스키마로 강제한다. 필드를 추가할 때 이 원칙을 깨지 말 것.
+const AI_REVIEW_SCHEMA = {
+  type: 'object',
+  properties: {
+    present: {
+      type: 'array',
+      description: '초안에 이미 들어 있는 것. 사실 확인 수준으로만 적는다.',
+      items: { type: 'string' },
+    },
+    questions: {
+      type: 'array',
+      description: '법원이 추가로 물을 수 있는데 초안에 없는 내용. 반드시 이용자에게 던지는 질문 형태.',
+      items: {
+        type: 'object',
+        properties: {
+          topic:    { type: 'string', description: '무엇이 빠졌는지 (예: 2020~2022년 채무 증가 사정)' },
+          question: { type: 'string', description: '이용자가 답을 직접 쓰도록 던지는 질문. 예시 문장을 대신 써 주지 말 것.' },
+        },
+        required: ['topic', 'question'],
+        additionalProperties: false,
+      },
+    },
+    lawNotes: {
+      type: 'array',
+      description: '초안의 특정 표현이 법령상 검토 대상이 될 수 있어 관련 조문을 안내하는 항목. 적용 여부를 판단하지 말 것.',
+      items: {
+        type: 'object',
+        properties: {
+          excerpt:  { type: 'string', description: '초안에서 그대로 인용한 표현' },
+          statute:  { type: 'string', description: '관련 조문 (예: 채무자회생법 제564조 제1항 제6호)' },
+          note:     { type: 'string', description: '그 조문이 무엇을 정하고 있는지의 사실 서술' },
+          question: { type: 'string', description: '이용자에게 던지는 확인 질문' },
+        },
+        required: ['excerpt', 'statute', 'note', 'question'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['present', 'questions', 'lawNotes'],
+  additionalProperties: false,
+};
 
-절대 원칙(위반 금지):
-1. 법률 자문·법률 상담·법률 대리를 제공하지 않는다. 당신은 변호사·법무사가 아니다.
-2. 사건 결과(면책 여부, 인가 여부, 성공 가능성)를 예측하거나 단정하지 않는다.
-3. "이렇게 하면 면책된다/기각된다" 같은 법적 결론을 내리지 않는다.
-4. 오직 서류의 '완성도'만 본다: 필수 항목 누락, 내용의 불명확·모호, 숫자·날짜의 내부 불일치, 형식 미비, 개인정보(주민번호 등) 노출.
-5. 확실하지 않으면 단정하지 말고 "확인 권장"으로 표현한다. 추측으로 사실을 만들지 않는다.
-6. 모든 출력은 한국어. 실용적이고 차분한 톤. 사용자를 불안하게 하지 않는다.
+const AI_SYSTEM_PROMPT = `당신은 대한민국 개인회생·파산 절차에서 이용자가 **스스로** 서류를 완성하도록 돕는 점검 보조자다. 이용자가 직접 작성한 법원 제출용 서류 초안을 읽고, 빠진 것을 '질문'으로 돌려준다.
 
-반드시 아래 JSON 객체로만 응답한다. JSON 외 다른 텍스트를 절대 출력하지 않는다:
-{
-  "summary": "1~2문장 총평(법적 결론·예측 금지)",
-  "issues": [{"severity": "high|medium|low", "message": "구체적 지적"}],
-  "confirmed": ["잘 갖춰진 항목 요약"],
-  "suggestions": ["개선 제안(형식·완성도 관점)"]
-}`;
+## 당신이 하는 일
+초안에 **들어 있는 것**을 확인하고, **법원이 추가로 물을 만한데 빠진 것**을 질문으로 만들고, 초안의 표현 중 **관련 조문을 알아 둘 필요가 있는 것**을 안내한다.
+
+## 절대 금지 (구조적 이유가 있다)
+1. **대체 문장을 쓰지 않는다.** "이렇게 쓰세요: ~", "예: 2019년 5월경 생활비 부족으로…" 같이 이용자가 그대로 옮겨 적을 문장을 만들어 주는 것은 법원 제출 서류의 '작성'에 해당한다(법무사법 제2조 제1항 제1호). 무엇이 빠졌는지 알려주고 질문만 한다.
+2. **판정하지 않는다.** "미흡하다", "충분하다", "제출해도 된다", "통과 가능성이 높다" 같은 평가·등급·점수를 내지 않는다. 이는 감정에 해당한다(변호사법 제109조 제1호).
+3. **결과를 예측하지 않는다.** 면책·인가 여부, 성공 가능성을 말하지 않는다.
+4. **이 사람의 사정에 법을 적용해 결론 내지 않는다.** "이 경우는 재량면책 대상이다" 같은 판단은 법률상담이다. 조문이 무엇을 정하는지의 **사실**만 전하고, 적용 여부는 이용자가 판단하게 한다.
+5. 추측으로 사실을 만들지 않는다. 초안에 없는 내용을 있는 것처럼 쓰지 않는다.
+
+## 질문을 만드는 법
+- 나쁜 예(판정): "채무 발생 경위가 불충분합니다."
+- 나쁜 예(대필): "'2020년 코로나로 매출이 급감하여'라고 쓰세요."
+- **좋은 예(질문)**: topic="2020~2022년 채무가 늘어난 사정", question="이 기간에 어떤 일이 있었나요? 채무가 늘어난 계기를 적어 두셨나요?"
+- 질문은 이용자가 답을 **직접 쓰도록** 유도한다. 답의 예시를 주지 않는다.
+
+## lawNotes를 쓰는 법
+초안에 면책불허가 사유·부인 대상 등으로 검토될 수 있는 표현(도박, 주식·코인 투자, 사치성 소비, 특정 채권자에게만 변제, 재산 처분 등)이 있을 때만 만든다.
+- excerpt: 초안에서 **그대로** 인용
+- statute: 조문 번호
+- note: 그 조문이 무엇을 정하는지의 사실 서술. "이 표현은 위험하다"가 아니라 "이 조항은 …을 면책불허가 사유로 정합니다"
+- question: "관련 사정을 함께 적으셨나요?" 형태의 확인 질문
+초안에 해당 표현이 없으면 lawNotes는 빈 배열로 둔다. 없는 위험을 만들어내지 않는다.
+
+## 톤
+한국어. 차분하고 실용적으로. 이용자를 불안하게 하지 않는다. 이미 잘 적힌 부분은 present에 담아 알려준다.
+질문할 것을 찾지 못했다면 questions를 빈 배열로 둔다 — 그것은 "제출해도 된다"는 뜻이 아니며, 그런 말을 덧붙이지도 않는다.`;
+
+// 진술서·경위서 계열에만 붙이는 보강 지침. 이 서류들은 정답 양식이 없어 이용자가 가장 막히고,
+// 자기도 모르게 면책불허가 사유를 자백하는 사고가 실제로 나는 지점이다.
+const AI_NARRATIVE_HINT = `
+
+## 이 서류(진술서·경위서 계열) 점검 시 특히 볼 것
+법원이 채무 발생 경위에서 통상 확인하는 요소들이다. 초안에 없으면 질문으로 만든다.
+- 채무가 시작된 시기와 계기
+- 채무가 늘어난 기간과 그 사이의 사정 (실직·질병·폐업·사고 등)
+- 빌린 돈의 사용처
+- 갚기 위해 시도한 노력 (추가 근로, 자산 처분, 채무조정 상담 등)
+- 현재의 소득·생활 상황
+- 시기·금액이 앞뒤로 어긋나는 곳은 questions로 되물어 확인하게 한다`;
+
+// 진술서·경위서 계열인지 — 서술형 서류에만 보강 지침을 붙인다
+function isNarrativeDoc(docLabel) {
+  return /진술서|경위|사정|생활상황/.test(docLabel || '');
+}
 
 async function callClaude(apiKey, docLabel, checklist, text) {
+  const system = AI_SYSTEM_PROMPT + (isNarrativeDoc(docLabel) ? AI_NARRATIVE_HINT : '');
   const userMsg =
     `검토 대상 서류: ${docLabel}\n` +
     (checklist && checklist.length ? `이 서류에 일반적으로 포함되는 항목(참고): ${checklist.join(', ')}\n` : '') +
-    `\n아래는 사용자가 작성한 초안이다. 완성도 관점에서 검토하라.\n\n---\n${text}\n---`;
+    `\n아래는 이용자가 직접 작성한 초안이다. 들어 있는 것을 확인하고, 빠진 것을 질문으로 만들라.\n` +
+    `대체 문장을 써 주지 말 것.\n\n---\n${text}\n---`;
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -377,7 +586,12 @@ async function callClaude(apiKey, docLabel, checklist, text) {
     body: JSON.stringify({
       model: AI_MODEL,
       max_tokens: AI_MAX_TOKENS,
-      system: AI_SYSTEM_PROMPT,
+      system,
+      // 출력 형식을 스키마로 강제 — 프롬프트 준수에 기대지 않는다(AI_REVIEW_SCHEMA 주석 참조)
+      output_config: {
+        effort: AI_EFFORT,
+        format: { type: 'json_schema', schema: AI_REVIEW_SCHEMA },
+      },
       messages: [
         { role: 'user', content: userMsg },
       ],
@@ -389,23 +603,28 @@ async function callClaude(apiKey, docLabel, checklist, text) {
     throw new Error(`anthropic ${res.status}: ${body.slice(0, 200)}`);
   }
   const data = await res.json();
-  // text 블록만 추출(thinking 블록 등 대비)
+
+  // 구조화 출력을 켜면 첫 text 블록이 유효한 JSON이다. 다만 max_tokens 초과로 잘리면
+  // 불완전한 JSON이 오므로 stop_reason을 먼저 확인한다.
+  if (data.stop_reason === 'max_tokens') throw new Error('anthropic: output truncated (max_tokens)');
+  if (data.stop_reason === 'refusal') throw new Error('anthropic: refused');
+
   const raw = (Array.isArray(data.content) ? data.content.find(c => c.type === 'text')?.text : '') || '';
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    // 코드펜스·서두 텍스트가 섞인 경우 첫 {...} 블록 추출 재시도
-    const m = raw.match(/\{[\s\S]*\}/);
-    parsed = m ? JSON.parse(m[0]) : { summary: '검토 결과를 형식화하지 못했습니다. 다시 시도해주세요.', issues: [], confirmed: [], suggestions: [] };
-  }
-  // 스키마 방어
+  const parsed = JSON.parse(raw);   // 스키마가 보장 — 실패 시 502로 올려 재시도를 안내한다
+
+  // 방어적 정규화. 스키마가 형태를 보장하지만 길이·개수는 제한하지 않으므로 여기서 자른다.
+  const str = (v) => (typeof v === 'string' ? v.trim() : '');
+  const arr = (v) => (Array.isArray(v) ? v : []);
   return {
-    summary: typeof parsed.summary === 'string' ? parsed.summary : '',
-    issues: Array.isArray(parsed.issues) ? parsed.issues.filter(i => i && typeof i.message === 'string')
-      .map(i => ({ severity: ['high', 'medium', 'low'].includes(i.severity) ? i.severity : 'medium', message: i.message })) : [],
-    confirmed: Array.isArray(parsed.confirmed) ? parsed.confirmed.filter(s => typeof s === 'string') : [],
-    suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.filter(s => typeof s === 'string') : [],
+    present: arr(parsed.present).map(str).filter(Boolean).slice(0, 12),
+    questions: arr(parsed.questions)
+      .filter(q => q && str(q.question))
+      .map(q => ({ topic: str(q.topic), question: str(q.question) }))
+      .slice(0, 12),
+    lawNotes: arr(parsed.lawNotes)
+      .filter(n => n && str(n.excerpt) && str(n.statute))
+      .map(n => ({ excerpt: str(n.excerpt), statute: str(n.statute), note: str(n.note), question: str(n.question) }))
+      .slice(0, 6),
   };
 }
 
@@ -424,12 +643,32 @@ async function handleAiReview(request, env, origin) {
   if (text.length < AI_TEXT_MIN) return err(400, '검토할 내용을 30자 이상 입력해주세요.', origin);
   if (text.length > AI_TEXT_MAX) return err(413, '입력이 너무 깁니다. 서류를 나누어 검토해주세요.', origin);
 
-  // 일일 사용량 제한
-  const day = new Date().toISOString().slice(0, 10);
+  // ── 회수 판정 ──
+  // 1순위: 유효한 이용권의 잔여 회수(패키지 총량제). 여러 패키지를 보유하면 잔여가 많은 쪽부터 쓴다.
+  // 2순위: 미구매자 체험 1회(시행령 제21조의2 제3호 체험용 콘텐츠 — 환불 제한의 근거를 겸한다).
+  const now = Date.now();
+  const ents = await activeEntitlements(env.DB, session.id, now);
+  const usable = ents.filter(e => e.ai_quota - e.ai_used > 0)
+    .sort((a, b) => (b.ai_quota - b.ai_used) - (a.ai_quota - a.ai_used));
+  const ent = usable[0] || null;
+
+  let trialRow = null;
+  if (!ent) {
+    trialRow = await env.DB.prepare('SELECT used_at FROM ai_trial WHERE user_id = ?')
+      .bind(session.id).first();
+    if (trialRow) {
+      return err(403, ents.length
+        ? '이 패키지의 서류검토 AI 회수를 모두 사용했습니다. 추가 회수는 요금제에서 구매하실 수 있습니다.'
+        : '무료 체험 1회를 이미 사용하셨습니다. 서류검토 AI는 패키지 구매 후 이용하실 수 있습니다.', origin);
+    }
+  }
+
+  // 남용 방지용 일일 상한(총량제와 별개). 스크립트로 총량을 한 번에 태우는 것을 막는다.
+  const day = new Date(now).toISOString().slice(0, 10);
   const row = await env.DB.prepare('SELECT count FROM ai_usage WHERE user_id = ? AND day = ?')
     .bind(session.id, day).first();
-  const used = row ? row.count : 0;
-  if (used >= DAILY_AI_LIMIT)
+  const usedToday = row ? row.count : 0;
+  if (usedToday >= DAILY_AI_LIMIT)
     return err(429, `오늘 이용 가능한 검토 횟수(${DAILY_AI_LIMIT}회)를 모두 사용했습니다. 내일 다시 이용해주세요.`, origin);
 
   let review;
@@ -440,13 +679,28 @@ async function handleAiReview(request, env, origin) {
     return err(502, 'AI 검토 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', origin);
   }
 
-  // 성공 시에만 사용량 증가
-  await env.DB.prepare(
-    `INSERT INTO ai_usage (user_id, day, count) VALUES (?1, ?2, 1)
-     ON CONFLICT(user_id, day) DO UPDATE SET count = count + 1`
-  ).bind(session.id, day).run();
+  // 성공 시에만 차감 — 실패한 호출은 회수를 소모하지 않는다
+  const stmts = [
+    env.DB.prepare(
+      `INSERT INTO ai_usage (user_id, day, count) VALUES (?1, ?2, 1)
+       ON CONFLICT(user_id, day) DO UPDATE SET count = count + 1`
+    ).bind(session.id, day),
+  ];
+  if (ent) {
+    stmts.push(env.DB.prepare(
+      'UPDATE entitlements SET ai_used = ai_used + 1 WHERE user_id = ? AND package = ? AND ai_used < ai_quota'
+    ).bind(session.id, ent.package));
+  } else {
+    stmts.push(env.DB.prepare(
+      'INSERT OR IGNORE INTO ai_trial (user_id, used_at) VALUES (?1, ?2)'
+    ).bind(session.id, now));
+  }
+  await env.DB.batch(stmts);
 
-  return ok({ review, usage: { used: used + 1, limit: DAILY_AI_LIMIT } }, origin);
+  const quota = ent
+    ? { type: 'package', package: ent.package, used: ent.ai_used + 1, limit: ent.ai_quota, left: ent.ai_quota - ent.ai_used - 1 }
+    : { type: 'trial', used: AI_TRIAL_QUOTA, limit: AI_TRIAL_QUOTA, left: 0 };
+  return ok({ review, quota, usage: { used: usedToday + 1, limit: DAILY_AI_LIMIT } }, origin);
 }
 
 /* ── 결제 (Phase 4: 포트원 PortOne V2) ── */
@@ -474,6 +728,36 @@ async function handlePaymentPrepare(request, env, origin) {
     storeId: env.PORTONE_STORE_ID,
     channelKey: env.PORTONE_CHANNEL_KEY,
   }, origin);
+}
+
+// 만료되지 않은 이용권만 반환. 접근 판정의 최종 근거.
+async function activeEntitlements(db, userId, now = Date.now()) {
+  const rows = await db.prepare(
+    'SELECT package, expires_at, ai_quota, ai_used FROM entitlements WHERE user_id = ? AND expires_at > ?'
+  ).bind(userId, now).all();
+  return rows.results || [];
+}
+
+// 이용권 부여(또는 연장). 같은 패키지를 다시 사면 기간은 남은 기간에 이어 붙이고 회수는 더한다.
+// 보정 추가 대응처럼 여러 번 사는 상품이 있으므로 덮어쓰기가 아니라 누적이어야 한다.
+async function grantEntitlement(db, userId, pkgKey, now = Date.now()) {
+  const term = PACKAGE_TERMS[pkgKey];
+  if (!term) return null;
+  const cur = await db.prepare(
+    'SELECT expires_at, ai_quota FROM entitlements WHERE user_id = ? AND package = ?'
+  ).bind(userId, pkgKey).first();
+
+  // 아직 유효하면 남은 기간 끝에서 연장, 만료됐거나 처음이면 지금부터
+  const base = cur && cur.expires_at > now ? cur.expires_at : now;
+  const expiresAt = addMonths(base, term.months);
+  const quota = (cur ? cur.ai_quota : 0) + term.aiQuota;
+
+  await db.prepare(
+    `INSERT INTO entitlements (user_id, package, granted_at, expires_at, ai_quota, ai_used)
+     VALUES (?1, ?2, ?3, ?4, ?5, 0)
+     ON CONFLICT(user_id, package) DO UPDATE SET expires_at = ?4, ai_quota = ?5`
+  ).bind(userId, pkgKey, now, expiresAt, quota).run();
+  return { package: pkgKey, expiresAt, aiQuota: quota };
 }
 
 // 검증된 결제 후 패키지를 user_data(plan*)에 부여. 부가옵션(correction-*)은 대표 패키지를 덮지 않음.
@@ -504,7 +788,52 @@ async function grantPackage(env, userId, pkgKey) {
        ON CONFLICT(user_id, key) DO UPDATE SET value = ?3, updated_at = ?4`
     ).bind(userId, k, JSON.stringify(v), now));
   await env.DB.batch(stmts);
-  return puts;   // 클라이언트가 localStorage에 즉시 반영
+
+  // 이용기간·AI 회수 부여. plan_packages는 캐시일 뿐이고 실제 판정 근거는 entitlements다.
+  const ent = await grantEntitlement(env.DB, userId, pkgKey, now);
+  return ent ? { ...puts, plan_expires_at: ent.expiresAt } : puts;   // 클라이언트가 localStorage에 즉시 반영
+}
+
+// 본인 결제 내역 조회 — 마이페이지 열람용. 완료·환불·무료지급만(미완료 pending/failed 제외).
+async function handlePaymentHistory(request, env, origin) {
+  const session = await getSessionUser(env.DB, request);
+  if (!session) return err(401, '로그인이 필요합니다.', origin);
+  const rows = await env.DB.prepare(
+    // first_access_at = 콘텐츠를 처음 연 시각. 환불 가능 여부(전상법 제17조②5호) 판단 근거로 함께 내려준다.
+    `SELECT p.payment_id, p.package, p.amount, p.status, p.created_at, p.paid_at, p.refunded_at,
+            c.first_access_at
+     FROM payments p
+     LEFT JOIN content_access c ON c.user_id = p.user_id AND c.package = p.package
+     WHERE p.user_id = ? AND p.status IN ('paid','refunded','test')
+     ORDER BY p.created_at DESC LIMIT 50`
+  ).bind(session.id).all();
+  return ok({ payments: rows.results || [] }, origin);
+}
+
+// 유료 콘텐츠를 처음 연 시각을 기록한다(최초 1회만).
+// 전자상거래법 제17조 제2항 제5호의 '제공 개시' 시점 = 청약철회 가능 여부의 기준.
+// 프론트(main.js markContentAccess)가 잠금 해제 직후 호출한다.
+async function handleContentAccess(request, env, origin) {
+  const session = await getSessionUser(env.DB, request);
+  if (!session) return err(401, '로그인이 필요합니다.', origin);
+  const body = await readJson(request);
+  const pkgKey = body && typeof body.package === 'string' ? body.package : '';
+  if (!PACKAGES[pkgKey]) return err(400, '알 수 없는 패키지입니다.', origin);
+
+  // 보유자만 기록한다 — 미구매자의 미리보기는 '제공 개시'가 아니다.
+  const owned = await env.DB.prepare(
+    `SELECT 1 FROM payments WHERE user_id = ? AND package = ? AND status IN ('paid','test') LIMIT 1`
+  ).bind(session.id, pkgKey).first();
+  if (!owned) return ok({ recorded: false }, origin);
+
+  await env.DB.prepare(
+    'INSERT OR IGNORE INTO content_access (user_id, package, first_access_at) VALUES (?,?,?)'
+  ).bind(session.id, pkgKey, Date.now()).run();
+
+  const row = await env.DB.prepare(
+    'SELECT first_access_at FROM content_access WHERE user_id = ? AND package = ?'
+  ).bind(session.id, pkgKey).first();
+  return ok({ recorded: true, firstAccessAt: row ? row.first_access_at : null }, origin);
 }
 
 async function handlePaymentComplete(request, env, origin) {
@@ -555,6 +884,64 @@ async function handlePaymentComplete(request, env, origin) {
   return ok({ granted }, origin);
 }
 
+// 환불 시 이용권 회수 — grantPackage의 역. 해당 패키지를 보유목록에서 빼고 대표 패키지를 재계산한다.
+// 남은 패키지가 없으면 plan 관련 키를 전부 삭제한다.
+async function revokePackage(env, userId, pkgKey) {
+  const rows = await env.DB.prepare(
+    "SELECT key, value FROM user_data WHERE user_id = ? AND key IN ('plan_packages','plan_package')"
+  ).bind(userId).all();
+  const cur = {};
+  for (const r of (rows.results || [])) { try { cur[r.key] = JSON.parse(r.value); } catch {} }
+
+  const owned = (Array.isArray(cur.plan_packages) ? cur.plan_packages : []).filter(k => k !== pkgKey);
+  const now = Date.now();
+
+  // 환불·회수 시 이용권도 함께 삭제 — 남겨 두면 만료 전까지 AI 회수가 계속 살아 있다
+  await env.DB.prepare('DELETE FROM entitlements WHERE user_id = ? AND package = ?')
+    .bind(userId, pkgKey).run();
+
+  if (owned.length === 0) {
+    // 보유 패키지 없음 — 이용권 전체 회수
+    await env.DB.batch([...PLAN_KEYS].map(k =>
+      env.DB.prepare('DELETE FROM user_data WHERE user_id = ? AND key = ?').bind(userId, k)));
+    return;
+  }
+  // 대표 패키지 재설정 — 남은 것 중 부가옵션(correction-*)이 아닌 것을 우선.
+  const rep = owned.find(k => !k.startsWith('correction-')) || owned[0];
+  const info = PACKAGES[rep] || {};
+  const puts = {
+    plan: 'premium',
+    plan_packages: owned,
+    plan_type: info.type,
+    plan_package: rep,
+    plan_package_name: info.name,
+  };
+  await env.DB.batch(Object.entries(puts).map(([k, v]) =>
+    env.DB.prepare(
+      `INSERT INTO user_data (user_id, key, value, updated_at) VALUES (?1, ?2, ?3, ?4)
+       ON CONFLICT(user_id, key) DO UPDATE SET value = ?3, updated_at = ?4`
+    ).bind(userId, k, JSON.stringify(v), now)));
+}
+
+/* ── 자체 익명 분석 ── */
+// 인증 불필요(익명). 개인·세션·IP를 저장하지 않고 (날짜, 이벤트, 라벨) 카운트만 올린다.
+async function handleAnalytics(request, env, origin) {
+  const body = await readJson(request, 2048);
+  if (!body || typeof body.event !== 'string' || !ANALYTICS_EVENTS.has(body.event))
+    return ok({}, origin);   // 조용히 무시 — 분석은 부가 기능이라 실패해도 사용자 흐름을 막지 않는다.
+  // 라벨은 페이지 id·단계 번호 등 비개인 세부값만. 안전 문자로 제한하고 길이 컷.
+  const label = (typeof body.label === 'string' ? body.label : '')
+    .replace(/[^\w\-./]/g, '').slice(0, 40);
+  const day = new Date().toISOString().slice(0, 10);
+  try {
+    await env.DB.prepare(
+      `INSERT INTO analytics (day, event, label, count) VALUES (?1, ?2, ?3, 1)
+       ON CONFLICT(day, event, label) DO UPDATE SET count = count + 1`
+    ).bind(day, body.event, label).run();
+  } catch (e) { /* 분석 실패는 무시 */ }
+  return ok({}, origin);
+}
+
 /* ── 관리자 (운영자 전용 대시보드) ── */
 // 접근 권한: 로그인 세션의 이메일이 ADMIN_EMAIL과 일치할 때만.
 
@@ -588,6 +975,12 @@ async function handleAdminOverview(request, env, origin) {
      ORDER BY p.created_at DESC LIMIT 100`
   ).all();
 
+  // 최근 30일 익명 분석 집계 — 이벤트·라벨별 합계.
+  const since = new Date(Date.now() - 30 * DAY_MS).toISOString().slice(0, 10);
+  const analytics = await env.DB.prepare(
+    'SELECT event, label, SUM(count) AS c FROM analytics WHERE day >= ? GROUP BY event, label ORDER BY c DESC'
+  ).bind(since).all();
+
   return ok({
     stats: {
       users: userCount.c,
@@ -598,23 +991,153 @@ async function handleAdminOverview(request, env, origin) {
     },
     users: recentUsers.results || [],
     payments: recentPayments.results || [],
+    analytics: analytics.results || [],
   }, origin);
+}
+
+// 포트원 결제취소(전액). amount 미지정 = 전액 취소.
+// 반환: 'ok'(취소됨) | 'already'(이미 취소됨 — 멱등 성공) | 'fail'(실패).
+async function portoneCancel(env, paymentId, reason) {
+  try {
+    const r = await fetch(`https://api.portone.io/payments/${encodeURIComponent(paymentId)}/cancel`, {
+      method: 'POST',
+      headers: { Authorization: `PortOne ${env.PORTONE_API_SECRET}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    });
+    if (r.ok) return 'ok';
+    const t = (await r.text().catch(() => '')).slice(0, 300);
+    // 이미 취소된 결제는 성공으로 간주 — 재시도가 502 무한루프로 빠지지 않게.
+    if (/ALREADY_CANCELLED|ALREADY_PAID_OR_CANCELLED|이미.*취소/i.test(t)) return 'already';
+    console.error('portone cancel failed', paymentId, r.status, t);
+    return 'fail';
+  } catch (e) {
+    console.error('portone cancel error', e.message);
+    return 'fail';
+  }
+}
+
+// 테스트 지급 — 결제 없이 회원에게 패키지 부여(개발·지인 테스트용).
+// payments에 status='test'로 기록하므로 매출(status='paid')에는 잡히지 않고, 결제 내역에서 회수할 수 있다.
+async function handleAdminGrant(request, env, origin) {
+  const admin = await requireAdmin(env.DB, request, env);
+  if (!admin) return err(403, '접근 권한이 없습니다.', origin);
+  const body = await readJson(request);
+  const email = body && typeof body.email === 'string' ? body.email.toLowerCase().trim() : '';
+  const pkgKey = body && typeof body.package === 'string' ? body.package : '';
+  if (!email) return err(400, '이메일을 입력해주세요.', origin);
+  const pkg = PACKAGES[pkgKey];
+  if (!pkg) return err(400, '알 수 없는 상품입니다.', origin);
+
+  const user = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
+  if (!user) return err(404, '해당 이메일의 회원을 찾을 수 없습니다. 먼저 회원가입이 되어 있어야 합니다.', origin);
+
+  const now = Date.now();
+  const paymentId = 'test-' + crypto.randomUUID();
+  await env.DB.prepare(
+    'INSERT INTO payments (payment_id, user_id, package, amount, status, created_at, paid_at) VALUES (?,?,?,?,?,?,?)'
+  ).bind(paymentId, user.id, pkgKey, pkg.amount, 'test', now, now).run();
+  const granted = await grantPackage(env, user.id, pkgKey);
+  return ok({ granted }, origin);
+}
+
+// 테스트 지급 회수 — 포트원 취소 없이 이용권만 회수(실결제가 아니므로).
+async function handleAdminRevokeTest(request, env, origin) {
+  const admin = await requireAdmin(env.DB, request, env);
+  if (!admin) return err(403, '접근 권한이 없습니다.', origin);
+  const body = await readJson(request);
+  const paymentId = body && typeof body.paymentId === 'string' ? body.paymentId : '';
+  if (!paymentId) return err(400, '주문 정보가 없습니다.', origin);
+  const order = await env.DB.prepare('SELECT * FROM payments WHERE payment_id = ?').bind(paymentId).first();
+  if (!order) return err(404, '주문을 찾을 수 없습니다.', origin);
+  if (order.status !== 'test') return err(400, '테스트 지급 건만 회수할 수 있습니다.', origin);
+
+  await env.DB.prepare("UPDATE payments SET status = 'revoked' WHERE payment_id = ?").bind(paymentId).run();
+  // 같은 패키지의 다른 활성(실결제 또는 테스트) 이용권이 없을 때만 회수.
+  try {
+    const remain = await env.DB.prepare(
+      "SELECT COUNT(*) AS c FROM payments WHERE user_id = ? AND package = ? AND status IN ('paid','test')"
+    ).bind(order.user_id, order.package).first();
+    if (!remain || remain.c === 0) await revokePackage(env, order.user_id, order.package);
+  } catch (e) { console.error('revoke test failed', e.message); }
+  return ok({ revoked: true }, origin);
+}
+
+// 운영자 환불 — 이용약관 제6조(결제일부터 14일 청약철회) 실행 창구.
+// 포트원 결제취소(전액) → status='refunded' → 이용권 회수(같은 패키지 잔여 결제 없을 때만).
+async function handleAdminRefund(request, env, origin) {
+  const admin = await requireAdmin(env.DB, request, env);
+  if (!admin) return err(403, '접근 권한이 없습니다.', origin);
+  if (!env.PORTONE_API_SECRET) return err(503, '결제 기능이 설정되지 않았습니다.', origin);
+
+  const body = await readJson(request);
+  const paymentId = body && typeof body.paymentId === 'string' ? body.paymentId : '';
+  if (!paymentId) return err(400, '결제 정보가 없습니다.', origin);
+  const reason = (body && typeof body.reason === 'string' && body.reason) || '고객 청약철회(이용약관 제6조)';
+
+  const order = await env.DB.prepare('SELECT * FROM payments WHERE payment_id = ?')
+    .bind(paymentId).first();
+
+  // 탈퇴한 회원의 결제 — payments 원본은 CASCADE 삭제되고 payments_archive에만 남는다.
+  if (!order) {
+    const arch = await env.DB.prepare('SELECT * FROM payments_archive WHERE payment_id = ?')
+      .bind(paymentId).first();
+    if (!arch) return err(404, '결제 주문을 찾을 수 없습니다.', origin);
+    if (arch.status === 'refunded') return ok({ alreadyRefunded: true }, origin);
+    const res = await portoneCancel(env, paymentId, reason);
+    if (res === 'fail') return err(502, '결제대행사 취소 처리에 실패했습니다. 포트원 콘솔에서 상태를 확인해주세요.', origin);
+    await env.DB.prepare("UPDATE payments_archive SET status = 'refunded' WHERE payment_id = ?")
+      .bind(paymentId).run();
+    return ok({ refunded: true, archived: true }, origin);   // 이미 탈퇴 — 회수할 이용권 없음
+  }
+
+  if (order.status === 'refunded') return ok({ alreadyRefunded: true }, origin);
+  if (order.status !== 'paid') return err(400, '완료된 결제만 환불할 수 있습니다.', origin);
+
+  const res = await portoneCancel(env, paymentId, reason);
+  if (res === 'fail') return err(502, '결제대행사 취소 처리에 실패했습니다. 포트원 콘솔에서 상태를 확인해주세요.', origin);
+
+  // 포트원 취소 성공 — DB 갱신. WHERE status='paid'로 동시 요청의 이중 처리 방지.
+  try {
+    await env.DB.prepare("UPDATE payments SET status = 'refunded', refunded_at = ? WHERE payment_id = ? AND status = 'paid'")
+      .bind(Date.now(), paymentId).run();
+  } catch (e) {
+    // 취소는 됐으나 기록 갱신 실패. status가 paid로 남아도 재요청 시 포트원이 'already'로 성공 → 회복 가능.
+    console.error('refund db update failed', paymentId, e.message);
+    return err(500, '환불은 처리되었으나 기록 갱신에 실패했습니다. 잠시 후 다시 시도하면 상태가 반영됩니다.', origin);
+  }
+
+  // 이용권 회수 — 같은 패키지의 다른 활성(paid) 결제가 남아있으면 유지(회당 상품 중복구매 대비).
+  try {
+    const remain = await env.DB.prepare(
+      "SELECT COUNT(*) AS c FROM payments WHERE user_id = ? AND package = ? AND status = 'paid'"
+    ).bind(order.user_id, order.package).first();
+    if (!remain || remain.c === 0) await revokePackage(env, order.user_id, order.package);
+  } catch (e) { console.error('revoke after refund failed', e.message); }
+
+  return ok({ refunded: true }, origin);
 }
 
 /* ── 엔트리 ── */
 
 const ROUTES = {
   'GET /api/admin/overview': handleAdminOverview,
+  'POST /api/admin/refund': handleAdminRefund,
+  'POST /api/admin/grant': handleAdminGrant,
+  'POST /api/admin/revoke-test': handleAdminRevokeTest,
   'POST /api/auth/signup': handleSignup,
   'POST /api/auth/login': handleLogin,
   'POST /api/auth/logout': handleLogout,
   'GET /api/auth/me': handleMe,
   'POST /api/auth/change-password': handleChangePassword,
+  'POST /api/auth/delete-account': handleDeleteAccount,
   'GET /api/data': handleGetData,
   'POST /api/data/sync': handleSyncData,
   'POST /api/ai/review': handleAiReview,
   'POST /api/payment/prepare': handlePaymentPrepare,
   'POST /api/payment/complete': handlePaymentComplete,
+  'GET /api/payment/history': handlePaymentHistory,
+  'POST /api/content/access': handleContentAccess,
+  'POST /api/analytics': handleAnalytics,
 };
 
 export default {

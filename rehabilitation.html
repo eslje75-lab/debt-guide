@@ -136,6 +136,7 @@
 <script src="js/main.js"></script>
 <script>
   initPage('rehabilitation');
+  requirePackage(['rehab-full'], '회생 완주 패키지');
 
   // 항목별 필수 여부 뱃지 스타일
   const MUST_STYLE = {
@@ -210,7 +211,7 @@
           guide: '법원은 보통 기준중위소득의 60%를 표준생계비로 인정합니다(2026년 기준 1인 가구 약 154만원, 2인 가구 약 252만원). 실제 지출이 표준생계비보다 크면 의료비·교육비 등 초과 사유와 증빙을 첨부해야 인정될 수 있습니다.' },
         { id: 'r5-3', text: '부양가족 생활비 포함 여부 확인', hint: '부양가족 수 기준', must: '필수',
           guide: '실제로 부양하는 가족만 포함합니다. 배우자에게 충분한 소득이 있으면 부양가족으로 인정되지 않을 수 있습니다. 가족관계증명서의 가족 구성과 맞아야 합니다.' },
-        { id: 'r5-4', text: '법원 인정 최저생계비 기준 확인', hint: '매년 법원 공고 기준 확인', must: '권장',
+        { id: 'r5-4', text: '법원 인정 표준생계비 기준 확인', hint: '매년 법원 공고 기준 확인', must: '권장',
           guide: '표준생계비는 매년 보건복지부가 고시하는 기준중위소득에 따라 바뀝니다. 신청하는 해의 기준으로 확인하세요.' },
       ],
       example: { title: '수입·지출 예시', content: '[월 수입·지출 명세]\n■ 수입\n - 근로소득(세후): 2,600,000원\n\n■ 실제 지출\n - 주거비(월세+관리비): 500,000원\n - 식비: 400,000원\n - 교통비: 120,000원\n - 통신비: 60,000원\n - 의료비: 40,000원\n - 기타생활비: 180,000원\n 합계: 1,300,000원\n\n■ 법원 인정 생계비: 1,538,543원 (2026년 1인 가구 표준생계비 — 실제 지출이 이보다 많으면 초과 사유·증빙이 있어야 인정될 수 있음)\n■ 가용소득(수입 − 생계비): 1,061,457원\n\n※ 이 금액이 월 변제액의 기준이 됩니다.' }
@@ -279,20 +280,12 @@
       ],
       example: { title: '보정권고 대응 예시', content: '[보정권고가 왔을 때 대처 방법]\n\n1. 보정권고서에서 요구하는 항목 확인\n   예: "◇◇저축은행 대출금 7,000,000원의 사용처를 소명하시기 바랍니다"\n\n2. 요구 자료를 기한 내에 준비\n   - 기한: 통상 1~2주\n\n3. 보정서 양식에 사건번호·성명 기재 후 제출\n   - 법원 접수 창구 또는 전자소송으로 제출 가능\n\n※ 보정권고는 흔한 절차입니다. 당황하지 말고 차분히 대응하세요.' }
     },
-    {
-      title: '9단계 · 변제 완료 후 면책신청',
-      items: [
-        { id: 'r9-1', text: '변제기간 내 모든 변제금 납입 완료 확인', hint: '회생위원·법원을 통해 완납 여부 확인', must: '필수',
-          guide: '마지막 회차까지 입금한 뒤 회생위원(또는 법원)에 완납 확인을 요청하세요. 매달 입금 내역을 정리해 두면 확인이 빠릅니다.' },
-        { id: 'r9-2', text: '면책신청서 작성 및 제출 (법원 양식)', hint: '대법원 전자소송 또는 법원 접수창구', must: '필수',
-          guide: '면책신청서는 짧은 양식입니다. 사건번호·성명을 적어 전자소송 또는 법원 접수창구로 제출합니다. 법원이 직권으로 면책하는 경우도 있지만(채무자회생법 제624조), 직접 신청하는 것이 확실합니다.' },
-        { id: 'r9-3', text: '채권자 이의신청 기간 경과 확인 (약 1개월)', hint: '이의 없으면 면책결정 진행', must: '필수',
-          guide: '채권자 이의가 없으면 면책결정으로 진행됩니다. 이의가 제기되더라도 법원이 심리해 판단합니다.' },
-        { id: 'r9-4', text: '면책결정문 수령 및 확정 확인', hint: '면책 확정일부터 채무 법적 소멸', must: '필수',
-          guide: '면책결정문을 받고 확정되면 남은 채무에 대한 책임이 사라집니다. 결정문은 이후 금융거래·신용정보 정리에 필요할 수 있으니 원본을 잘 보관하세요.' },
-      ],
-      example: { title: '면책신청 안내', content: '[개인회생 면책신청 절차]\n\n변제계획에 따른 납입을 모두 완료한 후, 면책신청을 별도로 제출해야 합니다.\n\n① 변제완료 확인\n   - 회생위원을 통해 완납 확인\n\n② 면책신청서 제출\n   - 법원 양식 사용 (서울회생법원 양식모음·전자소송포털 다운로드)\n   - 사건번호·성명 기재 후 담당 법원에 제출\n\n③ 채권자 이의신청 기간 (약 1개월)\n   - 채권자가 이의를 제기하지 않으면 면책 진행\n\n④ 면책결정\n   - 법원이 면책결정문 발송\n   - 면책 확정일부터 잔여 채무 법적 소멸\n\n※ 변제를 완료하면 면책신청을 하세요. 법원이 직권으로 면책을 결정하는 경우도 있지만(채무자회생법 제624조), 직접 신청하는 것이 확실합니다.' }
-    },
+    // ※ 종전 9단계(변제 완료 후 면책신청)는 무료 페이지 discharge.html로 이전했다(2026-07-29).
+    //    이유: 채무자회생법 제624조 제1항이 "변제를 완료한 때에는 … 직권으로 면책의 결정을 하여야 한다"는
+    //    기속행위로 정하고 있어 실질 요건이 '변제 완료' 하나뿐이고, 심문·이의절차·관재인 조사가 없다.
+    //    유료로 붙들 근거가 약해 무료 안내로 뺐다. 완주 패키지의 커버 구간은 '인가까지'로 확정.
+    //    단, 변제 미완료 시의 특별면책(제624조 제2항, 3요건)은 난이도가 전혀 다르므로
+    //    변제기간 관리 패키지(maintenance.html)에 그대로 남겨 둔다 — 무료로 빼지 말 것.
   ];
 
   // ── 실전 서류 작성예시 (가상 인물: 김○민, 38세 회사원, 1인 가구) ──
@@ -456,6 +449,15 @@
   ];
 
   function renderExampleButtons() {
+    // 미리보기에서는 서식 예시 라이브러리를 잠근다(1단계 체크리스트만 공개).
+    // DOM 구조는 그대로 두고 버튼만 비워 잠금 해제 시 되살아나게 한다.
+    const lib = document.getElementById('example-library');
+    lib.querySelectorAll('.preview-lock').forEach(n => n.remove());
+    if (isPreview()) {
+      document.getElementById('doc-example-buttons').innerHTML = '';
+      lib.appendChild(previewLockCard('실전 서류 작성예시는 회생 완주 패키지 전용입니다'));
+      return;
+    }
     document.getElementById('doc-example-buttons').innerHTML = DOC_EXAMPLES.map((d, i) => `
       <button onclick="showDocExample(${i})" class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-700 hover:border-blue-300 hover:bg-blue-50 transition-colors">
         <span>${d.icon}</span><span class="font-medium">${d.name}</span>
@@ -620,12 +622,19 @@
             class="text-sm px-4 py-2 rounded-lg transition-colors ${nextDisabled ? 'bg-slate-200 text-slate-400 cursor-default' : 'bg-blue-700 text-white hover:bg-blue-800'}">다음 단계 →</button>
         </div>
       </div>`;
+    // 미리보기(미구매): 1단계는 그대로 열어 두고 그 아래를 잠근다 — main.js requirePackage 주석 참조
+    lockSection(document.getElementById('steps-container'), 1, '2단계부터는 회생 완주 패키지 전용입니다');
     const { total, done } = countProgress(saved);
     updateProgress(done, total);
   }
 
   function gotoStep(i) {
     if (i < 0 || i >= REHAB_STEPS.length) return;
+    if (isPreview() && i > 0) {
+      showToast('2단계부터는 구매 후 이용할 수 있습니다.', 'warn');
+      return;
+    }
+    if (i > 0) noteContentOpened();   // 미리보기 범위를 넘어선 열람 = 제공 개시(환불 기준)
     activeStep = i;
     renderSteps();
     document.getElementById('steps-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -685,6 +694,7 @@
   }
 
   function showDocExample(i) {
+    noteContentOpened();   // 서식 작성예시 열람 = 제공 개시(환불 기준)
     const d = DOC_EXAMPLES[i];
     document.getElementById('modal-title').textContent = d.name + ' — 작성예시';
     const box = document.getElementById('modal-content');
@@ -702,6 +712,13 @@
   renderExampleButtons();
   initCourtFinder('court-finder');
   initTempSave(() => countProgress(Storage.load('rehab_checks') || {}));
+
+  // 구매 판정은 서버 응답 뒤에 확정된다 — 바뀌면 다시 그린다(미리보기 ↔ 전체)
+  document.addEventListener('chamroad:gate', () => {
+    if (isPreview()) activeStep = 0;
+    renderSteps();
+    renderExampleButtons();
+  });
 </script>
 </body>
 </html>

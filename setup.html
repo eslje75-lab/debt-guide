@@ -325,7 +325,7 @@
     const incomeMap = { employed_insured: 'employed_insured', employed_uninsured: 'employed_uninsured', freelance: 'self', self: 'self', pension: 'pension' };
     if (!d.hasIncome) setRadio('q-income', 'none');
     else if (incomeMap[d.incomeType]) setRadio('q-income', incomeMap[d.incomeType]);
-    setRadio('q-employed', (d.severanceValue || 0) > 0 ? 'yes' : 'no');
+    // 재직 여부(퇴직금)는 무료 진단에서 묻지 않으므로 프리필하지 않는다 — 여기서 직접 답하게 둔다
     if ((d.propertyValue || 0) > 0) document.querySelector('input[name="q-asset"][value="property"]').checked = true;
     if ((d.carValue || 0) > 0) document.querySelector('input[name="q-asset"][value="car"]').checked = true;
     if ((d.depositValue || 0) > 0) document.querySelector('input[name="q-asset"][value="deposit"]').checked = true;

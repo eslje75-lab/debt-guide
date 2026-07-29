@@ -61,6 +61,23 @@
       </div>
     </div>
 
+    <!-- 테스트 지급 (결제 없이 패키지 부여 — 개발·지인 테스트용) -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <h2 class="font-bold text-slate-800 mb-1">🧪 테스트 지급 <span class="text-xs font-normal text-slate-400">(결제 없이 패키지 부여)</span></h2>
+      <p class="text-xs text-slate-500 mb-3">가입된 회원 이메일로 패키지를 지급합니다. 매출에는 잡히지 않으며, 아래 결제 내역에서 '회수'할 수 있습니다. 지급 후 해당 회원이 다시 로그인하면 반영됩니다.</p>
+      <div class="flex flex-col sm:flex-row gap-2">
+        <input id="grant-email" type="email" placeholder="회원 이메일" class="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+        <select id="grant-pkg" class="border border-slate-200 rounded-lg px-3 py-2 text-sm">
+          <option value="rehab-full">회생 완주</option>
+          <option value="bankrupt-full">파산 완주</option>
+          <option value="maintain">변제기간 관리</option>
+          <option value="correction-rehab">보정권고 대응</option>
+          <option value="correction-bankrupt">보정명령 대응</option>
+        </select>
+        <button onclick="grantTest()" class="bg-blue-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-800 transition-colors whitespace-nowrap">지급</button>
+      </div>
+    </div>
+
     <!-- 결제 내역 -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
       <h2 class="font-bold text-slate-800 mb-3">💳 결제 내역 <span class="text-xs font-normal text-slate-400">(최근 100건)</span></h2>
@@ -72,13 +89,22 @@
               <th class="py-2 pr-3 font-medium">이메일</th>
               <th class="py-2 pr-3 font-medium">패키지</th>
               <th class="py-2 pr-3 font-medium text-right">금액</th>
-              <th class="py-2 font-medium">상태</th>
+              <th class="py-2 pr-3 font-medium">상태</th>
+              <th class="py-2 font-medium"></th>
             </tr>
           </thead>
           <tbody id="pay-rows"></tbody>
         </table>
       </div>
       <div id="pay-empty" class="hidden text-center py-8 text-slate-400 text-sm">결제 내역이 없습니다.</div>
+    </div>
+
+    <!-- 익명 분석 (최근 30일) -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <h2 class="font-bold text-slate-800 mb-1">📈 이용 분석 <span class="text-xs font-normal text-slate-400">(최근 30일 · 익명 집계)</span></h2>
+      <p class="text-xs text-slate-500 mb-3">개인·IP를 저장하지 않는 익명 통계입니다. 진단·결제 퍼널로 이탈 구간을 확인하세요.</p>
+      <div id="analytics-body" class="grid gap-4 sm:grid-cols-2"></div>
+      <div id="analytics-empty" class="hidden text-center py-6 text-slate-400 text-sm">아직 집계된 데이터가 없습니다.</div>
     </div>
 
     <!-- 회원 목록 -->
@@ -116,6 +142,9 @@
     paid: '<span class="text-green-700 bg-green-50 px-2 py-0.5 rounded-full text-xs">완료</span>',
     pending: '<span class="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full text-xs">대기</span>',
     failed: '<span class="text-red-600 bg-red-50 px-2 py-0.5 rounded-full text-xs">실패</span>',
+    refunded: '<span class="text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full text-xs">환불</span>',
+    test: '<span class="text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full text-xs">테스트</span>',
+    revoked: '<span class="text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full text-xs">회수됨</span>',
   };
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
   const won = (n) => (n || 0).toLocaleString('ko-KR') + '원';
@@ -137,9 +166,130 @@
     }
   }
 
+  let _grantBusy = false;
+  async function grantTest() {
+    if (_grantBusy) return;
+    const email = document.getElementById('grant-email').value.trim();
+    const pkg = document.getElementById('grant-pkg').value;
+    if (!email) { alert('회원 이메일을 입력하세요.'); return; }
+    _grantBusy = true;
+    try {
+      const res = await fetch(API_BASE + '/api/admin/grant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.getSession().token },
+        body: JSON.stringify({ email, package: pkg }),
+      });
+      const j = await res.json();
+      if (!j.ok) { alert(j.error || '지급에 실패했습니다.'); return; }
+      document.getElementById('grant-email').value = '';
+      alert('테스트 지급이 완료되었습니다.\n' + email + ' 님이 다시 로그인하면 반영됩니다.');
+      load();
+    } catch (e) {
+      alert('서버에 연결할 수 없습니다.');
+    } finally {
+      _grantBusy = false;
+    }
+  }
+
+  async function revokeTest(paymentId, email) {
+    if (_refundBusy) return;
+    if (!confirm(`${email} 님의 테스트 지급을 회수합니다.\n이용권이 제거됩니다. 계속하시겠습니까?`)) return;
+    _refundBusy = true;
+    try {
+      const res = await fetch(API_BASE + '/api/admin/revoke-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.getSession().token },
+        body: JSON.stringify({ paymentId }),
+      });
+      const j = await res.json();
+      if (!j.ok) { alert(j.error || '회수에 실패했습니다.'); return; }
+      alert('회수가 완료되었습니다.');
+      load();
+    } catch (e) {
+      alert('서버에 연결할 수 없습니다.');
+    } finally {
+      _refundBusy = false;
+    }
+  }
+
+  let _refundBusy = false;
+  async function refund(paymentId, email, amount) {
+    if (_refundBusy) return;
+    if (!confirm(`${email} 님의 결제 ${won(amount)}을(를) 환불합니다.\n\n포트원에서 결제가 취소되고 이용권이 회수됩니다. 되돌릴 수 없습니다.\n계속하시겠습니까?`)) return;
+    _refundBusy = true;
+    try {
+      const res = await fetch(API_BASE + '/api/admin/refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.getSession().token },
+        body: JSON.stringify({ paymentId }),
+      });
+      const j = await res.json();
+      if (!j.ok) { alert(j.error || '환불에 실패했습니다.'); return; }
+      alert('환불이 완료되었습니다.');
+      load();
+    } catch (e) {
+      alert('서버에 연결할 수 없습니다.');
+    } finally {
+      _refundBusy = false;
+    }
+  }
+
   function showDenied() {
     document.getElementById('loading').classList.add('hidden');
     document.getElementById('denied').classList.remove('hidden');
+  }
+
+  const PAGE_NAMES = {
+    index:'홈', diagnosis:'채무진단', result:'진단결과', rehabilitation:'개인회생', bankruptcy:'개인파산',
+    maintenance:'변제기간 관리', supplement:'보정 대응', setup:'맞춤 준비', documents:'서류 체크리스트',
+    'ai-review':'AI 서류검토', resources:'FAQ', pricing:'요금제', mypage:'마이페이지', about:'운영자 소개',
+    login:'로그인', terms:'이용약관', privacy:'개인정보처리방침', compare:'비교', admin:'관리자',
+  };
+
+  function bar(label, value, max, color) {
+    const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+    return `<div class="flex items-center gap-2 text-sm mb-1.5">
+      <div class="w-28 shrink-0 text-slate-600 truncate">${esc(label)}</div>
+      <div class="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden"><div class="${color} h-4 rounded-full" style="width:${pct}%"></div></div>
+      <div class="w-12 shrink-0 text-right text-slate-700 font-medium">${value.toLocaleString('ko-KR')}</div>
+    </div>`;
+  }
+
+  function renderAnalytics(rows) {
+    const body = document.getElementById('analytics-body');
+    if (!rows.length) { document.getElementById('analytics-empty').classList.remove('hidden'); return; }
+    const sum = (event, label) => rows
+      .filter(r => r.event === event && (label === undefined || r.label === label))
+      .reduce((a, r) => a + (r.c || 0), 0);
+
+    // 페이지뷰 상위
+    const pv = rows.filter(r => r.event === 'pageview').sort((a, b) => b.c - a.c).slice(0, 8);
+    const pvMax = pv.length ? pv[0].c : 0;
+    const pvHtml = pv.map(r => bar(PAGE_NAMES[r.label] || r.label || '(기타)', r.c, pvMax, 'bg-blue-500')).join('') || '<p class="text-xs text-slate-400">데이터 없음</p>';
+
+    // 진단 퍼널: 진단 페이지뷰 → 2·3·4단계 → 완료
+    const diagStart = sum('pageview', 'diagnosis');
+    const f = [
+      ['진단 시작', diagStart],
+      ['2단계', sum('diag_step', '2')],
+      ['3단계', sum('diag_step', '3')],
+      ['4단계', sum('diag_step', '4')],
+      ['완료', sum('diag_complete')],
+    ];
+    const fMax = f[0][1] || 1;
+    const funnelHtml = f.map(([l, v]) => bar(l, v, fMax, 'bg-emerald-500')).join('');
+
+    // 결제 퍼널
+    const payStart = sum('pay_start');
+    const payDone = sum('pay_complete');
+    const payMax = Math.max(payStart, payDone, 1);
+    const payHtml = bar('결제 시작', payStart, payMax, 'bg-violet-500') + bar('결제 완료', payDone, payMax, 'bg-violet-500')
+      + `<p class="text-xs text-slate-400 mt-1">전환율 ${payStart > 0 ? Math.round(payDone / payStart * 100) : 0}%</p>`;
+
+    body.innerHTML = `
+      <div><h3 class="text-sm font-bold text-slate-700 mb-2">페이지 조회 (상위 8)</h3>${pvHtml}</div>
+      <div><h3 class="text-sm font-bold text-slate-700 mb-2">진단 퍼널 (이탈 구간)</h3>${funnelHtml}</div>
+      <div><h3 class="text-sm font-bold text-slate-700 mb-2">결제 전환</h3>${payHtml}</div>`;
   }
 
   function render(j) {
@@ -162,8 +312,17 @@
         <td class="py-2 pr-3 text-slate-700">${esc(p.email)}</td>
         <td class="py-2 pr-3 text-slate-600">${PACKAGE_NAMES[p.package] || esc(p.package)}</td>
         <td class="py-2 pr-3 text-right font-medium text-slate-800 whitespace-nowrap">${won(p.amount)}</td>
-        <td class="py-2">${STATUS_BADGE[p.status] || esc(p.status)}</td>
+        <td class="py-2 pr-3">${STATUS_BADGE[p.status] || esc(p.status)}</td>
+        <td class="py-2 text-right whitespace-nowrap">${
+          p.status === 'paid'
+            ? `<button onclick="refund('${esc(p.payment_id)}', '${esc(p.email)}', ${p.amount})" class="text-xs text-red-600 border border-red-200 rounded-lg px-2.5 py-1 hover:bg-red-50 transition-colors">환불</button>`
+            : p.status === 'test'
+            ? `<button onclick="revokeTest('${esc(p.payment_id)}', '${esc(p.email)}')" class="text-xs text-slate-600 border border-slate-200 rounded-lg px-2.5 py-1 hover:bg-slate-50 transition-colors">회수</button>`
+            : ''}</td>
       </tr>`).join('');
+
+    // 익명 분석
+    renderAnalytics(j.analytics || []);
 
     // 회원
     const userRows = document.getElementById('user-rows');

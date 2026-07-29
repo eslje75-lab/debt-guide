@@ -42,8 +42,84 @@ CREATE TABLE IF NOT EXISTS payments (
   user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   package    TEXT    NOT NULL,
   amount     INTEGER NOT NULL,       -- 주문 시점 서버 확정 금액(원)
-  status     TEXT    NOT NULL DEFAULT 'pending',  -- pending | paid | failed
+  status     TEXT    NOT NULL DEFAULT 'pending',  -- pending | paid | failed | refunded
   created_at INTEGER NOT NULL,
-  paid_at    INTEGER
+  paid_at    INTEGER,
+  refunded_at INTEGER                              -- 청약철회·환불 처리 시각(unix ms). null이면 미환불.
 );
 CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);
+
+-- 탈퇴 후 결제기록 보존용. 회원 삭제 시 payments는 CASCADE로 지워지므로,
+-- 「전자상거래 등에서의 소비자보호에 관한 법률」 시행령 제6조(계약·청약철회 5년,
+-- 대금결제 5년)를 지키기 위해 완료된 결제만 이 표로 옮겨 보관한다.
+-- users를 참조하지 않는다(FK 없음) — 회원이 사라져도 남아야 하는 기록이므로.
+-- 로그인 무차별 대입(brute-force) 방어 — 이메일 기준 실패 카운트·잠금.
+-- 존재하지 않는 이메일도 카운트해 계정 존재 여부가 새지 않게 한다.
+CREATE TABLE IF NOT EXISTS login_attempts (
+  email        TEXT PRIMARY KEY,
+  fail_count   INTEGER NOT NULL DEFAULT 0,
+  window_start INTEGER NOT NULL,      -- 현재 실패 윈도우 시작(unix ms)
+  locked_until INTEGER               -- 잠금 해제 시각(unix ms). null이면 미잠금.
+);
+
+-- 자체 익명 분석 — 개인·세션·IP를 저장하지 않고 날짜별 이벤트 카운트만 집계.
+-- 개인정보가 아니며(식별 불가), 서비스 개선(이탈 구간·전환율 파악)에만 쓴다.
+CREATE TABLE IF NOT EXISTS analytics (
+  day   TEXT    NOT NULL,               -- 'YYYY-MM-DD'
+  event TEXT    NOT NULL,               -- pageview | diag_step | diag_complete | pay_start | pay_complete
+  label TEXT    NOT NULL DEFAULT '',    -- 페이지 id, 단계 번호 등 비개인 세부값
+  count INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, event, label)
+);
+
+CREATE TABLE IF NOT EXISTS payments_archive (
+  payment_id  TEXT PRIMARY KEY,
+  email       TEXT NOT NULL,       -- 거래 당사자 식별용(전상법상 보존 목적에 한해 유지)
+  package     TEXT NOT NULL,
+  amount      INTEGER NOT NULL,
+  status      TEXT NOT NULL,
+  created_at  INTEGER NOT NULL,
+  paid_at     INTEGER,
+  archived_at INTEGER NOT NULL     -- 탈퇴 시각(unix ms). 보존기간 만료 판단 기준.
+);
+
+-- 유료 콘텐츠를 실제로 처음 연 시각.
+-- 「전자상거래 등에서의 소비자보호에 관한 법률」 제17조 제2항 제5호의 '디지털콘텐츠의
+-- 제공이 개시된 경우'에 해당하는지를 판단하는 근거(= 청약철회 가능 여부의 기준일).
+-- 최초 1회만 기록한다(INSERT OR IGNORE). 이 기록이 없으면 '미개시'로 보아 7일 내 전액 환불.
+CREATE TABLE IF NOT EXISTS content_access (
+  user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  package         TEXT    NOT NULL,
+  first_access_at INTEGER NOT NULL,   -- unix ms
+  PRIMARY KEY (user_id, package)
+);
+
+-- 이용권(entitlement) — 패키지별 이용기간과 AI 검토 잔여 회수를 한곳에서 관리한다.
+-- plan_packages(user_data의 JSON 배열)는 클라이언트 캐시·하위호환용으로 계속 쓰되,
+-- 만료·회수 판정의 최종 근거는 이 표다.
+--
+-- expires_at 근거(2026-07-29 확정):
+--   rehab-full  24개월 — 준비 3개월 + 신청~인가 6개월(법 제596조① 개시 1월 + 이의기간 2월 + 집회 1월) + 여유
+--   bankrupt-full 24개월 — 준비 3개월 + 신청~면책 6~8개월 + 관재인 조사 지연 여유
+--   maintain    84개월 — 변제기간이 최대 5년(법 제611조⑤)인 상품이라 짧게 잡으면 광고와 이행이 어긋난다
+--   correction-* 12개월 — 보정을 받은 뒤 구매하는 반응형 상품(보정기한은 통상 2주~1개월)
+-- ⚠️ 이용기간은 결제 전 고지가 필수다(전자상거래법 제13조②). pricing.html 카드·결제 전 확인창·
+--    terms.html 제5조를 함께 고쳐야 하며, 이 표만 바꾸면 고지 없는 소멸이 되어 더 큰 문제가 된다.
+CREATE TABLE IF NOT EXISTS entitlements (
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  package    TEXT    NOT NULL,
+  granted_at INTEGER NOT NULL,          -- unix ms
+  expires_at INTEGER NOT NULL,          -- unix ms. 이 시각 이후 접근 불가
+  ai_quota   INTEGER NOT NULL,          -- 부여된 AI 서류검토 회수
+  ai_used    INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, package)
+);
+CREATE INDEX IF NOT EXISTS idx_entitlements_user ON entitlements(user_id);
+
+-- 미구매자 AI 검토 체험(1회) 소진 기록.
+-- 전자상거래법 시행령 제21조의2 제3호(체험용 디지털콘텐츠 제공)를 함께 충족시켜,
+-- 제17조 제2항 제5호에 따른 환불 제한의 근거를 미리보기(제1호)와 이중으로 갖춘다.
+CREATE TABLE IF NOT EXISTS ai_trial (
+  user_id  INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  used_at  INTEGER NOT NULL
+);

@@ -392,11 +392,8 @@
     document.getElementById('doc-type-groups').scrollIntoView({ behavior: 'smooth' });
   }
 
-  const SEV = {
-    high:   { icon: '🔴', box: 'bg-red-50 border border-red-100',     text: 'text-red-700' },
-    medium: { icon: '🟡', box: 'bg-amber-50 border border-amber-100', text: 'text-amber-700' },
-    low:    { icon: '🔵', box: 'bg-blue-50 border border-blue-100',    text: 'text-blue-700' },
-  };
+  // 심각도 등급(SEV)은 제거됨 — 등급을 매기는 것은 '감정'에 해당해 변호사법 제109조 제1호에 걸린다.
+  // 결과는 판정이 아니라 질문으로 돌려준다(api/src/index.js AI_REVIEW_SCHEMA 주석 참조).
   const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
   async function runReview() {
@@ -435,8 +432,18 @@
         }),
       });
       const j = await res.json();
-      if (!j.ok) { showToast(j.error || 'AI 검토에 실패했습니다.', 'warn'); return; }
-      renderReview(j.review, docType, rules, j.usage);
+      if (!j.ok) {
+        // 403 = 회수 소진(체험 1회 또는 패키지 총량) — 안내 후 요금제로 유도
+        if (res.status === 403) {
+          if (confirm((j.error || '이용 가능한 검토 회수를 모두 사용했습니다.') + '\n\n요금제 안내를 볼까요?')) {
+            location.href = 'pricing.html';
+          }
+          return;
+        }
+        showToast(j.error || 'AI 검토에 실패했습니다.', 'warn');
+        return;
+      }
+      renderReview(j.review, docType, rules, j.usage, j.quota);
     } catch (e) {
       showToast('서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.', 'warn');
     } finally {
@@ -445,38 +452,53 @@
     }
   }
 
-  function renderReview(review, docType, rules, usage) {
+  function renderReview(review, docType, rules, usage, quota) {
     const g = groupOfType(docType);
     let html = '';
 
-    // 총평
-    if (review.summary) {
-      html += `<div class="bg-slate-50 rounded-xl p-4"><p class="text-slate-700 leading-relaxed">${esc(review.summary)}</p></div>`;
-    }
+    // ⚠️ 이 화면은 '판정'을 출력하지 않는다. "이상 없음", "제출 가능", 점수·등급 금지.
+    //    지적은 언제나 질문으로 돌려주고, 문장은 이용자가 직접 쓴다 — api/src/index.js AI_REVIEW_SCHEMA 주석 참조.
+    const present   = review.present   || [];
+    const questions = review.questions || [];
+    const lawNotes  = review.lawNotes  || [];
 
-    // 확인이 필요한 항목 (issues)
-    if (review.issues && review.issues.length) {
-      html += '<div><h4 class="font-bold text-slate-800 mb-2">📋 확인이 필요한 항목</h4>';
-      html += review.issues.map(i => {
-        const s = SEV[i.severity] || SEV.medium;
-        return `<div class="flex gap-2 p-3 rounded-lg mb-2 ${s.box}">
-          <span class="shrink-0">${s.icon}</span><span class="${s.text}">${esc(i.message)}</span></div>`;
-      }).join('');
+    // 들어 있는 것
+    if (present.length) {
+      html += '<div><h4 class="font-bold text-slate-800 mb-2">✅ 초안에 들어 있는 것</h4>';
+      html += present.map(o => `<div class="flex gap-2 p-2 text-green-700 text-sm"><span>✓</span><span>${esc(o)}</span></div>`).join('');
       html += '</div>';
     }
 
-    // 잘 갖춰진 항목 (confirmed)
-    if (review.confirmed && review.confirmed.length) {
-      html += '<div><h4 class="font-bold text-slate-800 mb-2">✅ 잘 갖춰진 항목</h4>';
-      html += review.confirmed.map(o => `<div class="flex gap-2 p-2 text-green-700 text-sm"><span>✓</span><span>${esc(o)}</span></div>`).join('');
+    // 법원이 추가로 물을 수 있는 것 — 이 화면의 핵심
+    if (questions.length) {
+      html += '<div><h4 class="font-bold text-slate-800 mb-2">❓ 법원이 추가로 물을 수 있는 것</h4>';
+      html += questions.map(q => `
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-2">
+          ${q.topic ? `<p class="text-sm font-medium text-amber-900 mb-1">${esc(q.topic)}</p>` : ''}
+          <p class="text-sm text-slate-700">→ ${esc(q.question)}</p>
+        </div>`).join('');
       html += '</div>';
     }
 
-    // 개선 제안 (suggestions)
-    if (review.suggestions && review.suggestions.length) {
-      html += '<div><h4 class="font-bold text-slate-800 mb-2">✏️ 개선 제안</h4>';
-      html += review.suggestions.map(o => `<div class="flex gap-2 p-2 text-slate-600 text-sm"><span>•</span><span>${esc(o)}</span></div>`).join('');
+    // 표현을 다시 볼 부분 — 조문은 사실만 전하고 적용 판단은 이용자에게 남긴다
+    if (lawNotes.length) {
+      html += '<div><h4 class="font-bold text-slate-800 mb-2">⚖️ 관련 조문을 알아 둘 표현</h4>';
+      html += lawNotes.map(n => `
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-2">
+          <p class="text-sm text-slate-800 mb-1">“${esc(n.excerpt)}”</p>
+          <p class="text-xs text-slate-500 mb-1">${esc(n.statute)}</p>
+          ${n.note ? `<p class="text-sm text-slate-600 mb-1">${esc(n.note)}</p>` : ''}
+          ${n.question ? `<p class="text-sm text-slate-700">→ ${esc(n.question)}</p>` : ''}
+        </div>`).join('');
       html += '</div>';
+    }
+
+    // 질문이 없을 때 — "이상 없음"이라고 말하지 않는다(감정에 해당). 사실만 진술한다.
+    if (!questions.length && !lawNotes.length) {
+      html += `<div class="bg-slate-50 rounded-xl p-4">
+        <p class="text-slate-700 text-sm">이번 점검에서 추가로 여쭐 항목을 찾지 못했습니다.</p>
+        <p class="text-slate-500 text-xs mt-1">다만 이 점검은 빠진 항목과 형식을 보는 것이며, 법원의 판단을 예측하지 않습니다. 제출 여부는 직접 판단해 주세요.</p>
+      </div>`;
     }
 
     // 작성 팁(검증된 정적 안내) + 실전 예시 연결
@@ -497,7 +519,16 @@
     html += remaining.length > 0
       ? `<p class="text-purple-700 text-xs">아직 검토하지 않은 서류: ${remaining.join(', ')} — 제출 전 세트 전체를 한 번씩 점검하는 것을 권장합니다.</p>`
       : '<p class="text-purple-700 text-xs">세트의 모든 서류를 한 번씩 검토했습니다. 제출 전 최종 체크리스트(셀프 진행센터 마지막 단계)도 확인하세요.</p>';
-    if (usage) html += `<p class="text-purple-400 text-[11px] mt-2">오늘 이용: ${usage.used}/${usage.limit}회</p>`;
+    // 잔여 회수 — 패키지 총량제가 주 기준이고, 일일 상한은 남용 방지용 보조 표시
+    if (quota && quota.type === 'package') {
+      const warn = quota.left <= 2;
+      html += `<p class="text-[11px] mt-2 ${warn ? 'text-amber-600 font-medium' : 'text-purple-400'}">
+        서류검토 AI 잔여 ${quota.left}회 / 총 ${quota.limit}회${warn ? ' — 곧 소진됩니다' : ''}</p>`;
+    } else if (quota && quota.type === 'trial') {
+      html += `<p class="text-[11px] mt-2 text-amber-600 font-medium">무료 체험 1회를 사용하셨습니다.
+        계속 이용하시려면 <a href="pricing.html" class="underline">패키지 구매</a>가 필요합니다.</p>`;
+    }
+    if (usage) html += `<p class="text-purple-400 text-[11px] mt-1">오늘 이용: ${usage.used}/${usage.limit}회</p>`;
     html += '</div>';
 
     document.getElementById('review-content').innerHTML = html;

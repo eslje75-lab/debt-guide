@@ -121,6 +121,7 @@
 <script src="js/main.js"></script>
 <script>
   initPage('maintenance');
+  requirePackage(['maintain'], '변제기간 관리 패키지');
 
   const MUST_STYLE = {
     '필수': 'bg-rose-50 text-rose-600 border border-rose-100',
@@ -281,6 +282,14 @@
   ];
 
   function renderExampleButtons() {
+    // 미리보기에서는 서식 예시 라이브러리를 잠근다. DOM 구조는 그대로 두고 버튼만 비운다.
+    const lib = document.getElementById('example-library');
+    lib.querySelectorAll('.preview-lock').forEach(n => n.remove());
+    if (isPreview()) {
+      document.getElementById('doc-example-buttons').innerHTML = '';
+      lib.appendChild(previewLockCard('서식 예시는 변제기간 관리 패키지 전용입니다'));
+      return;
+    }
     document.getElementById('doc-example-buttons').innerHTML = DOC_EXAMPLES.map((d, i) => `
       <button onclick="showDocExample(${i})" class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-700 hover:border-blue-300 hover:bg-blue-50 transition-colors">
         <span>${d.icon}</span><span class="font-medium">${d.name}</span>
@@ -366,6 +375,8 @@
     }).join('');
 
     document.getElementById('steps-container').innerHTML = html;
+    // 미리보기(미구매): 첫 항목만 열어 두고 나머지를 잠근다 — main.js requirePackage 주석 참조
+    lockSection(document.getElementById('steps-container'), 1, '나머지 항목은 변제기간 관리 패키지 전용입니다');
     const { total, done } = countProgress(saved);
     updateProgress(done, total);
   }
@@ -421,6 +432,7 @@
   }
 
   function showDocExample(i) {
+    noteContentOpened();   // 서식 작성예시 열람 = 제공 개시(환불 기준)
     const d = DOC_EXAMPLES[i];
     document.getElementById('modal-title').textContent = d.name + ' — 작성예시';
     const box = document.getElementById('modal-content');
@@ -436,6 +448,9 @@
   renderSteps();
   renderExampleButtons();
   initTempSave(() => countProgress(Storage.load('maintain_checks') || {}));
+
+  // 구매 판정은 서버 응답 뒤에 확정된다 — 바뀌면 다시 그린다(미리보기 ↔ 전체)
+  document.addEventListener('chamroad:gate', () => { renderSteps(); renderExampleButtons(); });
 </script>
 </body>
 </html>

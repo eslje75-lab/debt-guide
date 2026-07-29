@@ -162,11 +162,12 @@
               <label class="flex items-start gap-2 cursor-pointer select-none">
                 <input id="s-terms" type="checkbox" class="w-4 h-4 mt-0.5 accent-blue-700">
                 <span class="text-sm text-slate-600">
-                  본 서비스는 법률대리가 아닌 정보 제공 목적임을 이해하며,
-                  <button type="button" class="text-blue-600 hover:underline" onclick="alert('이용약관 준비 중입니다.')">이용약관</button>에 동의합니다.
+                  <strong>만 14세 이상</strong>이며, 본 서비스는 법률대리가 아닌 정보 제공 목적임을 이해하고,
+                  <a href="terms.html" target="_blank" rel="noopener" class="text-blue-600 hover:underline">이용약관</a> 및
+                  <a href="privacy.html" target="_blank" rel="noopener" class="text-blue-600 hover:underline">개인정보처리방침</a>에 동의합니다.
                 </span>
               </label>
-              <p id="s-terms-err" class="error-msg">이용약관에 동의해주세요.</p>
+              <p id="s-terms-err" class="error-msg">만 14세 이상 여부 확인과 이용약관·개인정보처리방침 동의가 필요합니다.</p>
 
               <button class="btn-primary" onclick="doSignup()">회원가입</button>
 

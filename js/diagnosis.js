@@ -29,6 +29,7 @@ function goStep(n) {
 function nextStep() {
   if (!validateStep(currentStep)) return;
   goStep(currentStep + 1);
+  if (typeof track === 'function') track('diag_step', currentStep);   // 단계 전진(익명)
 }
 
 function prevStep() {
@@ -164,10 +165,10 @@ function collectFormData() {
   const carValue       = money('car-value');
   const depositValue   = money('deposit-value');
   const insuranceValue = money('insurance-value');
-  const severanceValue = money('severance-value');
-  // 예상 퇴직금은 법원 실무상 통상 1/2만 청산가치(재산)에 산입
-  const severanceHalf  = Math.round(severanceValue / 2);
-  const totalAssets    = cashAssets + propertyValue + carValue + depositValue + insuranceValue + severanceHalf;
+  // 예상 퇴직금(재직자는 1/2이 청산가치에 산입)은 무료 진단에서 묻지 않는다 —
+  // 금액을 모르는 이용자가 많아 이탈 요인이 되고, 판정을 뒤집는 경우도 드물다.
+  // 정확한 반영은 setup.html(맞춤 준비 진단)에서 재직 여부로 안내한다.
+  const totalAssets    = cashAssets + propertyValue + carValue + depositValue + insuranceValue;
 
   const unsecuredDebt = money('unsecured-debt');
   const securedDebt   = money('secured-debt');
@@ -199,8 +200,6 @@ function collectFormData() {
     carValue,
     depositValue,
     insuranceValue,
-    severanceValue,
-    severanceHalf,
     totalAssets,
     // 기타
     age:                     val('age'),
@@ -353,6 +352,7 @@ function submitDiagnosis() {
   Storage.save('diagnosis_repay',  repayment);
   Storage.save('diagnosis_date',   new Date().toLocaleDateString('ko-KR'));
 
+  if (typeof track === 'function') track('diag_complete', '');   // 진단 완료(익명)
   showToast('진단을 완료했습니다. 결과 페이지로 이동합니다.', 'success');
   setTimeout(() => { window.location.href = 'result.html'; }, 900);
 }

@@ -400,7 +400,8 @@
           ${cell('월 변제 가능 추정액', formatWon(monthly), '소득 − 적용 생계비')}
           ${cell('예상 총 변제금', formatWon(total36), '36개월 기준')}
           ${cell('면책 가능 채무 추정액', formatWon(exempt), '총 채무 − 총 변제금')}
-        </div>${zeroNote}${liqNote}`;
+        </div>
+        <p class="text-xs text-slate-500 mt-2 text-center">※ 준비 방향을 잡기 위한 <strong>추정치</strong>입니다. 재직 중이라면 예상 퇴직금의 절반이 재산에 더해지고, 부양가족 수·법원이 인정하는 생계비 범위에 따라 실제 변제금은 달라집니다.</p>${zeroNote}${liqNote}`;
     }
 
     // 개인파산 우세: 입력 정보 요약 (면책 범위는 법원이 결정)

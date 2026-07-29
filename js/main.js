@@ -19,6 +19,7 @@ const NAV_LINKS = [
   { href: 'index.html',          label: '홈',        id: 'home' },
   { href: 'about.html',          label: '소개글',     id: 'about' },
   { href: 'compare.html',        label: '채무조정제도', id: 'compare' },
+  { href: 'discharge.html',      label: '면책신청',    id: 'discharge' },   // 개인회생 면책 — 무료 안내
   { href: 'resources.html',      label: 'FAQ',        id: 'resources' },
 ];
 
@@ -175,6 +176,7 @@ function renderFooter() {
             <ul class="space-y-2">
               <li><a href="diagnosis.html" class="footer-link">무료 채무진단</a></li>
               <li><a href="pricing.html" class="footer-link">챔로드 셀프진행</a></li>
+              <li><a href="discharge.html" class="footer-link">개인회생 면책신청 안내</a></li>
               <li><a href="resources.html" class="footer-link">FAQ</a></li>
             </ul>
           </div>
@@ -245,6 +247,21 @@ const DataSync = {
   _timer: null,
   DEBOUNCE_MS: 700,
 
+  // 서버로 올리지 않는 민감정보 필드.
+  // 건강상태·채무발생원인은 「개인정보 보호법」 제23조 민감정보(건강에 관한 정보)에 해당해
+  // 별도 동의 없이는 서버에 저장할 수 없다. 진단 계산은 브라우저에서 이뤄지므로
+  // 이 값들은 이용자 기기에만 남기고, 서버 동기화에서는 제외한다.
+  SENSITIVE_FIELDS: {
+    diagnosis_data: ['hasHealthIssues', 'debtCauses'],
+  },
+  _strip(key, data) {
+    const fields = this.SENSITIVE_FIELDS[key];
+    if (!fields || !data || typeof data !== 'object' || Array.isArray(data)) return data;
+    const copy = { ...data };
+    for (const f of fields) delete copy[f];
+    return copy;
+  },
+
   _on() { return typeof Auth !== 'undefined' && Auth.isLoggedIn(); },
 
   // cdg_ 앱데이터 키(prefix 제거) 목록 — auth 키 제외
@@ -260,11 +277,17 @@ const DataSync = {
   },
   _collectLocal() {
     const d = {};
-    for (const k of this._localKeys()) { const v = Storage.load(k); if (v !== null) d[k] = v; }
+    for (const k of this._localKeys()) { const v = Storage.load(k); if (v !== null) d[k] = this._strip(k, v); }
     return d;
   },
   _clearLocal() {
     for (const k of this._localKeys()) { try { localStorage.removeItem('cdg_' + k); } catch (e) {} }
+  },
+  // 대기 중인 업로드를 버린다(탈퇴 등 — 지운 데이터가 다시 올라가지 않도록)
+  cancelPending() {
+    if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    this._put.clear();
+    this._del.clear();
   },
 
   queuePut(key, data) {
@@ -287,7 +310,7 @@ const DataSync = {
   async flush(keepalive = false) {
     if (this._timer) { clearTimeout(this._timer); this._timer = null; }
     if (!this._on() || (this._put.size === 0 && this._del.size === 0)) return;
-    const put = {}; for (const [k, v] of this._put) put[k] = v;
+    const put = {}; for (const [k, v] of this._put) put[k] = this._strip(k, v);
     const del = [...this._del];
     this._put.clear(); this._del.clear();
     const s = Auth.getSession();
@@ -420,6 +443,16 @@ const Auth = {
     return this._api('/api/auth/change-password', {
       auth: true, body: { currentPassword, newPassword },
     });
+  },
+
+  // 회원탈퇴 — 서버 계정·데이터 삭제 후 이 브라우저에 남은 데이터도 함께 지운다.
+  async deleteAccount(password) {
+    const r = await this._api('/api/auth/delete-account', { auth: true, body: { password } });
+    if (!r.ok) return r;
+    DataSync.cancelPending();            // 삭제 후 재업로드되는 것 방지
+    DataSync._clearLocal();              // 진단·체크리스트 등 로컬 사본 삭제
+    try { localStorage.removeItem(this._KS); } catch {}
+    return { ok: true };
   },
 
   logout() {
@@ -617,11 +650,306 @@ function initScrollTop() {
   }, { passive: true });
 }
 
+/* ── 법률 용어 사전 · 자동 툴팁 ── */
+// 이 사이트의 이용자는 대부분 절차 용어를 처음 접한다. 페이지마다 수동으로
+// <span class="term-tip">을 심는 대신, 본문을 훑어 자동으로 점선 밑줄 + 설명을 붙인다.
+// 같은 용어는 화면에 처음 나온 한 번만 태깅한다 — 본문이 점선으로 뒤덮이는 것을 막기 위해.
+const GLOSSARY = {
+  // 돈 계산
+  '청산가치':   '지금 당장 파산했을 때 재산을 팔아 채권자에게 돌아갈 금액입니다.',
+  '가용소득':   '소득에서 세금·보험료와 법이 인정하는 생계비를 뺀, 빚 갚는 데 쓸 수 있는 돈입니다.',
+  '가처분소득': '월 소득에서 생활비를 뺀 금액. 채무조정에서 실제 변제 여력을 나타내는 용어로 사용됩니다.',
+  '표준생계비': '법원이 인정하는 생활비. 기준중위소득의 60%가 원칙이며 사정에 따라 늘거나 줄 수 있습니다.',
+  '기준중위소득': '정부가 매년 고시하는 가구소득의 중간값. 가구원 수별로 정해집니다.',
+  '변제기간':   '변제계획에 따라 돈을 갚아 나가는 기간. 보통 3년, 최대 5년입니다.',
+  '안분':       '채권 금액의 비율대로 나누어 배분하는 것입니다.',
+  '환가':       '재산을 팔아 현금으로 바꾸는 것입니다.',
+  // 서류
+  '변제계획안': '몇 년간 매달 얼마씩 나눠 갚겠다고 법원에 내는 계획서입니다.',
+  '변제계획':   '몇 년간 매달 얼마씩 나눠 갚겠다고 법원에 내는 계획입니다.',
+  '채권자목록': '누구에게 얼마를 빚졌는지 빠짐없이 적은 목록. 빠뜨리면 그 빚은 면책되지 않을 수 있습니다.',
+  '진술서':     '빚을 지게 된 경위와 현재 생활 형편을 직접 적어 내는 서류입니다.',
+  '해약환급금': '지금 보험을 해지하면 돌려받는 돈. 재산으로 계산됩니다.',
+  '임차보증금': '전세·월세 보증금. 재산에 잡히지만 일부는 면제재산으로 신청할 수 있습니다.',
+  '부양가족':   '실제로 생계를 같이하며 부양하는 가족. 인원수가 많을수록 인정 생계비가 올라갑니다.',
+  '원천징수':   '돈을 줄 때 세금을 미리 떼고 주는 것. 3.3%를 뗐다면 사업(영업)소득일 수 있습니다.',
+  // 절차·결정
+  '개시결정':   '법원이 "개인회생 절차를 시작한다"고 내리는 결정입니다.',
+  '인가결정':   '법원이 변제계획을 최종 승인하는 결정. 납입은 보통 인가 전부터 시작합니다.',
+  '면책결정':   '남은 빚의 책임을 없애 주는 최종 결정. 세금·벌금·양육비 등은 남습니다.',
+  '면책불허가': '도박·재산은닉 등의 사유가 있어 법원이 면책을 해 주지 않는 것입니다.',
+  '재량면책':   '면책불허가 사유가 있어도 사정을 참작해 법원이 재량으로 면책해 주는 것입니다.',
+  '특별면책':   '변제를 다 마치지 못해도 본인 책임 없는 사유 등 요건을 갖추면 남은 빚을 면책해 주는 제도입니다.',
+  '비면책':     '면책되지 않는다는 뜻. 세금·벌금·양육비 등은 면책 후에도 남습니다.',
+  '면책':       '법원이 빚 갚을 책임을 없애 주는 것. 일부 채무와 보증인 책임은 남습니다.',
+  '보정권고':   '법원이나 회생위원이 고쳐야 할 내용을 적어 보내는 문서. 기한 안에 답해야 합니다.',
+  '보정명령':   '법원이 서류의 빠진 곳·틀린 곳을 고쳐 다시 내라고 하는 명령입니다.',
+  '보정':       '법원이 서류의 빠진 곳·틀린 곳을 고쳐 다시 내라고 요구하는 것입니다.',
+  '송달료':     '법원이 서류를 보내는 데 드는 비용. 신청할 때 미리 냅니다.',
+  '송달':       '법원이 서류를 당사자·채권자에게 공식적으로 보내 전달하는 절차입니다.',
+  '기각':       '법원이 신청 내용을 살펴본 뒤 받아들이지 않는 것입니다.',
+  '즉시항고':   '법원 결정에 불복해 다시 판단해 달라는 것. 기간이 짧으니 바로 확인하세요.',
+  '이의신청':   '결정이나 처분에 동의하지 않는다고 공식적으로 문제를 제기하는 것입니다.',
+  '동시폐지':   '나눠 줄 재산도 절차비용 낼 돈도 없어 파산선고와 동시에 절차를 끝내는 것입니다.',
+  // 사람·기관
+  '회생위원':   '법원이 선임해 개인회생 사건의 서류 검토와 변제금 관리를 맡는 사람입니다.',
+  '파산관재인': '법원이 선임해 파산자의 재산을 조사·처분하고 채권자에게 나눠 주는 사람입니다.',
+  '파산재단':   '파산에서 채권자에게 나눠 줄 재산. 압류금지·면제재산은 빠집니다.',
+  '신용회복위원회': '법원이 아닌 곳에서 채권자와 채무조정을 협의해 주는 기관입니다.',
+  // 채권자 쪽 조치
+  '포괄적금지명령': '모든 채권자의 강제집행·경매를 한꺼번에 막는 법원의 명령입니다.',
+  '금지명령':   '채권자가 추심·강제집행을 하지 못하도록 법원이 미리 내리는 명령입니다.',
+  '중지명령':   '이미 진행 중인 압류·경매 등을 잠시 멈추게 하는 법원의 명령입니다.',
+  '가압류':     '재판 전에 재산을 미리 묶어 두어 처분하지 못하게 하는 것입니다.',
+  '압류금지':   '법이 정한 최소 생활 재원이라 압류할 수 없는 재산·채권을 말합니다.',
+  '압류':       '재산이나 급여를 묶어 처분하지 못하게 하는 것. 급여는 월 250만원까지 압류가 금지됩니다.',
+  '추심':       '채권자가 빚을 갚으라고 연락하거나 청구해 받아 가는 행위입니다.',
+  '별제권':     '담보 잡은 채권자가 담보물에서 먼저 받아 갈 권리. 개인회생 중에는 경매가 멈춥니다.',
+  // 상태·행위
+  '지급불능':   '빚을 갚을 능력이 없어 계속 갚아 나갈 수 없는 상태입니다.',
+  '채무초과':   '가진 재산보다 빚이 더 많은 상태입니다.',
+  '편파변제':   '여러 채권자 중 특정한 곳에만 몰아서 갚는 것. 문제가 될 수 있습니다.',
+  '채무조정':   '빚의 이자·기간·금액을 조정해 갚을 수 있게 만드는 절차를 통틀어 이르는 말입니다.',
+  '수임료':     '변호사·법무사에게 사건을 맡길 때 내는 보수입니다.',
+  '수임':       '변호사·법무사가 사건을 맡아 대리하는 것입니다.',
+};
+
+// 태깅에서 제외할 영역 — 링크·버튼·입력창(중첩 상호작용 방지), 헤더·푸터(반복 노출),
+// 제목(점선 밑줄이 어색하고, 설명은 본문에서 읽는 편이 낫다), 이미 태깅된 곳
+const GLOSSARY_SKIP = 'a,button,input,textarea,select,option,script,style,code,pre,h1,h2,h3,' +
+  '.term-tip,[data-no-tip],#header-placeholder,#footer-placeholder,nav,footer';
+
+let glossaryTimer = null;
+
+// 현재 화면에 이미 툴팁이 붙어 있는 용어 — DOM에서 매번 다시 읽는다.
+// (탭 전환 등으로 본문이 통째로 다시 그려져도 스스로 복구되도록)
+function taggedTerms() {
+  const set = new Set();
+  document.querySelectorAll('.term-tip').forEach(el => set.add(el.textContent.trim()));
+  return set;
+}
+
+function tagTerms(root) {
+  const scope = root || document.body;
+  if (!scope) return;
+  const used = taggedTerms();
+  const remaining = Object.keys(GLOSSARY)
+    .filter(t => !used.has(t))
+    .sort((a, b) => b.length - a.length);   // 긴 용어 우선 — '면책결정'이 '면책'보다 먼저 잡히도록
+  if (!remaining.length) return;
+  const re = new RegExp(remaining.join('|'));
+
+  const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+      const p = node.parentElement;
+      if (!p || p.closest(GLOSSARY_SKIP)) return NodeFilter.FILTER_REJECT;
+      return re.test(node.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    },
+  });
+  const targets = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) targets.push(n);
+
+  const done = new Set();                   // 한 번 붙인 용어는 이 회차에서 다시 붙이지 않는다
+  for (const node of targets) {
+    const text = node.nodeValue;
+    const scan = new RegExp(re.source, 'g'); // 한 노드 안의 여러 용어를 한 번에 처리
+    let m, last = 0, frag = null;
+    while ((m = scan.exec(text))) {
+      if (done.has(m[0])) continue;
+      done.add(m[0]);
+      frag = frag || document.createDocumentFragment();
+      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      frag.appendChild(makeTermTip(m[0]));
+      last = m.index + m[0].length;
+    }
+    if (!frag) continue;
+    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    node.parentNode.replaceChild(frag, node);
+  }
+}
+
+function makeTermTip(term) {
+  const span = document.createElement('span');
+  span.className = 'term-tip';
+  span.setAttribute('data-tip', GLOSSARY[term]);
+  span.setAttribute('tabindex', '0');
+  span.setAttribute('role', 'button');
+  span.setAttribute('aria-label', term + ' — ' + GLOSSARY[term]);
+  span.textContent = term;
+  return span;
+}
+
+function initGlossary() {
+  tagTerms(document.body);
+
+  // 본문 상당수가 JS로 나중에 그려진다(결과·진행센터·아코디언 등) — 그려질 때마다 다시 훑는다.
+  // 태깅할 용어가 남지 않으면 tagTerms가 바로 반환해 더는 DOM을 건드리지 않으므로 순환하지 않는다.
+  new MutationObserver(() => {
+    clearTimeout(glossaryTimer);
+    glossaryTimer = setTimeout(() => tagTerms(document.body), 200);
+  }).observe(document.body, { childList: true, subtree: true });
+
+  // 터치 기기에는 hover가 없다 — 탭하면 열리고, 다시 탭하거나 바깥을 누르면 닫힌다.
+  document.addEventListener('click', (e) => {
+    const tip = e.target.closest ? e.target.closest('.term-tip') : null;
+    document.querySelectorAll('.term-tip.tip-open').forEach(el => {
+      if (el !== tip) el.classList.remove('tip-open');
+    });
+    if (tip) tip.classList.toggle('tip-open');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.term-tip.tip-open').forEach(el => el.classList.remove('tip-open'));
+      return;
+    }
+    const el = e.target;
+    if ((e.key === 'Enter' || e.key === ' ') && el.classList && el.classList.contains('term-tip')) {
+      e.preventDefault();
+      el.classList.toggle('tip-open');
+    }
+  });
+}
+
 /* ── Page init ── */
+// 자체 익명 분석 — 허용된 이벤트만 서버로 보낸다. 개인·세션·IP는 담지 않는다.
+// 실패해도 조용히 무시(사용자 흐름과 무관한 부가 기능).
+function track(event, label) {
+  try {
+    fetch(API_BASE + '/api/analytics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event, label: String(label == null ? '' : label) }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+/* ── 유료 콘텐츠 게이트 (미리보기 방식) ── */
+// allowed 패키지 중 하나를 서버에서 보유 확인해야 전체 이용. 미보유면 '미리보기 모드'로
+// 앞부분만 열고 나머지를 잠근다.
+//
+// ⚠️ 전체를 덮는 오버레이를 쓰지 않는 이유(법적 요건):
+// 「전자상거래 등에서의 소비자보호에 관한 법률」 제17조 제2항 제5호는 디지털콘텐츠의
+// '제공이 개시된 경우' 청약철회를 제한할 수 있게 하지만, 같은 항 단서와 제6항 단서에 따라
+// 사업자가 '청약철회 불가 사실의 표시'와 '시험 사용 상품 제공 등의 조치'를 모두 해야만
+// 그 제한이 유효하다. 시행령 제21조의2 제1호(일부 이용의 허용 — 미리보기)를 충족시키기
+// 위해 콘텐츠 앞부분을 실제로 열어 둔다. 이 미리보기를 없애면 환불 제한도 함께 무효가 된다.
+// 관련 문구: pricing.html 결제·환불 안내, terms.html 제6조.
+//
+// 로컬 plan은 위조 가능하므로 서버(plan_packages)가 최종 판정. 테스트 지급·결제 모두 서버에 반영되어 통과.
+async function requirePackage(allowed, pkgName) {
+  const has = (pkgs) => Array.isArray(pkgs) && pkgs.some(p => allowed.includes(p));
+
+  if (typeof Auth === 'undefined' || !Auth.isLoggedIn()) {
+    enterPreview(pkgName, false);
+    return;
+  }
+  // 로컬 캐시로 즉시 판단(구매자 UX). 미보유면 일단 미리보기로 두고 서버로 확인.
+  const localOk = has(Storage.load('plan_packages') || []);
+  if (!localOk) enterPreview(pkgName, true);
+
+  try {
+    const res = await fetch(API_BASE + '/api/data', {
+      headers: { 'Authorization': 'Bearer ' + Auth.getSession().token },
+    });
+    const j = await res.json();
+    const serverPkgs = (j && j.ok && j.data && j.data.plan_packages) || [];
+    if (has(serverPkgs)) unlockContent(allowed);  // 실제 보유 확정 → 전체 공개
+    else enterPreview(pkgName, true);             // 미보유 확정 → 미리보기(로컬 위조도 여기서 걸림)
+  } catch (e) {
+    // 네트워크 실패 — 로컬 판단을 신뢰(정상 구매자 보호)
+    if (localOk) unlockContent(allowed);
+  }
+}
+
+/* ── 미리보기(일부 이용의 허용) ── */
+// 각 유료 페이지는 렌더 후 isPreview()를 확인해 lockSection()으로 뒷부분을 잠근다.
+// 판정이 서버 응답 뒤에 바뀔 수 있으므로 'chamroad:gate' 이벤트로 다시 그린다.
+let _preview = { on: false, pkgName: '', loggedIn: false };
+let _gatePackages = [];        // 이 페이지가 요구하는 패키지 키 — 이용 개시 기록에 쓴다
+let _accessNoted = false;      // 페이지당 1회만 서버로 보낸다
+
+function isPreview() { return _preview.on; }
+
+function enterPreview(pkgName, loggedIn) {
+  const changed = !_preview.on || _preview.pkgName !== pkgName;
+  _preview = { on: true, pkgName, loggedIn };
+  document.body.classList.add('preview-mode');
+  if (changed) document.dispatchEvent(new CustomEvent('chamroad:gate'));
+}
+
+function unlockContent(allowed) {
+  const wasPreview = _preview.on;
+  _preview = { on: false, pkgName: '', loggedIn: true };
+  _gatePackages = allowed;
+  document.body.classList.remove('preview-mode');
+  if (wasPreview) document.dispatchEvent(new CustomEvent('chamroad:gate'));
+  // ⚠️ 여기서 이용 개시를 기록하지 않는다. 결제 직후 자동 이동으로 이 함수가 호출되므로,
+  //    여기서 기록하면 소비자가 아무것도 열지 않았는데 청약철회가 막힌다.
+  //    실제로 잠긴 콘텐츠를 여는 행위에서 noteContentOpened()를 호출한다.
+}
+
+// 잠금 안내 카드. 미리보기 경계에 삽입된다.
+function previewLockCard(note) {
+  const next = encodeURIComponent(location.href);
+  const cta = _preview.loggedIn
+    ? `<a href="pricing.html" class="inline-block bg-blue-700 text-white px-5 py-2.5 rounded-full font-medium text-sm hover:bg-blue-800 transition-colors">구매하고 전체 이용하기</a>`
+    : `<a href="login.html?next=${next}" class="inline-block bg-blue-700 text-white px-5 py-2.5 rounded-full font-medium text-sm hover:bg-blue-800 transition-colors">로그인</a>
+       <a href="pricing.html" class="inline-block ml-2 text-sm text-blue-600 hover:underline">요금제 보기</a>`;
+  const el = document.createElement('div');
+  el.className = 'preview-lock bg-white rounded-2xl border-2 border-dashed border-slate-300 p-6 text-center';
+  el.innerHTML =
+    `<div class="text-3xl mb-2">🔒</div>
+     <h3 class="font-bold text-slate-800 mb-1">${note || '여기부터는 ' + _preview.pkgName + ' 전용입니다'}</h3>
+     <p class="text-sm text-slate-500 mb-4">여기까지는 <strong>구매 전 미리보기</strong>로 열어 두었습니다. 내용을 확인해 보고 결정하세요.</p>
+     ${cta}`;
+  return el;
+}
+
+// container의 앞 keep개 자식만 남기고 나머지를 지운 뒤 잠금 카드를 붙인다.
+// keep=0이면 섹션 전체가 잠긴다.
+function lockSection(container, keep, note) {
+  if (!_preview.on || !container) return false;
+  Array.from(container.children).slice(keep).forEach(n => n.remove());
+  container.appendChild(previewLockCard(note));
+  return true;
+}
+
+// 구매자가 '미리보기 범위를 넘어선 콘텐츠를 실제로 연' 시각을 서버에 남긴다.
+// 전자상거래법 제17조 제2항 제5호의 '제공 개시' 시점 = 청약철회 가능 여부의 기준.
+//
+// ⚠️ 페이지 진입·잠금 해제만으로는 절대 호출하지 말 것.
+// 결제 후 진행센터로 자동 이동하므로, 진입 시점에 기록하면 소비자가 아무것도 열지 않았는데
+// 청약철회가 막혀 약관 제6조 ①(결제일부터 14일 전액 환불)이 사실상 작동하지 않게 된다.
+// 호출 지점: 2단계 이상으로 이동, 항목 '자세히' 펼치기, 서식 작성예시 열기 등 명시적 열람 행위.
+function noteContentOpened() {
+  if (_accessNoted || isPreview()) return;   // 미리보기 상태의 열람은 '제공 개시'가 아니다
+  _accessNoted = true;
+  markContentAccess(_gatePackages);
+}
+
+function markContentAccess(allowed) {
+  if (typeof Auth === 'undefined' || !Auth.isLoggedIn()) return;
+  if (!Array.isArray(allowed) || !allowed.length) return;
+  const pkg = (Storage.load('plan_packages') || []).find(p => allowed.includes(p)) || allowed[0];
+  if (!pkg) return;
+  try {
+    fetch(API_BASE + '/api/content/access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.getSession().token },
+      body: JSON.stringify({ package: pkg }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (e) {}
+}
+
 function initPage(activePage) {
   renderHeader(activePage);
   renderFooter();
   initScrollTop();
+  initGlossary();                  // 어려운 용어에 설명 툴팁 자동 부착
+  track('pageview', activePage);   // 페이지별 조회 수(익명)
   document.addEventListener('click', (e) => {
     const d = document.getElementById('user-dropdown');
     if (d && !d.classList.contains('hidden') && !d.parentElement.contains(e.target)) {
