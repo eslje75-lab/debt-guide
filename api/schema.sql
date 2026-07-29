@@ -86,7 +86,8 @@ CREATE TABLE IF NOT EXISTS payments_archive (
 -- 유료 콘텐츠를 실제로 처음 연 시각.
 -- 「전자상거래 등에서의 소비자보호에 관한 법률」 제17조 제2항 제5호의 '디지털콘텐츠의
 -- 제공이 개시된 경우'에 해당하는지를 판단하는 근거(= 청약철회 가능 여부의 기준일).
--- 최초 1회만 기록한다(INSERT OR IGNORE). 이 기록이 없으면 '미개시'로 보아 7일 내 전액 환불.
+-- 최초 1회만 기록한다(INSERT OR IGNORE). 이 기록이 없으면 '미개시'로 보아 전액 환불
+-- (약관 제6조 ① — 결제일부터 14일).
 CREATE TABLE IF NOT EXISTS content_access (
   user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   package         TEXT    NOT NULL,
