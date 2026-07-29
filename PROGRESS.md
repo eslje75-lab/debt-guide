@@ -28,11 +28,22 @@ API 라우트 20개 중 메일 관련 0건. Resend/SendGrid/SMTP 등 발송 코�
 - 숫자 검산을 AI에서 **코드로 분리** — 채권자목록 합계·안분율 100%, 변제계획안 가용소득×기간 ≥ 청산가치, 수입지출 정합성. `js/diagnosis.js` 계산 로직 재사용. AI는 서술형(진술서·보정서)만.
 - 진행센터 체크리스트 항목 안에 [작성예시][검토받기] 배치(현재는 `ai-review.html` 별도 페이지)
 - 재검토 이력 — ⚠️**초안 원문을 저장하지 말 것**(주민번호 포함 가능). 지난 검토의 `questions[].topic` 문자열만 저장하고, 다음 검토 때 새 원문과 함께 보내 반영 여부를 판정시킬 것.
-- `entitlements`·`ai_trial` 테이블 **D1 마이그레이션 적용**(스키마만 작성됨, 실 반영 안 됨)
+- ~~`entitlements`·`ai_trial` 테이블 D1 마이그레이션 적용~~ → **2026-07-29 완료**(`content_access`까지 3개. 아래 "현재 상태" 참조)
 
 ---
 
 ## 현재 상태 (최신이 위로)
+
+### 2026-07-29 (3차) — 프로덕션 서버 동기화(D1 마이그레이션 + Worker 배포) ✅스모크 검증
+
+**발견**: 프로덕션이 7/28 2차 이전 상태로 밀려 있었다. 배포된 Worker에 `POST /api/content/access`가 **404**(라우트 자체 없음)였고, D1에는 `content_access`·`entitlements`·`ai_trial` **3개 테이블이 모두 없었다**. PROGRESS에는 `entitlements`·`ai_trial`만 적혀 있었고 `content_access` 누락과 **Worker 미배포**는 기록에 없었다. 즉 미리보기 게이트 서버측·이용권·AI 총량제가 프로덕션에 하나도 반영돼 있지 않았다.
+
+- **D1 마이그레이션 적용**(순서 중요 — 테이블 없이 새 Worker를 올리면 `activeEntitlements`·`grantEntitlement`가 깨진다): `content_access` / `entitlements` + `idx_entitlements_user` / `ai_trial`. 적용 전 `sqlite_master`를 `schema.sql`과 전수 대조해 기존 8개 테이블은 일치함을 확인(payments.refunded_at ALTER 포함), 추가 전용 DDL만 실행.
+- **Worker 배포**: `npx wrangler deploy` → Version `5d3cc8cc-de42-4fa9-985d-94c4f795014f`. 새로 필요한 시크릿 없음(참조 env 7종 전부 기설정).
+- **스모크 검증**(테스트 계정 → 확인 → 탈퇴 API로 정리, 전 테이블 0건 확인): `/api/content/access` 404→**401**(비로그인)·**200 `recorded:false`**(로그인·미보유 = 미리보기는 제공 개시가 아님) / `GET /api/data`가 **`entitlements: []`**를 정상 반환(새 테이블 조회 경로 살아 있음) / 탈퇴 후 세션 401·고아 레코드 0.
+- ⚠️**gotcha 재확인**: 배포 직후 같은 경로가 한 번은 401, 한 번은 404를 냈다 — Cloudflare 버전 롤아웃 중 옛 버전이 섞여 응답한다. **배포 직후 즉시 E2E를 치지 말 것**(수 초 후 재시도하면 안정).
+- ⚠️**미검증(권한 차단)**: 이용권 부여 → 만료일 표시 E2E. `payments`·`entitlements` 직접 INSERT가 분류기에 차단됐고, 관리자 테스트 지급은 `ADMIN_EMAIL` 계정 선점 가입이 아직 안 된 상태라 못 했다. **관리자 계정 가입 후 admin '🧪 테스트 지급' → 마이페이지 만료일 표시 확인**이 남은 절차.
+- push는 **보류**(사용자 결정) — 로컬 main이 origin보다 4커밋 앞선 상태 유지. 이유는 LAUNCH-CHECKLIST 6단계 방침 + 포트원 테스트 채널·사업자 정보 미기재.
 
 ### 2026-07-29 (2차) — 청약철회 기산점을 "결제일부터 14일"로 교체 + 만료일 안내를 메일→마이페이지로
 
