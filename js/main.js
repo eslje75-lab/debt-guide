@@ -441,9 +441,12 @@ const Auth = {
     return { ok: true, user };
   },
 
-  async signup(name, email, password) {
+  // agree = 이용약관·개인정보처리방침 동의 + 만 14세 이상 확인(화면 체크박스 하나로 받는다).
+  // 서버가 이 값을 필수로 요구하고 동의 시각·버전을 저장한다 — 화면에서만 검사하면
+  // 동의 사실을 남길 방법이 없고, API 직접 호출로 우회된다.
+  async signup(name, email, password, agree) {
     const r = await this._api('/api/auth/signup', {
-      body: { name: name.trim(), email: email.toLowerCase().trim(), password },
+      body: { name: name.trim(), email: email.toLowerCase().trim(), password, agree: agree === true },
     });
     if (!r.ok) return r;
     const user = this._saveSession(r.token, r.user);

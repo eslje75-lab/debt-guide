@@ -284,7 +284,7 @@
     if (hasErr || _authBusy) return;
 
     _authBusy = true;
-    const result = await Auth.signup(name, email, pw);
+    const result = await Auth.signup(name, email, pw, terms);
     _authBusy = false;
     if (!result.ok) { showAlert('signup-alert', result.error); return; }
 

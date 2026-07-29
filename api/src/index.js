@@ -220,6 +220,10 @@ function passwordError(pw) {
   return null;
 }
 
+// 가입 시 받는 동의의 버전. 약관·방침을 개정하면 이 값을 함께 올려,
+// 어느 판본에 동의했는지 계정별로 남긴다(재동의가 필요한 회원을 가려낼 근거).
+const CONSENT_VERSION = 'terms-2026-07-29/privacy-2026-07-29';
+
 function validateSignup(body) {
   const name = (body.name || '').trim();
   const email = (body.email || '').toLowerCase().trim();
@@ -229,6 +233,13 @@ function validateSignup(body) {
   if (!EMAIL_RE.test(email) || email.length > 254) return { error: '올바른 이메일 주소를 입력해주세요.' };
   const pwErr = passwordError(password);
   if (pwErr) return { error: pwErr };
+  // 동의는 서버에서 필수로 확인한다. 화면 체크박스만 두면 ①동의 사실이 어디에도 남지 않고
+  // ②API를 직접 호출해 동의 없이 가입할 수 있다.
+  // 「개인정보 보호법」 제22조 제3항은 동의 없이 처리할 수 있는 개인정보라는 입증책임을
+  // 개인정보처리자에게 지우고, 제22조의2 제1항은 만 14세 미만 아동의 개인정보 처리에
+  // 법정대리인 동의를 요구한다 — 만 14세 이상 확인 기록이 없으면 이를 다툴 근거가 없다.
+  if (body.agree !== true)
+    return { error: '이용약관·개인정보처리방침 동의와 만 14세 이상 확인이 필요합니다.' };
   return { name, email, password };
 }
 
@@ -245,8 +256,9 @@ async function handleSignup(request, env, origin) {
 
   const passwordHash = await hashPassword(v.password, env.PEPPER);
   const res = await env.DB.prepare(
-    'INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)'
-  ).bind(v.email, v.name, passwordHash).run();
+    `INSERT INTO users (email, name, password_hash, agreed_at, consent_version)
+     VALUES (?, ?, ?, ?, ?)`
+  ).bind(v.email, v.name, passwordHash, Date.now(), CONSENT_VERSION).run();
 
   const userId = res.meta.last_row_id;
   const session = await createSession(env.DB, userId, false);

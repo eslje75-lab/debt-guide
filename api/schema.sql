@@ -1,13 +1,21 @@
 -- 챔로드 D1 스키마 (프로덕션 DB에 2026-07-19 적용됨)
 -- 로컬 적용: npx wrangler d1 execute chamroad --local --file=schema.sql
 
+-- agreed_at·consent_version: 가입 시 받은 동의(이용약관·개인정보처리방침 + 만 14세 이상 확인)의
+-- 시각과 판본. 화면 체크박스만으로는 동의 사실이 남지 않아 「개인정보 보호법」 제22조 제3항
+-- (동의 없이 처리할 수 있다는 입증책임은 개인정보처리자 부담)·제22조의2 제1항(만 14세 미만은
+-- 법정대리인 동의)에 대응할 근거가 없다. 서버가 동의를 필수로 요구하고 여기에 기록한다.
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   email TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   password_hash TEXT NOT NULL, -- 형식: v1$<iterations>$<salt_b64>$<hash_b64> (PBKDF2-SHA256 + pepper)
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  agreed_at INTEGER,           -- unix ms
+  consent_version TEXT         -- 예: 'terms-2026-07-29/privacy-2026-07-29'
 );
+-- 기존 DB 반영: ALTER TABLE users ADD COLUMN agreed_at INTEGER;
+--               ALTER TABLE users ADD COLUMN consent_version TEXT;
 
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT PRIMARY KEY,          -- SHA-256(토큰) hex — 원본 토큰은 저장하지 않음
