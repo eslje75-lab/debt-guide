@@ -34,6 +34,13 @@
 
 <div class="max-w-2xl mx-auto px-4 py-8">
 
+  <!-- 판매 개시 전 안내. main.js PAYMENTS_ENABLED가 true가 되면 스크립트가 숨긴다. -->
+  <div id="prelaunch-notice" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-sm text-amber-900">
+    <strong>정식 오픈 준비 중입니다</strong><br>
+    아래 요금제는 오픈 예정 내용이며, <strong>현재는 결제를 받지 않습니다.</strong>
+    무료 채무진단과 각 절차 안내는 지금도 그대로 이용하실 수 있습니다.
+  </div>
+
   <!-- 탭 switcher -->
   <div class="flex gap-1 mb-8 bg-slate-100 rounded-xl p-1 max-w-xs mx-auto">
     <button id="tab-rehab" onclick="switchTab('rehab')"
@@ -402,6 +409,17 @@
   const defaultTab = params.get('type') === 'bankrupt' ? 'bankrupt' : 'rehab';
   switchTab(defaultTab);
 
+  // 판매 개시 전 표시. 광고와 실제가 어긋나지 않도록 버튼 라벨까지 함께 바꾼다
+  // (전자상거래법 제13조⑤ 표시·광고와 이행의 일치). 플래그 하나로 원복된다.
+  if (typeof PAYMENTS_ENABLED !== 'undefined' && !PAYMENTS_ENABLED) {
+    document.getElementById('prelaunch-notice').classList.remove('hidden');
+    document.querySelectorAll('button[onclick^="startPayment"]').forEach(btn => {
+      btn.textContent = '정식 오픈 준비 중';
+      btn.classList.add('opacity-60', 'cursor-not-allowed');
+      btn.setAttribute('aria-disabled', 'true');
+    });
+  }
+
   // 구매 전 자격 확인 가드 — 통과하면 true (실제 결제 진행)
   function passesPurchaseGuards(pkg) {
     // ① 하드블록(신청 자체 불가) 사유 우선 확인 — result.html applyHardBlocks와 동일 규칙
@@ -449,6 +467,13 @@
 
   async function startPayment(plan, price, pkg) {
     if (_payBusy) return;
+
+    // 판매 개시 전 — 결제 진입 자체를 막는다. 근거·해제 조건은 main.js PAYMENTS_ENABLED 주석 참조.
+    if (typeof PAYMENTS_ENABLED !== 'undefined' && !PAYMENTS_ENABLED) {
+      alert('정식 오픈 준비 중입니다.\n\n현재는 결제를 받지 않고 있습니다. 무료 진단과 각 안내 페이지는 그대로 이용하실 수 있습니다.\n\n오픈 일정 문의: eslje75@gmail.com');
+      return;
+    }
+
     if (!passesPurchaseGuards(pkg)) return;
 
     // 결제는 로그인 후 — 결제 내역이 계정에 귀속돼야 함

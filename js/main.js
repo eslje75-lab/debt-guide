@@ -379,6 +379,18 @@ const API_BASE = (location.hostname === 'localhost' || location.hostname === '12
   ? 'http://localhost:8787'
   : 'https://chamroad-api.eslje75.workers.dev';
 
+// 판매 개시 스위치. false면 결제 진입 자체를 막고 '준비 중'으로 안내한다.
+//
+// 왜 필요한가: 사이트는 GitHub Pages라 push가 곧 공개다. 사이트 자체는 공개해도 되지만
+// ①포트원이 아직 테스트 채널이라 정상 거래가 성립하지 않고, ②「전자상거래 등에서의
+// 소비자보호에 관한 법률」 제10조가 요구하는 사업자 신원(상호·대표자·주소·연락처·
+// 사업자등록번호)이 terms 제11조·privacy 12항에 아직 자리표시자다. 결제 버튼만 닫으면
+// 판매를 개시하지 않은 것이 되어 이 두 문제가 모두 비껴간다.
+//
+// 되돌리는 조건(LAUNCH-CHECKLIST 1~2단계): 사업자등록 + 약관·방침에 사업자 정보 실값 기재
+// + 포트원 라이브 채널 시크릿 교체 및 라이브 결제 1건 검증. 그 뒤 이 값만 true로.
+const PAYMENTS_ENABLED = false;
+
 const Auth = {
   _KS: 'cdg_auth_session',
 
