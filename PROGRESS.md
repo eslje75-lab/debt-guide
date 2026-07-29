@@ -54,7 +54,10 @@ API 라우트 20개 중 메일 관련 0건. Resend/SendGrid/SMTP 등 발송 코�
 - `terms.html` 제5조 **"만료 30일 전 이메일 안내" 삭제** — 발송 수단이 없어 그대로 두면 약관 위반. 대신 **"만료일은 마이페이지 결제 상태에서 확인"**으로 바꾸고, 약속이 참이 되도록 `mypage.html`에 **이용기간 만료일 표시를 실제 구현**(`renderEntitlementExpiry`/`paintExpiry` — `GET /api/data`의 `entitlements[].expiresAt`. 서버가 만료 안 된 것만 내려주므로 접근 판정과 동일 근거. 로그인 캐시로 즉시 표시 후 서버 값으로 갱신, 오프라인이면 캐시 유지).
 - 코드 주석 정합: `js/main.js` `noteContentOpened`, `api/src/index.js` `handleAdminRefund` 의 "7일" → "결제일부터 14일".
 - `LAUNCH-CHECKLIST.md` '확정된 방침'에 기산점 결정과 **되돌리지 말 것** 경고 추가.
-- 검증: `mypage`·`pricing`·`terms` 인라인 스크립트 구문 파싱 PASS(`new Function`). ⚠️**브라우저 실화면·실제 만료일 렌더는 미확인**(로그인 계정 + `entitlements` D1 마이그레이션이 아직 미적용이라 실데이터 없음 — 위 "그 외 미착수" 참조).
+- 검증: `mypage`·`pricing`·`terms` 인라인 스크립트 구문 파싱 PASS(`new Function`).
+- **jsdom 12종 PASS**(실제 `mypage.html` + `js/main.js` 실행, `GET /api/data` 목킹): 패키지별 만료일 렌더 / 서버가 만료 이용권을 빼면 그 칸은 **빈칸**(날짜를 지어내지 않음) / 캐시로 즉시 표시 후 **서버 값이 캐시를 덮어씀** / 오프라인이면 캐시 유지 / 비로그인은 `/api/data`를 부르지 않고 만료일 칸 자체를 만들지 않음 / `entitlements`가 배열이 아니거나 `expiresAt`이 null이어도 예외 없이 빈칸. 스크립트는 스크래치패드 `test-expiry.js`(미커밋).
+- ⚠️**실데이터·브라우저 픽셀은 여전히 미확인** — 관리자 테스트 지급이 선행돼야 함(`ADMIN_EMAIL` 계정 미가입).
+- 🔎**부수 발견(미수정)**: `Auth.logout()`은 세션 키만 지우고 `cdg_plan*`을 남긴다 → 로그아웃 후에도 마이페이지가 "○○ 패키지 이용 중"으로 보인다(콘텐츠 접근은 서버 게이트가 막으므로 표시만의 문제). 공용 PC에서 다음 사용자에게 구매 사실이 보이는 셈. 고치려면 logout에서 `plan`·`plan_packages`·`plan_type`·`plan_package`·`plan_package_name`·`entitlements` 제거(재로그인 시 `syncOnLogin`이 서버에서 복구하므로 안전).
 
 ### 2026-07-27 — 진단 단순화(퇴직금 제거) + 법률 용어 자동 툴팁 ✅jsdom 검증
 
