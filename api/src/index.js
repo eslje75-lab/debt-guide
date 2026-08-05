@@ -9,11 +9,17 @@
  *   POST /api/auth/change-password  (Bearer) {currentPassword, newPassword}
  *   POST /api/auth/delete-account   (Bearer) {password}   — 회원탈퇴(전 데이터 삭제)
  *
+ * Phase 5: 이메일 인프라 (발송 = Resend)
+ *   POST /api/auth/request-reset        {email}            — 비밀번호 재설정 메일 요청(항상 200, 계정 열거 방지)
+ *   POST /api/auth/reset-password       {token, password}  — 토큰으로 새 비밀번호 설정
+ *   POST /api/auth/verify-email         {token}            — 가입 이메일 인증 완료
+ *   POST /api/auth/resend-verification  (Bearer)           — 인증 메일 재발송
+ *
  * 보안 설계:
  *   - 비밀번호: PBKDF2-SHA256(iterations 아래 상수) + 서버 시크릿(PEPPER) HMAC 프리해시
  *   - 세션: 32바이트 랜덤 토큰. DB에는 SHA-256 해시만 저장 (DB 유출 시에도 토큰 무효)
- *   - 이름+이메일만으로 비밀번호 재설정은 계정 탈취 경로라 서버에서는 제공하지 않음
- *     (이메일 인증 링크 방식은 이메일 발송 연동 시 구현)
+ *   - 비밀번호 재설정: 이메일 인증 링크(일회성 토큰 30분). 토큰도 SHA-256 해시만 저장.
+ *     이름+이메일만으로 재설정하는 방식은 계정 탈취 경로라 쓰지 않는다.
  */
 
 // 로그인 무차별 대입 방어 — 윈도우 내 실패 한도 초과 시 잠금.
@@ -26,6 +32,13 @@ const SALT_BYTES = 16;
 const TOKEN_BYTES = 32;
 const DAY_MS = 86400000;
 const MAX_BODY_BYTES = 10 * 1024;
+
+// 이메일 인프라(Phase 5) — 발송(Resend) + 일회성 토큰.
+const EMAIL_FROM = '챔로드 <no-reply@chamroad.com>';   // Resend에서 chamroad.com 루트 도메인 인증 필요
+const SITE_URL = 'https://chamroad.com';
+const RESET_TTL_MS = 30 * 60 * 1000;   // 비밀번호 재설정 토큰 유효 30분
+const VERIFY_TTL_MS = 3 * DAY_MS;      // 이메일 인증 토큰 유효 3일
+const EMAIL_COOLDOWN_MS = 60 * 1000;   // 같은 목적 재발송 최소 간격(메일 폭탄 방지)
 
 // 사용자 데이터 동기화(Phase 2) 한도
 const MAX_KEY_LEN = 64;
@@ -195,7 +208,7 @@ async function getSessionUser(db, request) {
   if (!token) return null;
   const tokenHash = await sha256hex(token);
   const row = await db.prepare(
-    `SELECT s.token_hash, s.expires_at, u.id, u.email, u.name, u.created_at
+    `SELECT s.token_hash, s.expires_at, u.id, u.email, u.name, u.created_at, u.email_verified
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = ?`
   ).bind(tokenHash).first();
@@ -205,6 +218,78 @@ async function getSessionUser(db, request) {
     return null;
   }
   return row;
+}
+
+/* ── 이메일 발송(Resend) + 일회성 토큰 (Phase 5) ── */
+
+// Resend HTTP API로 트랜잭션 메일 발송. 키 미설정·실패 시 false를 반환하되
+// 가입·요청 흐름을 막지 않는다(메일 실패로 회원가입이 실패하면 안 된다).
+async function sendEmail(env, to, subject, html) {
+  if (!env.RESEND_API_KEY) { console.error('email: RESEND_API_KEY 미설정'); return false; }
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ from: EMAIL_FROM, to, subject, html }),
+    });
+    if (!res.ok) { console.error('email send fail', res.status, await res.text().catch(() => '')); return false; }
+    return true;
+  } catch (e) { console.error('email send error', e); return false; }
+}
+
+// 일회성 토큰 발급 — 원본은 반환만, DB엔 SHA-256 해시만 저장(세션과 동일 원칙).
+async function createEmailToken(db, userId, purpose, ttlMs) {
+  const token = b64url(crypto.getRandomValues(new Uint8Array(TOKEN_BYTES)));
+  const tokenHash = await sha256hex(token);
+  const now = Date.now();
+  await db.prepare(
+    'INSERT INTO email_tokens (token_hash, user_id, purpose, expires_at, created_at) VALUES (?,?,?,?,?)'
+  ).bind(tokenHash, userId, purpose, now + ttlMs, now).run();
+  return token;
+}
+
+// 같은 사용자·목적의 토큰을 최근 EMAIL_COOLDOWN_MS 내 발급했으면 true(재발송 억제).
+async function recentlySent(db, userId, purpose, now) {
+  const row = await db.prepare(
+    'SELECT created_at FROM email_tokens WHERE user_id = ? AND purpose = ? ORDER BY created_at DESC LIMIT 1'
+  ).bind(userId, purpose).first();
+  return !!(row && (now - row.created_at) < EMAIL_COOLDOWN_MS);
+}
+
+// 메일에 삽입하는 사용자 값(이름 등) HTML 이스케이프 — 메일 클라이언트 XSS 방지.
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// 공통 메일 틀 — 메일 클라이언트는 외부 CSS/클래스를 무시하므로 인라인 스타일만 쓴다.
+function emailShell(title, bodyHtml) {
+  return `<div style="font-family:-apple-system,'Malgun Gothic',sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1a1a2e;line-height:1.6">
+  <div style="font-size:20px;font-weight:700;color:#533afd;margin-bottom:16px">챔로드</div>
+  <h1 style="font-size:18px;margin:0 0 12px">${escHtml(title)}</h1>
+  ${bodyHtml}
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
+  <p style="font-size:12px;color:#6b7280">본 메일은 발신 전용입니다. 문의: eslje75@gmail.com<br>챔로드 — 개인회생·파산 셀프 진행 지원</p>
+</div>`;
+}
+
+// 링크 버튼 조각(버튼 + 안 될 때용 평문 URL). url은 서버가 만든 값이라 이스케이프 불필요.
+function emailButton(label, url) {
+  return `<p style="margin:20px 0"><a href="${url}" style="background:#533afd;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600">${escHtml(label)}</a></p>
+  <p style="font-size:13px;color:#6b7280;word-break:break-all">버튼이 안 되면 이 주소를 브라우저에 붙여넣으세요:<br>${url}</p>`;
+}
+
+// 가입 이메일 인증 메일 발송(가입·재발송 공용). 쿨다운 확인은 호출부에서.
+async function sendVerifyEmail(env, userId, email, name) {
+  const token = await createEmailToken(env.DB, userId, 'verify', VERIFY_TTL_MS);
+  const url = `${SITE_URL}/verify-email.html?token=${token}`;
+  return sendEmail(env, email, '[챔로드] 이메일 주소를 인증해주세요',
+    emailShell('이메일 인증', `<p>${escHtml(name)}님, 챔로드 가입을 환영합니다.</p>
+    <p>아래 버튼을 눌러 이메일 주소를 인증해주세요. (3일 내 유효)</p>
+    ${emailButton('이메일 인증하기', url)}`));
 }
 
 /* ── 입력 검증 (프론트 mock과 동일 기준 + 이메일 형식 강화) ── */
@@ -224,7 +309,7 @@ function passwordError(pw) {
 
 // 가입 시 받는 동의의 버전. 약관·방침을 개정하면 이 값을 함께 올려,
 // 어느 판본에 동의했는지 계정별로 남긴다(재동의가 필요한 회원을 가려낼 근거).
-const CONSENT_VERSION = 'terms-2026-07-29/privacy-2026-07-29';
+const CONSENT_VERSION = 'terms-2026-07-29/privacy-2026-08-06';
 
 function validateSignup(body) {
   const name = (body.name || '').trim();
@@ -264,9 +349,11 @@ async function handleSignup(request, env, origin) {
 
   const userId = res.meta.last_row_id;
   const session = await createSession(env.DB, userId, false);
+  // 이메일 인증(소프트) — 실패해도 가입은 완료되고, 인증 여부와 무관하게 로그인·이용 가능.
+  await sendVerifyEmail(env, userId, v.email, v.name);
   return ok({
     token: session.token,
-    user: { email: v.email, name: v.name, expiresAt: session.expiresAt },
+    user: { email: v.email, name: v.name, expiresAt: session.expiresAt, emailVerified: false },
   }, origin);
 }
 
@@ -305,7 +392,7 @@ async function handleLogin(request, env, origin) {
   }
 
   const user = await env.DB.prepare(
-    'SELECT id, email, name, password_hash FROM users WHERE email = ?'
+    'SELECT id, email, name, password_hash, email_verified FROM users WHERE email = ?'
   ).bind(email).first();
 
   // 사용자 없음/비밀번호 불일치를 같은 메시지로 — 이메일 존재 여부 노출 방지
@@ -325,7 +412,7 @@ async function handleLogin(request, env, origin) {
   const session = await createSession(env.DB, user.id, remember);
   return ok({
     token: session.token,
-    user: { email: user.email, name: user.name, expiresAt: session.expiresAt },
+    user: { email: user.email, name: user.name, expiresAt: session.expiresAt, emailVerified: !!user.email_verified },
   }, origin);
 }
 
@@ -342,7 +429,7 @@ async function handleMe(request, env, origin) {
   const session = await getSessionUser(env.DB, request);
   if (!session) return err(401, '로그인이 필요합니다.', origin);
   return ok({
-    user: { email: session.email, name: session.name, expiresAt: session.expires_at },
+    user: { email: session.email, name: session.name, expiresAt: session.expires_at, emailVerified: !!session.email_verified },
   }, origin);
 }
 
@@ -398,6 +485,98 @@ async function handleDeleteAccount(request, env, origin) {
     env.DB.prepare('DELETE FROM users WHERE id = ?').bind(session.id),
   ]);
   return ok({}, origin);
+}
+
+/* ── 비밀번호 재설정 / 이메일 인증 (Phase 5) ── */
+
+// 재설정 요청 — 계정 존재 여부를 노출하지 않도록 항상 200(같은 메시지).
+// 계정이 있고 최근 발송 이력이 없으면 30분 유효 토큰을 만들어 메일 발송.
+async function handleRequestReset(request, env, origin) {
+  const body = await readJson(request);
+  if (!body) return err(400, '잘못된 요청입니다.', origin);
+  const email = (body.email || '').toLowerCase().trim();
+  const DONE = { message: '입력하신 주소로 가입된 계정이 있으면 재설정 메일을 보냈습니다. 메일함을 확인해주세요.' };
+  if (!EMAIL_RE.test(email)) return ok(DONE, origin);   // 형식 불량도 동일 응답(계정 열거 방지)
+
+  const user = await env.DB.prepare('SELECT id, name FROM users WHERE email = ?').bind(email).first();
+  if (user) {
+    const now = Date.now();
+    if (!(await recentlySent(env.DB, user.id, 'reset', now))) {
+      const token = await createEmailToken(env.DB, user.id, 'reset', RESET_TTL_MS);
+      const url = `${SITE_URL}/reset-password.html?token=${token}`;
+      await sendEmail(env, email, '[챔로드] 비밀번호 재설정 안내',
+        emailShell('비밀번호 재설정', `<p>${escHtml(user.name)}님, 비밀번호를 재설정하려면 아래 버튼을 눌러주세요. (30분 내 유효)</p>
+    ${emailButton('비밀번호 재설정', url)}
+    <p style="font-size:13px;color:#6b7280">본인이 요청하지 않았다면 이 메일을 무시하세요. 비밀번호는 변경되지 않습니다.</p>`));
+    }
+  }
+  return ok(DONE, origin);
+}
+
+// 토큰으로 새 비밀번호 설정 — 검증 후 비번 교체 + 재설정 토큰 소진 + 전 세션 무효화.
+async function handleResetPassword(request, env, origin) {
+  const body = await readJson(request);
+  if (!body) return err(400, '잘못된 요청입니다.', origin);
+  const token = (body.token || '').trim();
+  const next = body.password || '';
+  if (!token) return err(400, '유효하지 않은 링크입니다.', origin);
+  const pwErr = passwordError(next);
+  if (pwErr) return err(400, pwErr, origin);
+
+  const tokenHash = await sha256hex(token);
+  const row = await env.DB.prepare(
+    "SELECT user_id, expires_at, used_at FROM email_tokens WHERE token_hash = ? AND purpose = 'reset'"
+  ).bind(tokenHash).first();
+  const now = Date.now();
+  if (!row || row.used_at || now > row.expires_at) {
+    return err(400, '링크가 만료되었거나 이미 사용되었습니다. 재설정을 다시 요청해주세요.', origin);
+  }
+
+  const newHash = await hashPassword(next, env.PEPPER);
+  const urow = await env.DB.prepare('SELECT email FROM users WHERE id = ?').bind(row.user_id).first();
+  await env.DB.batch([
+    env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(newHash, row.user_id),
+    // 이 사용자의 미사용 재설정 토큰 전부 소진(방금 쓴 것 포함)
+    env.DB.prepare("UPDATE email_tokens SET used_at = ? WHERE user_id = ? AND purpose = 'reset' AND used_at IS NULL").bind(now, row.user_id),
+    // 비번이 바뀌었으니 기존 세션 전부 종료 → 재로그인 유도
+    env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(row.user_id),
+  ]);
+  // 재설정 성공 = 이메일 통제 입증 → 로그인 실패 잠금도 해제
+  if (urow) await env.DB.prepare('DELETE FROM login_attempts WHERE email = ?').bind(urow.email).run();
+  return ok({ message: '비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요.' }, origin);
+}
+
+// 이메일 인증 토큰 소진 → email_verified = 1. 만료만 아니면 멱등(이미 인증돼도 성공).
+async function handleVerifyEmail(request, env, origin) {
+  const body = await readJson(request);
+  if (!body) return err(400, '잘못된 요청입니다.', origin);
+  const token = (body.token || '').trim();
+  if (!token) return err(400, '유효하지 않은 링크입니다.', origin);
+  const tokenHash = await sha256hex(token);
+  const row = await env.DB.prepare(
+    "SELECT user_id, expires_at FROM email_tokens WHERE token_hash = ? AND purpose = 'verify'"
+  ).bind(tokenHash).first();
+  const now = Date.now();
+  if (!row || now > row.expires_at) {
+    return err(400, '인증 링크가 만료되었습니다. 로그인 후 인증 메일을 다시 받아주세요.', origin);
+  }
+  await env.DB.batch([
+    env.DB.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').bind(row.user_id),
+    env.DB.prepare('UPDATE email_tokens SET used_at = ? WHERE token_hash = ? AND used_at IS NULL').bind(now, tokenHash),
+  ]);
+  return ok({ message: '이메일 인증이 완료되었습니다.' }, origin);
+}
+
+// 인증 메일 재발송(로그인 필요). 이미 인증됐으면 알림만, 쿨다운 내면 조용히 통과.
+async function handleResendVerification(request, env, origin) {
+  const session = await getSessionUser(env.DB, request);
+  if (!session) return err(401, '로그인이 필요합니다.', origin);
+  if (session.email_verified) return ok({ message: '이미 인증된 계정입니다.', alreadyVerified: true }, origin);
+  const now = Date.now();
+  if (!(await recentlySent(env.DB, session.id, 'verify', now))) {
+    await sendVerifyEmail(env, session.id, session.email, session.name);
+  }
+  return ok({ message: '인증 메일을 보냈습니다. 메일함을 확인해주세요.' }, origin);
 }
 
 /* ── 사용자 데이터 저장 (Phase 2: 진단·plan·진행률 등) ── */
@@ -1144,6 +1323,10 @@ const ROUTES = {
   'GET /api/auth/me': handleMe,
   'POST /api/auth/change-password': handleChangePassword,
   'POST /api/auth/delete-account': handleDeleteAccount,
+  'POST /api/auth/request-reset': handleRequestReset,
+  'POST /api/auth/reset-password': handleResetPassword,
+  'POST /api/auth/verify-email': handleVerifyEmail,
+  'POST /api/auth/resend-verification': handleResendVerification,
   'GET /api/data': handleGetData,
   'POST /api/data/sync': handleSyncData,
   'POST /api/ai/review': handleAiReview,

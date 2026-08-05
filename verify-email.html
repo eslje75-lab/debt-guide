@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>이메일 인증 | 챔로드</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#533afd">
+  <style>
+    .btn-primary {
+      width: 100%; padding: 0.75rem; background: #1d4ed8; color: white;
+      border-radius: 0.625rem; font-weight: 600; font-size: 0.95rem;
+      transition: background 0.2s; cursor: pointer; border: none; text-decoration: none;
+      display: inline-block; text-align: center;
+    }
+    .btn-primary:hover { background: #1e40af; }
+    .btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
+    .btn-outline {
+      width: 100%; padding: 0.75rem; background: white; color: #334155;
+      border: 1.5px solid #e2e8f0; border-radius: 0.625rem; font-weight: 600; font-size: 0.95rem;
+      transition: background 0.2s; cursor: pointer; text-decoration: none; display: inline-block; text-align: center;
+    }
+    .btn-outline:hover { background: #f8fafc; }
+    .spin { animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center">
+      <a href="index.html" class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#1e40af,#3b82f6)">
+          <svg class="w-4 h-4" viewBox="0 0 20 20" fill="none">
+            <path d="M2 18L10 5L18 18" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="10" y1="8.5" x2="10" y2="11.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+            <line x1="10" y1="14" x2="10" y2="17" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="font-bold text-slate-800 text-lg tracking-tight">챔로드</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="flex-1 flex items-center justify-center px-4 py-10">
+    <div class="w-full max-w-md">
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 text-center">
+
+        <!-- ── 진행 중 ── -->
+        <div id="loading-panel">
+          <svg class="w-10 h-10 text-blue-600 spin mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          <p class="text-sm text-slate-500">이메일을 인증하는 중입니다...</p>
+        </div>
+
+        <!-- ── 성공 ── -->
+        <div id="success-panel" class="hidden">
+          <div class="w-14 h-14 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+          </div>
+          <p class="text-base font-semibold text-slate-800 mb-2">이메일 인증이 완료되었습니다</p>
+          <p class="text-sm text-slate-500 leading-relaxed mb-5">감사합니다. 이제 챔로드의 모든 기능을 이용하실 수 있습니다.</p>
+          <a id="success-cta" href="index.html" class="btn-primary">홈으로 가기</a>
+        </div>
+
+        <!-- ── 실패/만료 ── -->
+        <div id="fail-panel" class="hidden">
+          <div class="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <p class="text-base font-semibold text-slate-800 mb-2">인증하지 못했습니다</p>
+          <p id="fail-msg" class="text-sm text-slate-500 leading-relaxed mb-5">인증 링크가 만료되었습니다. 로그인 후 인증 메일을 다시 받아주세요.</p>
+          <div class="space-y-2">
+            <button id="resend-btn" class="btn-primary hidden" onclick="doResend()">인증 메일 다시 받기</button>
+            <a id="fail-login" href="login.html" class="btn-outline">로그인 화면으로</a>
+          </div>
+          <p id="resend-note" class="text-xs text-slate-400 mt-3 hidden"></p>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+<script src="js/main.js"></script>
+<script>
+  const TOKEN = new URLSearchParams(location.search).get('token') || '';
+
+  function show(panel) {
+    ['loading-panel', 'success-panel', 'fail-panel'].forEach(id =>
+      document.getElementById(id).classList.toggle('hidden', id !== panel));
+  }
+
+  function showFail(msg) {
+    document.getElementById('fail-msg').textContent = msg;
+    // 로그인 상태면 재발송 버튼 노출(로그인해야 재발송 가능)
+    if (Auth.isLoggedIn()) {
+      document.getElementById('resend-btn').classList.remove('hidden');
+      document.getElementById('fail-login').textContent = '마이페이지로';
+      document.getElementById('fail-login').setAttribute('href', 'mypage.html');
+    }
+    show('fail-panel');
+  }
+
+  async function doResend() {
+    const btn = document.getElementById('resend-btn');
+    btn.disabled = true; btn.textContent = '보내는 중...';
+    const r = await Auth.resendVerification();
+    btn.disabled = false; btn.textContent = '인증 메일 다시 받기';
+    const note = document.getElementById('resend-note');
+    note.textContent = r.ok ? (r.message || '인증 메일을 보냈습니다. 메일함을 확인해주세요.')
+                            : (r.error || '재발송에 실패했습니다.');
+    note.classList.remove('hidden');
+  }
+
+  (async function () {
+    if (!TOKEN) { showFail('유효하지 않은 접근입니다. 인증 메일의 링크를 눌러 들어와주세요.'); return; }
+    const r = await Auth.verifyEmail(TOKEN);
+    if (r.ok) {
+      // 로그인 상태면 캐시 갱신 + CTA를 마이페이지로
+      if (Auth.isLoggedIn()) {
+        Auth._setVerified(true);
+        const cta = document.getElementById('success-cta');
+        cta.textContent = '마이페이지로'; cta.setAttribute('href', 'mypage.html');
+      }
+      show('success-panel');
+    } else {
+      showFail(r.error || '인증 링크가 만료되었습니다. 로그인 후 인증 메일을 다시 받아주세요.');
+    }
+  })();
+</script>
+</body>
+</html>

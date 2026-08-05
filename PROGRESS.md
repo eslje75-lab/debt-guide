@@ -34,6 +34,32 @@ API 라우트 20개 중 메일 관련 0건. Resend/SendGrid/SMTP 등 발송 코�
 
 ## 현재 상태 (최신이 위로)
 
+### 2026-08-06 — 이메일 인프라(Resend) 도입: 비밀번호 재설정·가입 이메일 인증 ⚠️실메일 수신 E2E 미확인
+
+LAUNCH-CHECKLIST 4단계 착수. 발송 서비스 = **Resend**(운영사 Plus Five Five, Inc.), 발송 도메인 `chamroad.com` 인증 완료(Cloudflare Authorize 자동 레코드 3종: MX `send`, TXT `send` SPF, TXT `resend._domainkey` DKIM), 리전 도쿄(ap-northeast-1). 발신주소 `no-reply@chamroad.com`. `RESEND_API_KEY` 시크릿 등록됨.
+
+- **인증 강도(사용자 결정): 소프트** — 가입·로그인은 인증과 무관하게 자유, 미인증이면 안내 배너만. 비밀번호 재설정은 인증 여부와 무관하게 작동.
+- **DB 마이그레이션 적용(프로덕션 D1)**: `users.email_verified INTEGER DEFAULT 0` 추가 + `email_tokens` 테이블(token_hash PK=SHA-256, purpose 'reset'|'verify', expires_at, used_at) + 인덱스. 파일 `api/migrations/2026-08-06-email-infra.sql`. ⚠️ALTER는 멱등 아님(1회만).
+- **Worker**(`api/src/index.js`): Resend 발송 모듈(`sendEmail`, 실패해도 가입 안 막음) + 메일 템플릿(인라인 스타일, escHtml). 엔드포인트 4개 — `request-reset`(항상 200·계정열거 방지·60초 쿨다운), `reset-password`(토큰검증→비번교체→토큰소진→전세션종료→로그인잠금해제), `verify-email`(멱등), `resend-verification`(Bearer). 가입 시 인증메일 자동발송, 로그인/가입/me 응답에 `emailVerified`. 토큰은 세션처럼 **해시만 저장**.
+- **프론트**: `find-account.html` 재작성(재설정 요청), `reset-password.html`·`verify-email.html` 신규(URL 토큰). `js/main.js` Auth에 me/requestReset/resetPassword/verifyEmail/resendVerification + `_saveSession`에 emailVerified + `initPage`에 미인증 슬림 배너(세션당 닫기, 옛 세션은 /me로 확정).
+- **개인정보처리방침 개정**(privacy.html): 제5조 위탁표에 Plus Five Five, Inc.(Resend) 행, 제6조 국외이전 ④(미국·일본, 이메일·이름, support@resend.com, 제28조의8 제2항 5개 호 충족), 거부방법 문단 반영, 시행일 2026-08-06 + 변경이력. **CONSENT_VERSION → `terms-2026-07-29/privacy-2026-08-06`**(bump, 재배포 완료).
+- **legal-verify T2(인라인)**: 조문 원문(CaseNote) 대조로 제1항 3호 가목·제2항 5개 호 충족 확인, 위탁(제26조) 분류 정확(제3자제공 아님), 국가 표기를 '미국 및 일본'으로 조임. Resend 법인명·연락처·처리국가는 resend.com 방침에서 확인.
+- **검증 완료**: 마이그레이션 반영 확인, 구조 스모크(verify/reset 잘못된토큰 400, resend 무인증 401), 전 파일 구문 통과. **⚠️미확인 = 실제 메일 수신·전체 플로우 E2E**(분류기가 PII조회·발송POST 차단 → 사용자가 실브라우저로 가입/재설정 흐름을 돌려 메일 수신을 직접 확인해야 함). 기존 회원 1명 존재(email_verified=0).
+- ⚠️**주의**: 백엔드가 프론트 push보다 먼저 배포돼, push 전 가입이 있었다면 인증메일 링크가 아직 없는 verify-email.html을 가리켰을 수 있음(가입 0건이라 실피해 없음). push로 해소.
+
+### 2026-08-05 — 커스텀 도메인 chamroad.com 연결 ✅배포·E2E 검증
+
+도메인 `chamroad.com` **구매 완료(Cloudflare Registrar, `eslje75` 계정, 만료 2027-08-05)** → 실서비스 도메인으로 연결. LAUNCH-CHECKLIST 3단계 완료.
+
+- **API 서브도메인**: `api.chamroad.com` → Worker `chamroad-api` 커스텀 도메인 연결. `api/wrangler.jsonc`에 `routes:[{pattern:"api.chamroad.com", custom_domain:true}]` + `workers_dev:true`(workers.dev 병행 유지) 추가 후 `wrangler deploy`. Cloudflare가 DNS(프록시)·SSL 자동 프로비저닝. **wrangler OAuth 토큰은 `workers_routes:write`는 있으나 `zone`은 read만** — 그래서 Worker 커스텀 도메인은 CLI로 됐지만 아래 본체 A레코드는 대시보드에서 사용자가 직접 넣음.
+- **본체 도메인**: `chamroad.com`(apex) A레코드 4개 → GitHub Pages IP(185.199.108~111.153), **전부 회색 구름(DNS only)**. 🚨프록시(주황) 두면 GitHub Pages SSL이 깨짐 — 반드시 DNS only. `CNAME` 파일(`chamroad.com`) 신규 커밋으로 GitHub이 커스텀 도메인 자동 인식.
+- **코드 URL 일괄 교체**(sed, 바이트단위라 한글 무손상): 전 페이지 OG·canonical + `sitemap.xml` + `robots.txt` → `chamroad.com`, `js/main.js` `API_BASE` → `https://api.chamroad.com`. **🐛404.html 절대경로 `/debt-guide/`(5곳) → 루트 `/`** — 커스텀 도메인은 프로젝트 경로(`/debt-guide/`)가 아니라 **루트에서 서빙**되므로 안 고치면 404 페이지의 파비콘·홈링크가 깨짐(전환 함정).
+- **CORS**: `api/src/index.js` `ALLOWED_ORIGINS`에 `https://chamroad.com`·`https://www.chamroad.com` 추가(github.io도 전환기 병행 유지).
+- **E2E 검증**: `https://chamroad.com` 200+타이틀/콘텐츠, 진단·요금제·회생 페이지 200, 커스텀 404 동작, `api.chamroad.com` 무인증 401+`Access-Control-Allow-Origin: https://chamroad.com`+한글메시지. DNS는 1.1.1.1 DoH로 apex 4개 IP·api 프록시 IP 확인.
+- ⚠️**남은 마무리(대시보드, 사용자)**: ①GitHub Settings→Pages **Enforce HTTPS 토글**(인증서 발급 후 활성화됨 — 현재 http는 리다이렉트 안 됨) ②`www.chamroad.com` 원하면 CNAME→`eslje75-lab.github.io`(현재 미설정, apex만). 
+- ⚠️**판매는 계속 잠금**(`PAYMENTS_ENABLED=false`) — 사업자등록 전. 도메인·이메일(4단계)까지는 진행 가능하나 실제 오픈은 사업자등록 후.
+- **다음**: LAUNCH-CHECKLIST 4단계(이메일 인증·비밀번호 재설정·주문확인 서면) — 이제 발송 도메인(chamroad.com)이 생겨 착수 가능.
+
 ### 2026-07-29 (5차) — 가입 동의를 서버에서 강제·기록 + 약관·방침 시행일 정정 ✅E2E·jsdom 7종
 
 사용자 질문("가입 시 본인인증이 없다")에서 출발해 점검한 결과, **본인인증은 필요 없고 다른 곳이 비어 있었다.**

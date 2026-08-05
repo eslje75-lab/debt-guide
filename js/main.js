@@ -411,9 +411,15 @@ const Auth = {
   },
 
   _saveSession(token, user) {
-    const session = { token, email: user.email, name: user.name, expiresAt: user.expiresAt };
+    const session = { token, email: user.email, name: user.name, expiresAt: user.expiresAt, emailVerified: !!user.emailVerified };
     try { localStorage.setItem(this._KS, JSON.stringify(session)); } catch {}
     return session;
+  },
+
+  // 세션 캐시의 emailVerified를 서버 값으로 갱신(있으면 저장). 미인증 안내 배너 판정에 쓴다.
+  _setVerified(v) {
+    const s = this.getSession();
+    if (s) { s.emailVerified = v; try { localStorage.setItem(this._KS, JSON.stringify(s)); } catch {} }
   },
 
   getSession() {
@@ -452,6 +458,35 @@ const Auth = {
     const user = this._saveSession(r.token, r.user);
     await DataSync.syncOnLogin();   // 새 계정: 게스트로 만든 로컬데이터를 계정으로 이관
     return { ok: true, user };
+  },
+
+  // 이메일 인증 상태를 서버에서 다시 받아 세션 캐시에 반영(배너 판정용).
+  async me() {
+    const r = await this._api('/api/auth/me', { method: 'GET', auth: true });
+    if (r.ok && r.user) this._setVerified(!!r.user.emailVerified);
+    return r;
+  },
+
+  // 비밀번호 재설정 요청 — 서버는 계정 존재 여부와 무관하게 항상 성공 응답(열거 방지).
+  async requestReset(email) {
+    return this._api('/api/auth/request-reset', { body: { email: email.toLowerCase().trim() } });
+  },
+
+  // 재설정 링크의 토큰 + 새 비밀번호로 실제 변경.
+  async resetPassword(token, password) {
+    return this._api('/api/auth/reset-password', { body: { token, password } });
+  },
+
+  // 가입 인증 링크의 토큰으로 이메일 인증 완료.
+  async verifyEmail(token) {
+    return this._api('/api/auth/verify-email', { body: { token } });
+  },
+
+  // 인증 메일 재발송(로그인 필요). 이미 인증돼 있으면 캐시도 갱신.
+  async resendVerification() {
+    const r = await this._api('/api/auth/resend-verification', { auth: true });
+    if (r.ok && r.alreadyVerified) this._setVerified(true);
+    return r;
   },
 
   async changePassword(currentPassword, newPassword) {
@@ -969,12 +1004,56 @@ function markContentAccess(allowed) {
   } catch (e) {}
 }
 
+// 미인증 이용자에게 이메일 인증을 권하는 슬림 배너(소프트 — 이용을 막지 않는다).
+// 비로그인·인증완료(또는 상태 미상)에는 표시하지 않고, 세션 동안 닫기를 기억한다.
+function renderVerifyBanner() {
+  if (!Auth || !Auth.getSession) return;
+  const s = Auth.getSession();
+  if (!s) return;                                     // 비로그인
+  try { if (sessionStorage.getItem('cdg_verify_hide')) return; } catch {}
+
+  const paint = () => {
+    const ss = Auth.getSession();
+    if (!ss || ss.emailVerified !== false) return;    // 인증됨/미상이면 표시 안 함
+    if (document.getElementById('verify-banner')) return;
+    const bar = document.createElement('div');
+    bar.id = 'verify-banner';
+    bar.style.cssText = 'background:#eef2ff;border-bottom:1px solid #c7d2fe;color:#3730a3';
+    bar.innerHTML = '<div style="max-width:72rem;margin:0 auto;padding:8px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px">'
+      + '<span style="flex:1;min-width:180px">📧 이메일 인증이 아직 안 됐어요. 가입 시 보낸 메일의 인증 링크를 눌러주세요.</span>'
+      + '<button id="vb-resend" style="background:#4f46e5;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer">인증 메일 재발송</button>'
+      + '<button id="vb-hide" aria-label="닫기" style="background:none;border:none;color:#6366f1;cursor:pointer;font-size:16px;line-height:1;padding:4px">✕</button>'
+      + '</div>';
+    const ph = document.getElementById('header-placeholder');
+    if (ph && ph.parentNode) ph.parentNode.insertBefore(bar, ph.nextSibling);
+    else document.body.insertBefore(bar, document.body.firstChild);
+
+    document.getElementById('vb-hide').onclick = () => {
+      try { sessionStorage.setItem('cdg_verify_hide', '1'); } catch {}
+      bar.remove();
+    };
+    document.getElementById('vb-resend').onclick = async () => {
+      const b = document.getElementById('vb-resend');
+      b.disabled = true; b.textContent = '보내는 중...';
+      const r = await Auth.resendVerification();
+      if (r && r.alreadyVerified) { bar.remove(); return; }
+      if (r && r.ok) { showToast(r.message || '인증 메일을 보냈습니다.', 'success'); b.textContent = '메일 보냈어요 ✓'; }
+      else { b.disabled = false; b.textContent = '인증 메일 재발송'; showToast((r && r.error) || '재발송에 실패했습니다.', 'error'); }
+    };
+  };
+
+  // 옛 세션(emailVerified 필드가 없던 시절 로그인)은 서버에서 상태를 확정한 뒤 판정.
+  if (s.emailVerified === undefined) Auth.me().then(paint).catch(() => {});
+  else paint();
+}
+
 function initPage(activePage) {
   renderHeader(activePage);
   renderFooter();
   initScrollTop();
   initGlossary();                  // 어려운 용어에 설명 툴팁 자동 부착
   track('pageview', activePage);   // 페이지별 조회 수(익명)
+  renderVerifyBanner();            // 미인증 이용자 안내 배너(소프트)
   document.addEventListener('click', (e) => {
     const d = document.getElementById('user-dropdown');
     if (d && !d.classList.contains('hidden') && !d.parentElement.contains(e.target)) {

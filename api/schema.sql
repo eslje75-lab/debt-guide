@@ -12,10 +12,12 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL, -- 형식: v1$<iterations>$<salt_b64>$<hash_b64> (PBKDF2-SHA256 + pepper)
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   agreed_at INTEGER,           -- unix ms
-  consent_version TEXT         -- 예: 'terms-2026-07-29/privacy-2026-07-29'
+  consent_version TEXT,        -- 예: 'terms-2026-07-29/privacy-2026-08-06'
+  email_verified INTEGER NOT NULL DEFAULT 0   -- 이메일 인증 여부(소프트). 로그인·이용은 인증과 무관, 안내만.
 );
 -- 기존 DB 반영: ALTER TABLE users ADD COLUMN agreed_at INTEGER;
 --               ALTER TABLE users ADD COLUMN consent_version TEXT;
+--               ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT PRIMARY KEY,          -- SHA-256(토큰) hex — 원본 토큰은 저장하지 않음
@@ -132,3 +134,16 @@ CREATE TABLE IF NOT EXISTS ai_trial (
   user_id  INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   used_at  INTEGER NOT NULL
 );
+
+-- Phase 5(이메일 인프라): 비밀번호 재설정·이메일 인증용 일회성 토큰.
+-- 세션과 동일하게 원본 토큰은 저장하지 않고 SHA-256 해시만 보관한다(DB 유출 시 무효).
+-- purpose='reset'(비밀번호 재설정) | 'verify'(가입 이메일 인증). 사용 시 used_at 기록 → 재사용 차단.
+CREATE TABLE IF NOT EXISTS email_tokens (
+  token_hash TEXT PRIMARY KEY,       -- SHA-256(토큰) hex
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  purpose    TEXT    NOT NULL,       -- 'reset' | 'verify'
+  expires_at INTEGER NOT NULL,       -- unix ms
+  created_at INTEGER NOT NULL,       -- unix ms (재발송 쿨다운 판단)
+  used_at    INTEGER                 -- 사용 시각(unix ms). null이면 미사용.
+);
+CREATE INDEX IF NOT EXISTS idx_email_tokens_user ON email_tokens(user_id, purpose);
