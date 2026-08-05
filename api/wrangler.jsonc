@@ -6,6 +6,12 @@
   "name": "chamroad-api",
   "main": "src/index.js",
   "compatibility_date": "2026-07-01",
+  // 커스텀 도메인: api.chamroad.com (Cloudflare 존이 같은 계정에 있어 자동 프로비저닝).
+  // workers.dev 주소도 전환기 동안 병행 유지(fallback).
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "api.chamroad.com", "custom_domain": true }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

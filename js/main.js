@@ -377,7 +377,7 @@ if (typeof window !== 'undefined') {
 // 로그인·가입·비밀번호 변경은 서버 API로 처리한다.
 const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
   ? 'http://localhost:8787'
-  : 'https://chamroad-api.eslje75.workers.dev';
+  : 'https://api.chamroad.com';
 
 // 판매 개시 스위치. false면 결제 진입 자체를 막고 '준비 중'으로 안내한다.
 //

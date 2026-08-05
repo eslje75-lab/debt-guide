@@ -81,8 +81,10 @@ const PLAN_KEYS = new Set(['plan', 'plan_packages', 'plan_type', 'plan_package',
 // 자체 익명 분석 — 허용된 이벤트만 집계(임의 값 오염 방지). 개인·세션·IP는 저장하지 않는다.
 const ANALYTICS_EVENTS = new Set(['pageview', 'diag_step', 'diag_complete', 'pay_start', 'pay_complete']);
 
-// CORS 허용 오리진 — GitHub Pages 프로덕션 + 로컬 개발 서버
+// CORS 허용 오리진 — 커스텀 도메인 + GitHub Pages(전환기 병행) + 로컬 개발 서버
 const ALLOWED_ORIGINS = new Set([
+  'https://chamroad.com',
+  'https://www.chamroad.com',
   'https://eslje75-lab.github.io',
   'http://localhost:3456',
   'http://127.0.0.1:3456',

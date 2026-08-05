@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **챔로드** — 개인회생·파산 셀프 진행 지원 정보 제공 플랫폼 (순수 HTML/CSS/JS, 프레임워크 없음)
 
 - 배포: GitHub Pages (`main` 브랜치 push 시 자동 반영)
-- URL: https://eslje75-lab.github.io/debt-guide/
+- URL: https://chamroad.com/ (구 GitHub Pages 주소 https://eslje75-lab.github.io/debt-guide/ 도 병행 유효)
 - GitHub: https://github.com/eslje75-lab/debt-guide
 
 ## 로컬 개발

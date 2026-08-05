@@ -5,4 +5,4 @@ Disallow: /login.html
 Disallow: /result.html
 Disallow: /find-account.html
 
-Sitemap: https://eslje75-lab.github.io/debt-guide/sitemap.xml
+Sitemap: https://chamroad.com/sitemap.xml
