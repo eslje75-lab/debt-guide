@@ -222,7 +222,7 @@ async function getSessionUser(db, request) {
   if (!token) return null;
   const tokenHash = await sha256hex(token);
   const row = await db.prepare(
-    `SELECT s.token_hash, s.expires_at, u.id, u.email, u.name, u.created_at, u.email_verified
+    `SELECT s.token_hash, s.expires_at, u.id, u.email, u.name, u.created_at, u.email_verified, u.phone
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = ?`
   ).bind(tokenHash).first();
@@ -362,7 +362,7 @@ function passwordError(pw) {
 
 // 가입 시 받는 동의의 버전. 약관·방침을 개정하면 이 값을 함께 올려,
 // 어느 판본에 동의했는지 계정별로 남긴다(재동의가 필요한 회원을 가려낼 근거).
-const CONSENT_VERSION = 'terms-2026-07-29/privacy-2026-08-06';
+const CONSENT_VERSION = 'terms-2026-07-29/privacy-2026-08-08';
 
 function validateSignup(body) {
   const name = (body.name || '').trim();
@@ -482,8 +482,22 @@ async function handleMe(request, env, origin) {
   const session = await getSessionUser(env.DB, request);
   if (!session) return err(401, '로그인이 필요합니다.', origin);
   return ok({
-    user: { email: session.email, name: session.name, expiresAt: session.expires_at, emailVerified: !!session.email_verified },
+    user: { email: session.email, name: session.name, expiresAt: session.expires_at, emailVerified: !!session.email_verified, phone: session.phone || '' },
   }, origin);
+}
+
+// 연락처(휴대폰) 저장 — 문제 발생 시 연락용(선택 입력). SMS 인증 아님(본인확인 미도입 방침 유지).
+// 빈 값이면 삭제. 국내 휴대폰 형식만 느슨히 확인.
+async function handleSavePhone(request, env, origin) {
+  const session = await getSessionUser(env.DB, request);
+  if (!session) return err(401, '로그인이 필요합니다.', origin);
+  const body = await readJson(request);
+  const raw = body && typeof body.phone === 'string' ? body.phone : '';
+  const digits = raw.replace(/\D/g, '');
+  if (digits && !/^01\d{7,9}$/.test(digits))
+    return err(400, '올바른 휴대폰 번호를 입력해주세요. (예: 010-1234-5678)', origin);
+  await env.DB.prepare('UPDATE users SET phone = ? WHERE id = ?').bind(digits || null, session.id).run();
+  return ok({ phone: digits || '' }, origin);
 }
 
 async function handleChangePassword(request, env, origin) {
@@ -1279,7 +1293,7 @@ async function handleAdminOverview(request, env, origin) {
   ).bind(todayStr).first();
 
   const recentUsers = await env.DB.prepare(
-    'SELECT id, email, name, created_at FROM users ORDER BY id DESC LIMIT 100'
+    'SELECT id, email, name, phone, created_at FROM users ORDER BY id DESC LIMIT 100'
   ).all();
   const recentPayments = await env.DB.prepare(
     `SELECT p.payment_id, p.package, p.amount, p.status, p.created_at, p.paid_at, u.email
@@ -1446,6 +1460,7 @@ const ROUTES = {
   'POST /api/auth/reset-password': handleResetPassword,
   'POST /api/auth/verify-email': handleVerifyEmail,
   'POST /api/auth/resend-verification': handleResendVerification,
+  'POST /api/user/phone': handleSavePhone,
   'GET /api/data': handleGetData,
   'POST /api/data/sync': handleSyncData,
   'POST /api/ai/review': handleAiReview,

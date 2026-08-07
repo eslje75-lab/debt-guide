@@ -502,6 +502,12 @@
     );
     if (!consent) return;
 
+    // 연락처(선택) — 결제·환불 등 문제 발생 시 연락용. SMS 인증이 아니며, 비워두면 수집하지 않는다
+    // (마이페이지에 이미 등록한 번호가 있으면 그대로 유지됨).
+    const phoneIn = window.prompt('문제 발생 시 연락받을 휴대폰 번호를 입력해주세요. (선택)\n마이페이지에서 나중에 등록·수정할 수도 있습니다. 원치 않으면 비워두세요.', '');
+    if (phoneIn === null) return;   // 취소 = 결제 중단
+    const buyerPhone = phoneIn.replace(/\D/g, '');
+
     _payBusy = true;
     try {
       // 1) 서버에 주문 생성 요청 — 금액·주문번호는 서버가 확정(위변조 방지)
@@ -515,6 +521,7 @@
       if (typeof track === 'function') track('pay_start', pkg);   // 결제창 호출(익명)
 
       // 2) 포트원 결제창 호출
+      const _u = Auth.getCurrentUser() || {};
       const payRes = await PortOne.requestPayment({
         storeId: prep.storeId,
         channelKey: prep.channelKey,
@@ -523,6 +530,11 @@
         totalAmount: prep.amount,
         currency: 'CURRENCY_KRW',
         payMethod: 'CARD',
+        customer: {
+          fullName: _u.name || undefined,
+          email: _u.email || undefined,
+          phoneNumber: buyerPhone || undefined,
+        },
       });
       if (payRes.code !== undefined) {
         // 사용자가 창을 닫았거나 결제 실패 — 사유를 그대로 안내
@@ -538,6 +550,14 @@
       }).then(r => r.json());
       if (!done.ok) { showToast(done.error || '결제 확인에 실패했습니다.', 'warn'); return; }
 
+      // 입력한 연락처를 계정에 저장(선택). 실패해도 결제 완료에는 영향 없음.
+      if (buyerPhone) {
+        fetch(API_BASE + '/api/user/phone', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.getSession().token },
+          body: JSON.stringify({ phone: buyerPhone }),
+        }).catch(() => {});
+      }
       // 서버가 부여한 plan 데이터를 로컬에 반영(즉시 UI 반영)
       const g = done.granted || {};
       Object.entries(g).forEach(([k, v]) => Storage.save(k, v));

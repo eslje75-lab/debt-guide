@@ -13,11 +13,13 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   agreed_at INTEGER,           -- unix ms
   consent_version TEXT,        -- 예: 'terms-2026-07-29/privacy-2026-08-06'
-  email_verified INTEGER NOT NULL DEFAULT 0   -- 이메일 인증 여부(소프트). 로그인·이용은 인증과 무관, 안내만.
+  email_verified INTEGER NOT NULL DEFAULT 0,  -- 이메일 인증 여부(소프트). 로그인·이용은 인증과 무관, 안내만.
+  phone TEXT                                  -- 연락처(휴대폰, 선택). 문제 발생 시 연락용 — SMS 본인확인 아님.
 );
 -- 기존 DB 반영: ALTER TABLE users ADD COLUMN agreed_at INTEGER;
 --               ALTER TABLE users ADD COLUMN consent_version TEXT;
 --               ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0;
+--               ALTER TABLE users ADD COLUMN phone TEXT;
 
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT PRIMARY KEY,          -- SHA-256(토큰) hex — 원본 토큰은 저장하지 않음

@@ -116,7 +116,8 @@
             <tr class="text-left text-xs text-slate-400 border-b border-slate-100">
               <th class="py-2 pr-3 font-medium">가입일</th>
               <th class="py-2 pr-3 font-medium">이름</th>
-              <th class="py-2 font-medium">이메일</th>
+              <th class="py-2 pr-3 font-medium">이메일</th>
+              <th class="py-2 font-medium">연락처</th>
             </tr>
           </thead>
           <tbody id="user-rows"></tbody>
@@ -331,7 +332,8 @@
       <tr class="border-b border-slate-50 last:border-0">
         <td class="py-2 pr-3 text-slate-500 text-xs whitespace-nowrap">${fmtDateStr(u.created_at)}</td>
         <td class="py-2 pr-3 text-slate-700">${esc(u.name)}</td>
-        <td class="py-2 text-slate-600">${esc(u.email)}</td>
+        <td class="py-2 pr-3 text-slate-600">${esc(u.email)}</td>
+        <td class="py-2 text-slate-600 text-xs whitespace-nowrap">${u.phone ? esc(u.phone) : '<span class="text-slate-300">-</span>'}</td>
       </tr>`).join('');
   }
 

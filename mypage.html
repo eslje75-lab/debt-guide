@@ -100,6 +100,17 @@
   <div id="account-section" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 hidden">
     <h3 class="font-bold text-slate-700 mb-3">🔒 계정 설정</h3>
     <div id="account-info" class="text-sm text-slate-500 mb-4"></div>
+
+    <!-- 연락처(선택) — 문제 발생 시 연락용. SMS 인증 아님. -->
+    <div class="mb-4 max-w-sm">
+      <label class="block text-sm font-medium text-slate-700 mb-1.5">연락처 <span class="text-slate-400 font-normal text-xs">(선택 · 문제 발생 시 연락용, 본인인증 아님)</span></label>
+      <div class="flex gap-2">
+        <input id="acc-phone" type="tel" inputmode="numeric" placeholder="010-1234-5678" class="flex-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm" autocomplete="tel">
+        <button id="acc-phone-btn" onclick="doSavePhone()" class="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors shrink-0">저장</button>
+      </div>
+      <p id="acc-phone-msg" class="text-xs mt-1 hidden"></p>
+    </div>
+
     <button id="pw-toggle-btn" onclick="togglePwForm()" class="border border-slate-300 px-5 py-2.5 text-slate-700 text-sm hover:bg-slate-50 transition-colors rounded-xl">비밀번호 변경</button>
     <div id="pw-change-form" class="hidden mt-4 space-y-3 max-w-sm">
       <div>
@@ -417,6 +428,46 @@
     document.getElementById('account-section').classList.remove('hidden');
     document.getElementById('account-info').innerHTML =
       `<strong class="text-slate-700">${user.name}</strong> · ${user.email}`;
+    loadPhone();
+  }
+
+  function formatPhone(d) {
+    d = String(d || '').replace(/\D/g, '');
+    if (d.length === 11) return d.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
+    if (d.length === 10) return d.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+    return d;
+  }
+  async function loadPhone() {
+    try {
+      const res = await fetch(API_BASE + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + Auth.getSession().token } });
+      const j = await res.json();
+      if (j.ok && j.user && j.user.phone) document.getElementById('acc-phone').value = formatPhone(j.user.phone);
+    } catch (e) { /* 오프라인 — 빈칸 유지 */ }
+  }
+  async function doSavePhone() {
+    const msg = document.getElementById('acc-phone-msg');
+    const btn = document.getElementById('acc-phone-btn');
+    const val = document.getElementById('acc-phone').value.trim();
+    btn.disabled = true;
+    try {
+      const res = await fetch(API_BASE + '/api/user/phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.getSession().token },
+        body: JSON.stringify({ phone: val }),
+      });
+      const j = await res.json();
+      msg.classList.remove('hidden');
+      if (!j.ok) { msg.className = 'text-xs mt-1 text-red-500'; msg.textContent = j.error || '저장에 실패했습니다.'; }
+      else {
+        msg.className = 'text-xs mt-1 text-green-600';
+        msg.textContent = j.phone ? '연락처가 저장되었습니다.' : '연락처가 삭제되었습니다.';
+        document.getElementById('acc-phone').value = formatPhone(j.phone);
+      }
+    } catch (e) {
+      msg.classList.remove('hidden'); msg.className = 'text-xs mt-1 text-red-500';
+      msg.textContent = '네트워크 오류로 저장하지 못했습니다.';
+    }
+    btn.disabled = false;
   }
 
   function togglePwForm() {
