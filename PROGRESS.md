@@ -34,6 +34,17 @@ API 라우트 20개 중 메일 관련 0건. Resend/SendGrid/SMTP 등 발송 코�
 
 ## 현재 상태 (최신이 위로)
 
+### 2026-08-08 — 주문확인 서면 메일 + 청약철회 신청 폼(LAUNCH 4단계 잔여) ⚠️실결제 E2E 미확인(판매 잠금)
+
+사업자등록 대기 중 미리 구축. 둘 다 **결제와 묶여** 있어 판매 잠금(PAYMENTS_ENABLED=false) 상태에선 실발화되지 않음 — 판매 오픈 시 자동 작동.
+
+- **주문확인 서면 메일**(전상법 제13조② 교부의무): `handlePaymentComplete`가 결제 확정 후 `sendOrderConfirmation` 호출. 담는 항목 = 사업자 신원(`BUSINESS_INFO` 상수)·상품/가격/지급수단·공급 방법/시기·청약철회 기한(결제일+14일)·방법·효과+지연배상금 연15%·분쟁처리·약관 링크. 메일 실패해도 결제 확정엔 영향 없음(.catch). 날짜는 `fmtDate`(KST +9h 보정).
+- **⚠️`BUSINESS_INFO`는 현재 플레이스홀더** — 사업자등록 후 상호·등록번호·통신판매신고번호·주소·연락처를 실값으로 교체할 것(index.js 상단 상수, terms 제11조·privacy 12항과 일치). 대표자만 '최은식' 기재됨.
+- **청약철회 신청**: `POST /api/payment/withdraw`(본인 결제) + 마이페이지 결제내역에 **[청약철회 신청]** 버튼(paid + 결제일 14일 이내에만 노출). 서버 로직 = **14일 이내 + 미개시(content_access 없음) → 자동 전액환불**(portoneCancel+status refunded+revokePackage+완료메일), 그 외(개시분 있음/기간 경과/PG미설정/PG실패) → 접수 후 **운영자 알림 메일(ADMIN_EMAIL) + 이용자 접수 안내** 후 관리자 수동 환불. `withdrawal_requests` 테이블(pending|auto_refunded|resolved)에 접수 기록(전상법 제13조②5호 서식·제5조④ 전자문서 충족). 프론트는 사유 prompt→전송, 환불 시 1.6초 후 reload.
+- **DB**: `withdrawal_requests` 테이블+인덱스 프로덕션 적용. ⚠️gotcha: `wrangler d1 execute --remote **--file**`이 import 엔드포인트에서 **Authentication error 10000**로 실패 → **`--command`(쿼리 API)로는 정상**. 앞으로 원격 마이그레이션은 --command로 문장 나눠 실행할 것.
+- **검증**: 전 파일 구문 통과, withdraw 무인증 401(라우트·게이트 확인). ⚠️배포 직후 첫 호출은 404(롤아웃 레이스) — 수초 후 401. **실결제→주문메일 수신·청약철회 자동환불 E2E는 판매 오픈(라이브 채널) 후에만 가능**.
+- **다음(판매 오픈 시)**: BUSINESS_INFO 실값 + 포트원 라이브 시크릿 교체 + 라이브 결제 1건으로 [주문메일 수신]·[청약철회 자동환불]·[개시 후 운영자검토] 3케이스 확인. (선택)admin에 withdrawal_requests pending 목록 노출.
+
 ### 2026-08-06 — 이메일 인프라(Resend) 도입: 비밀번호 재설정·가입 이메일 인증 ⚠️실메일 수신 E2E 미확인
 
 LAUNCH-CHECKLIST 4단계 착수. 발송 서비스 = **Resend**(운영사 Plus Five Five, Inc.), 발송 도메인 `chamroad.com` 인증 완료(Cloudflare Authorize 자동 레코드 3종: MX `send`, TXT `send` SPF, TXT `resend._domainkey` DKIM), 리전 도쿄(ap-northeast-1). 발신주소 `no-reply@chamroad.com`. `RESEND_API_KEY` 시크릿 등록됨.

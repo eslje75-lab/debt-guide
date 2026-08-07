@@ -40,6 +40,20 @@ const RESET_TTL_MS = 30 * 60 * 1000;   // 비밀번호 재설정 토큰 유효 3
 const VERIFY_TTL_MS = 3 * DAY_MS;      // 이메일 인증 토큰 유효 3일
 const EMAIL_COOLDOWN_MS = 60 * 1000;   // 같은 목적 재발송 최소 간격(메일 폭탄 방지)
 
+// 사업자 신원 — 전자상거래법 제10조(표시)·제13조②(계약내용 서면)에 들어갈 값.
+// ⚠️ 사업자등록 후 실값으로 교체할 것. 판매(PAYMENTS_ENABLED)는 사업자등록 후에 열리므로
+//    실제 결제·주문확인 메일이 나가는 시점엔 아래가 실값이어야 한다. terms 제11조·privacy 12항과 일치시킬 것.
+const BUSINESS_INFO = {
+  name:        '(상호: 사업자등록 후 기재)',
+  ceo:         '최은식',
+  regNo:       '(사업자등록번호: 등록 후 기재)',
+  mailOrderNo: '(통신판매업 신고번호: 신고 후 기재 / 면제 시 그 취지)',
+  address:     '(사업장 주소: 등록 후 기재)',
+  tel:         '(연락처: 등록 후 기재)',
+  email:       'eslje75@gmail.com',
+};
+const REFUND_WINDOW_MS = 14 * DAY_MS;   // 청약철회 기간: 결제일부터 14일(약관 제6조)
+
 // 사용자 데이터 동기화(Phase 2) 한도
 const MAX_KEY_LEN = 64;
 const MAX_VALUE_BYTES = 100 * 1024;   // 값 1개(JSON 문자열) 최대
@@ -290,6 +304,45 @@ async function sendVerifyEmail(env, userId, email, name) {
     emailShell('이메일 인증', `<p>${escHtml(name)}님, 챔로드 가입을 환영합니다.</p>
     <p>아래 버튼을 눌러 이메일 주소를 인증해주세요. (3일 내 유효)</p>
     ${emailButton('이메일 인증하기', url)}`));
+}
+
+// unix ms → 'YYYY. MM. DD. HH:MM (KST)'. Workers는 UTC로 도므로 +9시간 보정 후 UTC 게터 사용.
+function fmtDate(ms) {
+  const d = new Date(ms + 9 * 3600 * 1000);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}. ${p(d.getUTCMonth() + 1)}. ${p(d.getUTCDate())}. ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} (KST)`;
+}
+
+// 결제 완료 시 계약 내용에 관한 서면(주문 확인 메일) — 전자상거래법 제13조② 교부의무.
+// 담는 항목: 사업자 신원 / 상품·가격·지급 / 공급 방법·시기 / 청약철회 기한·방법·효과 + 서식 / 분쟁처리.
+async function sendOrderConfirmation(env, toEmail, toName, order, paidAt) {
+  const pkg = PACKAGES[order.package] || {};
+  const term = PACKAGE_TERMS[order.package] || {};
+  const won = String(order.amount || 0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const b = BUSINESS_INFO;
+  const row = (k, v) => `<tr><td style="padding:6px 10px;color:#6b7280;white-space:nowrap;vertical-align:top">${k}</td><td style="padding:6px 10px;color:#1a1a2e">${v}</td></tr>`;
+  const termDesc = term.months ? `이용기간 ${term.months}개월 · AI 서류검토 ${term.aiQuota}회 포함` : '';
+  const body = `
+    <p>${escHtml(toName)}님, 결제가 완료되었습니다. 아래는 「전자상거래 등에서의 소비자보호에 관한 법률」 제13조에 따른 계약 내용입니다.</p>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin:12px 0;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb">
+      ${row('판매자', `${escHtml(b.name)} · 대표 ${escHtml(b.ceo)}`)}
+      ${row('사업자등록번호', escHtml(b.regNo))}
+      ${row('통신판매업', escHtml(b.mailOrderNo))}
+      ${row('주소 / 연락처', `${escHtml(b.address)}<br>${escHtml(b.tel)} · ${escHtml(b.email)}`)}
+      ${row('상품', `${escHtml(pkg.name || order.package)}${termDesc ? '<br>' + termDesc : ''}`)}
+      ${row('결제 금액', `${won}원`)}
+      ${row('결제수단 / 일시', `신용카드 등 · ${fmtDate(paidAt)}`)}
+      ${row('공급 방법 / 시기', '온라인 디지털 콘텐츠 · 결제 즉시 이용 개시')}
+      ${row('주문번호', escHtml(order.payment_id))}
+    </table>
+    <p style="font-size:13px;color:#374151;line-height:1.8"><strong>청약철회 안내</strong><br>
+      · 기한: <strong>결제일부터 14일 이내</strong>(~${fmtDate(paidAt + REFUND_WINDOW_MS)}). 법정 기간보다 긴 기간을 약정한 것입니다.<br>
+      · 방법: 마이페이지 &gt; 결제 내역의 <strong>[청약철회 신청]</strong> 또는 ${escHtml(b.email)}로 신청.<br>
+      · 효과: 아직 <strong>이용을 시작하지 않은 부분</strong>은 전액 환불됩니다. 이미 제공이 개시된 디지털 콘텐츠는 「전자상거래법」 제17조 제2항 제5호에 따라 청약철회가 제한될 수 있습니다(미리보기·체험 제공 및 사전 고지 완료).<br>
+      · 환불 지연 시 지연배상금은 연 15%(시행령 제21조의3)입니다.</p>
+    <p style="font-size:13px;color:#6b7280">약관: ${SITE_URL}/terms.html · 개인정보처리방침: ${SITE_URL}/privacy.html<br>
+      분쟁이 있으면 소비자상담센터(국번없이 1372)·한국소비자원·전자거래분쟁조정위원회를 통해 도움받으실 수 있습니다.</p>`;
+  return sendEmail(env, toEmail, '[챔로드] 결제 확인 및 계약 내용 안내', emailShell('결제 완료 · 계약 내용', body));
 }
 
 /* ── 입력 검증 (프론트 mock과 동일 기준 + 이메일 형식 강화) ── */
@@ -1071,10 +1124,76 @@ async function handlePaymentComplete(request, env, origin) {
     return err(400, '결제 금액이 일치하지 않습니다. 결제가 진행되었다면 문의해주세요.', origin);
   }
 
+  const paidAt = Date.now();
   await env.DB.prepare('UPDATE payments SET status = ?, paid_at = ? WHERE payment_id = ?')
-    .bind('paid', Date.now(), paymentId).run();
+    .bind('paid', paidAt, paymentId).run();
   const granted = await grantPackage(env, session.id, order.package);
+  // 계약 내용 서면(주문 확인 메일) — 전상법 제13조② 교부의무. 실패해도 결제 확정에는 영향 없음.
+  await sendOrderConfirmation(env, session.email, session.name, order, paidAt).catch(() => {});
   return ok({ granted }, origin);
+}
+
+// 청약철회 신청 — 전자상거래법 제13조②5호(서식)·제5조④(전자문서). 본인 결제만.
+// 결제일부터 14일 이내 + 미개시(content_access 없음)면 자동 전액환불, 그 외는 접수 후 운영자 검토.
+async function handleWithdraw(request, env, origin) {
+  const session = await getSessionUser(env.DB, request);
+  if (!session) return err(401, '로그인이 필요합니다.', origin);
+  const body = await readJson(request);
+  const paymentId = body && typeof body.paymentId === 'string' ? body.paymentId : '';
+  const reason = (body && typeof body.reason === 'string' ? body.reason : '').trim().slice(0, 500);
+  if (!paymentId) return err(400, '결제 정보가 없습니다.', origin);
+
+  const order = await env.DB.prepare('SELECT * FROM payments WHERE payment_id = ? AND user_id = ?')
+    .bind(paymentId, session.id).first();
+  if (!order) return err(404, '결제 주문을 찾을 수 없습니다.', origin);
+  if (order.status === 'refunded') return ok({ status: 'already_refunded', message: '이미 환불된 결제입니다.' }, origin);
+  if (order.status !== 'paid') return err(400, '완료된 결제만 청약철회할 수 있습니다.', origin);
+
+  const now = Date.now();
+  // 신청 접수 기록(서식 요건 충족 + 운영자 검토 근거)
+  await env.DB.prepare(
+    'INSERT INTO withdrawal_requests (payment_id, user_id, reason, status, created_at) VALUES (?,?,?,?,?)'
+  ).bind(paymentId, session.id, reason || null, 'pending', now).run();
+
+  const access = await env.DB.prepare(
+    'SELECT first_access_at FROM content_access WHERE user_id = ? AND package = ?'
+  ).bind(session.id, order.package).first();
+  const within14 = order.paid_at && (now - order.paid_at) <= REFUND_WINDOW_MS;
+  const started = !!(access && access.first_access_at);
+  const cancelReason = reason || '고객 청약철회(이용약관 제6조)';
+
+  // 자동 전액환불: 14일 이내 + 미개시 + PG 설정됨
+  if (within14 && !started && env.PORTONE_API_SECRET) {
+    const res = await portoneCancel(env, paymentId, cancelReason);
+    if (res !== 'fail') {
+      await env.DB.prepare("UPDATE payments SET status='refunded', refunded_at=? WHERE payment_id=? AND status='paid'")
+        .bind(now, paymentId).run();
+      await env.DB.prepare("UPDATE withdrawal_requests SET status='auto_refunded' WHERE payment_id=? AND status='pending'")
+        .bind(paymentId).run();
+      try {
+        const remain = await env.DB.prepare("SELECT COUNT(*) AS c FROM payments WHERE user_id=? AND package=? AND status='paid'")
+          .bind(session.id, order.package).first();
+        if (!remain || remain.c === 0) await revokePackage(env, session.id, order.package);
+      } catch (e) { console.error('revoke after withdraw failed', e.message); }
+      await sendEmail(env, session.email, '[챔로드] 청약철회 · 환불 처리 완료',
+        emailShell('청약철회 처리 완료', `<p>${escHtml(session.name)}님, 요청하신 청약철회가 접수되어 <strong>전액 환불</strong> 처리되었습니다.</p>
+        <p style="font-size:13px;color:#6b7280">카드 결제 취소는 카드사 정책에 따라 영업일 기준 수일이 걸릴 수 있습니다.</p>`)).catch(() => {});
+      return ok({ status: 'refunded', message: '청약철회가 접수되어 전액 환불 처리되었습니다.' }, origin);
+    }
+    // portone 실패 → 아래 운영자 검토로 폴백
+  }
+
+  // 자동 대상 아님(개시분 있음/기간 경과/PG 미설정/PG 실패) → 운영자 알림 + 이용자 접수 안내
+  const admin = env.ADMIN_EMAIL || BUSINESS_INFO.email;
+  const days = Math.floor((now - (order.paid_at || now)) / DAY_MS);
+  await sendEmail(env, admin, '[챔로드] 청약철회 신청 접수(검토 필요)',
+    emailShell('청약철회 신청(검토 필요)', `<p>주문번호: ${escHtml(paymentId)}<br>회원: ${escHtml(session.email)}<br>패키지: ${escHtml(order.package)}<br>제공 개시: ${started ? '있음' : '없음'} · 결제 후 ${days}일 경과</p>
+    <p>사유: ${escHtml(reason || '(미기재)')}</p>
+    <p style="font-size:13px;color:#6b7280">관리자 페이지에서 검토 후 환불 처리하세요.</p>`)).catch(() => {});
+  await sendEmail(env, session.email, '[챔로드] 청약철회 신청이 접수되었습니다',
+    emailShell('청약철회 접수', `<p>${escHtml(session.name)}님, 청약철회 신청이 접수되었습니다.</p>
+    <p style="font-size:13px;color:#374151">이미 이용을 시작한 부분이 있거나 확인이 필요한 경우가 있어, 검토 후 처리 결과를 이메일로 안내드립니다.</p>`)).catch(() => {});
+  return ok({ status: 'received', message: '청약철회 신청이 접수되었습니다. 검토 후 이메일로 안내드리겠습니다.' }, origin);
 }
 
 // 환불 시 이용권 회수 — grantPackage의 역. 해당 패키지를 보유목록에서 빼고 대표 패키지를 재계산한다.
@@ -1333,6 +1452,7 @@ const ROUTES = {
   'POST /api/payment/prepare': handlePaymentPrepare,
   'POST /api/payment/complete': handlePaymentComplete,
   'GET /api/payment/history': handlePaymentHistory,
+  'POST /api/payment/withdraw': handleWithdraw,
   'POST /api/content/access': handleContentAccess,
   'POST /api/analytics': handleAnalytics,
 };
