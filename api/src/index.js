@@ -54,6 +54,13 @@ const BUSINESS_INFO = {
 };
 const REFUND_WINDOW_MS = 14 * DAY_MS;   // 청약철회 기간: 결제일부터 14일(약관 제6조)
 
+// 결제 시 SMS 번호 인증(솔라피). 성인 '검증'은 하지 않고(자기신고), 유료 고객 연락처 진위만 확인.
+const OTP_TTL_MS = 5 * 60 * 1000;       // 인증코드 유효 5분
+const OTP_COOLDOWN_MS = 60 * 1000;      // 재발송 쿨다운 60초
+const OTP_WINDOW_MS = 60 * 60 * 1000;   // 발송횟수 제한 윈도우 1시간
+const OTP_MAX_SENDS = 5;                // 윈도우 내 최대 발송
+const OTP_MAX_ATTEMPTS = 5;             // 코드 검증 최대 시도
+
 // 사용자 데이터 동기화(Phase 2) 한도
 const MAX_KEY_LEN = 64;
 const MAX_VALUE_BYTES = 100 * 1024;   // 값 1개(JSON 문자열) 최대
@@ -222,7 +229,7 @@ async function getSessionUser(db, request) {
   if (!token) return null;
   const tokenHash = await sha256hex(token);
   const row = await db.prepare(
-    `SELECT s.token_hash, s.expires_at, u.id, u.email, u.name, u.created_at, u.email_verified, u.phone
+    `SELECT s.token_hash, s.expires_at, u.id, u.email, u.name, u.created_at, u.email_verified, u.phone, u.phone_verified
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = ?`
   ).bind(tokenHash).first();
@@ -304,6 +311,37 @@ async function sendVerifyEmail(env, userId, email, name) {
     emailShell('이메일 인증', `<p>${escHtml(name)}님, 챔로드 가입을 환영합니다.</p>
     <p>아래 버튼을 눌러 이메일 주소를 인증해주세요. (3일 내 유효)</p>
     ${emailButton('이메일 인증하기', url)}`));
+}
+
+/* ── SMS 발송(솔라피) ── */
+
+async function hmacHex(secret, msg) {
+  const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return hex(await crypto.subtle.sign('HMAC', key, enc.encode(msg)));
+}
+
+// 솔라피 단문(SMS) 1건 발송. 키/발신번호 미설정·실패 시 false.
+// 인증: Authorization: HMAC-SHA256 apiKey, date, salt, signature=HMAC-SHA256(apiSecret, date+salt) hex.
+// 다른 서비스(알리고 등)로 바꿀 땐 이 함수만 교체하면 된다.
+async function sendSms(env, to, text) {
+  if (!env.SOLAPI_API_KEY || !env.SOLAPI_API_SECRET || !env.SMS_SENDER) {
+    console.error('sms: 솔라피 시크릿(SOLAPI_API_KEY/SECRET/SMS_SENDER) 미설정'); return false;
+  }
+  const date = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
+  const signature = await hmacHex(env.SOLAPI_API_SECRET, date + salt);
+  try {
+    const r = await fetch('https://api.solapi.com/messages/v4/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `HMAC-SHA256 apiKey=${env.SOLAPI_API_KEY}, date=${date}, salt=${salt}, signature=${signature}`,
+      },
+      body: JSON.stringify({ message: { to, from: env.SMS_SENDER, text } }),
+    });
+    if (!r.ok) { console.error('sms send fail', r.status, (await r.text().catch(() => '')).slice(0, 200)); return false; }
+    return true;
+  } catch (e) { console.error('sms send error', e); return false; }
 }
 
 // unix ms → 'YYYY. MM. DD. HH:MM (KST)'. Workers는 UTC로 도므로 +9시간 보정 후 UTC 게터 사용.
@@ -482,7 +520,7 @@ async function handleMe(request, env, origin) {
   const session = await getSessionUser(env.DB, request);
   if (!session) return err(401, '로그인이 필요합니다.', origin);
   return ok({
-    user: { email: session.email, name: session.name, expiresAt: session.expires_at, emailVerified: !!session.email_verified, phone: session.phone || '' },
+    user: { email: session.email, name: session.name, expiresAt: session.expires_at, emailVerified: !!session.email_verified, phone: session.phone || '', phoneVerified: !!session.phone_verified },
   }, origin);
 }
 
@@ -498,6 +536,72 @@ async function handleSavePhone(request, env, origin) {
     return err(400, '올바른 휴대폰 번호를 입력해주세요. (예: 010-1234-5678)', origin);
   await env.DB.prepare('UPDATE users SET phone = ? WHERE id = ?').bind(digits || null, session.id).run();
   return ok({ phone: digits || '' }, origin);
+}
+
+// 결제 시 휴대폰 SMS 인증 — 코드 발송. 재발송 쿨다운 + 시간당 발송 제한.
+async function handleSendCode(request, env, origin) {
+  const session = await getSessionUser(env.DB, request);
+  if (!session) return err(401, '로그인이 필요합니다.', origin);
+  if (!env.SOLAPI_API_KEY) return err(503, '문자 인증이 아직 준비 중입니다.', origin);
+  const body = await readJson(request);
+  const phone = (body && typeof body.phone === 'string' ? body.phone : '').replace(/\D/g, '');
+  if (!/^01\d{7,9}$/.test(phone)) return err(400, '올바른 휴대폰 번호를 입력해주세요.', origin);
+
+  const now = Date.now();
+  const prev = await env.DB.prepare('SELECT last_sent, window_start, send_count FROM phone_otp WHERE user_id = ?')
+    .bind(session.id).first();
+  let windowStart = now, sendCount = 0;
+  if (prev) {
+    if (now - prev.last_sent < OTP_COOLDOWN_MS)
+      return err(429, '인증번호를 방금 보냈습니다. 잠시 후 다시 시도해주세요.', origin);
+    if (now - prev.window_start < OTP_WINDOW_MS) {
+      if (prev.send_count >= OTP_MAX_SENDS)
+        return err(429, '인증 요청이 많습니다. 1시간 후 다시 시도해주세요.', origin);
+      windowStart = prev.window_start; sendCount = prev.send_count;
+    }
+  }
+
+  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
+  const codeHash = await sha256hex(code);
+  const sent = await sendSms(env, phone, `[챔로드] 인증번호 ${code} (5분 내 입력). 타인에게 알려주지 마세요.`);
+  if (!sent) return err(502, '문자 발송에 실패했습니다. 번호를 확인하고 잠시 후 다시 시도해주세요.', origin);
+
+  await env.DB.prepare(
+    `INSERT INTO phone_otp (user_id, phone, code_hash, expires_at, attempts, last_sent, window_start, send_count)
+     VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6, ?7)
+     ON CONFLICT(user_id) DO UPDATE SET phone=?2, code_hash=?3, expires_at=?4, attempts=0, last_sent=?5, window_start=?6, send_count=?7`
+  ).bind(session.id, phone, codeHash, now + OTP_TTL_MS, now, windowStart, sendCount + 1).run();
+
+  return ok({ sent: true, message: '인증번호를 문자로 보냈습니다.' }, origin);
+}
+
+// SMS 인증 코드 검증 — 성공 시 users.phone + phone_verified 설정, OTP 행 삭제.
+async function handleVerifyCode(request, env, origin) {
+  const session = await getSessionUser(env.DB, request);
+  if (!session) return err(401, '로그인이 필요합니다.', origin);
+  const body = await readJson(request);
+  const code = (body && typeof body.code === 'string' ? body.code : '').replace(/\D/g, '');
+  if (!code) return err(400, '인증번호를 입력해주세요.', origin);
+
+  const row = await env.DB.prepare('SELECT phone, code_hash, expires_at, attempts FROM phone_otp WHERE user_id = ?')
+    .bind(session.id).first();
+  const now = Date.now();
+  if (!row || now > row.expires_at)
+    return err(400, '인증번호가 만료되었습니다. 다시 요청해주세요.', origin);
+  if (row.attempts >= OTP_MAX_ATTEMPTS)
+    return err(429, '인증 시도가 많습니다. 인증번호를 다시 요청해주세요.', origin);
+
+  const codeHash = await sha256hex(code);
+  if (codeHash !== row.code_hash) {
+    await env.DB.prepare('UPDATE phone_otp SET attempts = attempts + 1 WHERE user_id = ?').bind(session.id).run();
+    return err(400, '인증번호가 올바르지 않습니다.', origin);
+  }
+
+  await env.DB.batch([
+    env.DB.prepare('UPDATE users SET phone = ?, phone_verified = 1 WHERE id = ?').bind(row.phone, session.id),
+    env.DB.prepare('DELETE FROM phone_otp WHERE user_id = ?').bind(session.id),
+  ]);
+  return ok({ verified: true, phone: row.phone }, origin);
 }
 
 async function handleChangePassword(request, env, origin) {
@@ -1461,6 +1565,8 @@ const ROUTES = {
   'POST /api/auth/verify-email': handleVerifyEmail,
   'POST /api/auth/resend-verification': handleResendVerification,
   'POST /api/user/phone': handleSavePhone,
+  'POST /api/phone/send-code': handleSendCode,
+  'POST /api/phone/verify-code': handleVerifyCode,
   'GET /api/data': handleGetData,
   'POST /api/data/sync': handleSyncData,
   'POST /api/ai/review': handleAiReview,

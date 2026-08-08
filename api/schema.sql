@@ -14,12 +14,14 @@ CREATE TABLE IF NOT EXISTS users (
   agreed_at INTEGER,           -- unix ms
   consent_version TEXT,        -- 예: 'terms-2026-07-29/privacy-2026-08-06'
   email_verified INTEGER NOT NULL DEFAULT 0,  -- 이메일 인증 여부(소프트). 로그인·이용은 인증과 무관, 안내만.
-  phone TEXT                                  -- 연락처(휴대폰, 선택). 문제 발생 시 연락용 — SMS 본인확인 아님.
+  phone TEXT,                                 -- 연락처(휴대폰, 선택). 마이페이지 선택 입력 또는 결제 시 SMS 인증으로 확정.
+  phone_verified INTEGER NOT NULL DEFAULT 0   -- 결제 시 SMS 인증으로 진위 확인된 번호인지. 성인 '검증'은 아님(자기신고).
 );
 -- 기존 DB 반영: ALTER TABLE users ADD COLUMN agreed_at INTEGER;
 --               ALTER TABLE users ADD COLUMN consent_version TEXT;
 --               ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0;
 --               ALTER TABLE users ADD COLUMN phone TEXT;
+--               ALTER TABLE users ADD COLUMN phone_verified INTEGER NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT PRIMARY KEY,          -- SHA-256(토큰) hex — 원본 토큰은 저장하지 않음
@@ -163,3 +165,16 @@ CREATE TABLE IF NOT EXISTS withdrawal_requests (
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_withdrawal_user ON withdrawal_requests(user_id);
+
+-- 결제 시 휴대폰 SMS 인증(솔라피)용 일회성 코드. 사용자당 1행(재발송 시 덮어씀).
+-- 코드는 원문이 아닌 SHA-256 해시만 저장. last_sent=쿨다운, window_start/send_count=발송횟수 제한.
+CREATE TABLE IF NOT EXISTS phone_otp (
+  user_id      INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  phone        TEXT    NOT NULL,
+  code_hash    TEXT    NOT NULL,       -- SHA-256(코드) hex
+  expires_at   INTEGER NOT NULL,       -- unix ms
+  attempts     INTEGER NOT NULL DEFAULT 0,
+  last_sent    INTEGER NOT NULL,       -- 마지막 발송(unix ms) — 재발송 쿨다운
+  window_start INTEGER NOT NULL,       -- 발송횟수 제한 윈도우 시작(unix ms)
+  send_count   INTEGER NOT NULL DEFAULT 0
+);
