@@ -400,7 +400,7 @@ function passwordError(pw) {
 
 // 가입 시 받는 동의의 버전. 약관·방침을 개정하면 이 값을 함께 올려,
 // 어느 판본에 동의했는지 계정별로 남긴다(재동의가 필요한 회원을 가려낼 근거).
-const CONSENT_VERSION = 'terms-2026-07-29/privacy-2026-08-08b';
+const CONSENT_VERSION = 'terms-2026-07-29/privacy-2026-08-08c';
 
 function validateSignup(body) {
   const name = (body.name || '').trim();
@@ -630,7 +630,12 @@ async function handleChangePassword(request, env, origin) {
 
 // 회원탈퇴 — 개인정보보호법 제36조(삭제 요구권) 행사 창구.
 // users 삭제 시 sessions·user_data·ai_usage·payments가 FK CASCADE로 함께 삭제된다.
-// 단, 완료된 결제는 전자상거래법 시행령 제6조상 5년 보존 대상이라 payments_archive로 옮긴 뒤 삭제한다.
+// 단, 전자상거래법 시행령 제6조는 '계약 또는 청약철회등에 관한 기록'과 '대금결제에 관한 기록'을
+// 5년 보존하게 하므로, 아래 둘은 삭제 전에 회원정보와 분리된 별도 표로 옮긴다.
+//   ① payments → payments_archive : 완료(paid) + 환불(refunded) 결제. 환불건도 대금결제 기록이다.
+//   ② withdrawal_requests → withdrawal_archive : 청약철회 신청 사실·시각·처리결과.
+//      ⚠️ 신청 사유(reason)는 옮기지 않는다 — 청약철회는 사유를 요하지 않아 보존 의무 대상이 아니고,
+//      이용자가 자유서술한 텍스트를 5년 보관하는 것은 개인정보 최소수집 원칙에 어긋난다.
 async function handleDeleteAccount(request, env, origin) {
   const session = await getSessionUser(env.DB, request);
   if (!session) return err(401, '로그인이 필요합니다.', origin);
@@ -649,9 +654,15 @@ async function handleDeleteAccount(request, env, origin) {
   await env.DB.batch([
     env.DB.prepare(
       `INSERT OR REPLACE INTO payments_archive
-         (payment_id, email, package, amount, status, created_at, paid_at, archived_at)
-       SELECT payment_id, ?1, package, amount, status, created_at, paid_at, ?2
-         FROM payments WHERE user_id = ?3 AND status = 'paid'`
+         (payment_id, email, package, amount, status, created_at, paid_at, refunded_at, archived_at)
+       SELECT payment_id, ?1, package, amount, status, created_at, paid_at, refunded_at, ?2
+         FROM payments WHERE user_id = ?3 AND status IN ('paid', 'refunded')`
+    ).bind(session.email, now, session.id),
+    env.DB.prepare(
+      `INSERT INTO withdrawal_archive
+         (payment_id, email, status, created_at, archived_at)
+       SELECT payment_id, ?1, status, created_at, ?2
+         FROM withdrawal_requests WHERE user_id = ?3`
     ).bind(session.email, now, session.id),
     env.DB.prepare('DELETE FROM users WHERE id = ?').bind(session.id),
   ]);
@@ -1396,8 +1407,11 @@ async function handleAdminOverview(request, env, origin) {
     "SELECT COUNT(*) AS c FROM users WHERE substr(created_at,1,10) = ?"
   ).bind(todayStr).first();
 
+  // trial_used = AI 무료 체험 1회 소진 여부(체험 초기화 버튼 노출 판단용).
   const recentUsers = await env.DB.prepare(
-    'SELECT id, email, name, phone, created_at FROM users ORDER BY id DESC LIMIT 100'
+    `SELECT u.id, u.email, u.name, u.phone, u.created_at,
+            EXISTS(SELECT 1 FROM ai_trial t WHERE t.user_id = u.id) AS trial_used
+     FROM users u ORDER BY u.id DESC LIMIT 100`
   ).all();
   const recentPayments = await env.DB.prepare(
     `SELECT p.payment_id, p.package, p.amount, p.status, p.created_at, p.paid_at, u.email
@@ -1492,6 +1506,23 @@ async function handleAdminRevokeTest(request, env, origin) {
   return ok({ revoked: true }, origin);
 }
 
+// AI 서류검토 무료 체험(1회) 초기화 — 지인 테스트·오작동 구제용.
+// ai_trial 행을 지우면 미구매자 체험 1회가 다시 열린다. 구매자 회수(entitlements.ai_used)는
+// 결제와 얽혀 있으므로 건드리지 않는다 — 그쪽은 환불·회수로 처리할 것.
+async function handleAdminResetTrial(request, env, origin) {
+  const admin = await requireAdmin(env.DB, request, env);
+  if (!admin) return err(403, '접근 권한이 없습니다.', origin);
+  const body = await readJson(request);
+  const email = body && typeof body.email === 'string' ? body.email.toLowerCase().trim() : '';
+  if (!email) return err(400, '이메일을 입력해주세요.', origin);
+
+  const user = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
+  if (!user) return err(404, '해당 이메일의 회원을 찾을 수 없습니다.', origin);
+
+  await env.DB.prepare('DELETE FROM ai_trial WHERE user_id = ?').bind(user.id).run();
+  return ok({ reset: true }, origin);
+}
+
 // 운영자 환불 — 이용약관 제6조(결제일부터 14일 청약철회) 실행 창구.
 // 포트원 결제취소(전액) → status='refunded' → 이용권 회수(같은 패키지 잔여 결제 없을 때만).
 async function handleAdminRefund(request, env, origin) {
@@ -1515,8 +1546,8 @@ async function handleAdminRefund(request, env, origin) {
     if (arch.status === 'refunded') return ok({ alreadyRefunded: true }, origin);
     const res = await portoneCancel(env, paymentId, reason);
     if (res === 'fail') return err(502, '결제대행사 취소 처리에 실패했습니다. 포트원 콘솔에서 상태를 확인해주세요.', origin);
-    await env.DB.prepare("UPDATE payments_archive SET status = 'refunded' WHERE payment_id = ?")
-      .bind(paymentId).run();
+    await env.DB.prepare("UPDATE payments_archive SET status = 'refunded', refunded_at = ? WHERE payment_id = ?")
+      .bind(Date.now(), paymentId).run();
     return ok({ refunded: true, archived: true }, origin);   // 이미 탈퇴 — 회수할 이용권 없음
   }
 
@@ -1554,6 +1585,7 @@ const ROUTES = {
   'POST /api/admin/refund': handleAdminRefund,
   'POST /api/admin/grant': handleAdminGrant,
   'POST /api/admin/revoke-test': handleAdminRevokeTest,
+  'POST /api/admin/reset-trial': handleAdminResetTrial,
   'POST /api/auth/signup': handleSignup,
   'POST /api/auth/login': handleLogin,
   'POST /api/auth/logout': handleLogout,

@@ -91,10 +91,24 @@ CREATE TABLE IF NOT EXISTS payments_archive (
   email       TEXT NOT NULL,       -- 거래 당사자 식별용(전상법상 보존 목적에 한해 유지)
   package     TEXT NOT NULL,
   amount      INTEGER NOT NULL,
-  status      TEXT NOT NULL,
+  status      TEXT NOT NULL,       -- paid | refunded (환불건도 대금결제 기록이라 함께 보존)
   created_at  INTEGER NOT NULL,
   paid_at     INTEGER,
+  refunded_at INTEGER,             -- 환불 시각(unix ms). null이면 미환불.
   archived_at INTEGER NOT NULL     -- 탈퇴 시각(unix ms). 보존기간 만료 판단 기준.
+);
+
+-- 탈퇴 후 청약철회 신청기록 보존용. withdrawal_requests는 회원 삭제 시 CASCADE로 사라지므로,
+-- 시행령 제6조의 '계약 또는 청약철회등에 관한 기록 5년'을 지키기 위해 신청 사실만 옮겨 둔다.
+-- 신청 사유(reason)는 옮기지 않는다 — 청약철회에 사유가 필요 없어 보존 대상이 아니고,
+-- 자유서술 텍스트를 5년 보관하면 최소수집 원칙에 어긋난다.
+CREATE TABLE IF NOT EXISTS withdrawal_archive (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  payment_id  TEXT    NOT NULL,
+  email       TEXT    NOT NULL,    -- 거래 당사자 식별용
+  status      TEXT    NOT NULL,    -- pending | auto_refunded | resolved
+  created_at  INTEGER NOT NULL,    -- 청약철회 신청 시각(= 의사표시 발송일, 법 제17조④)
+  archived_at INTEGER NOT NULL     -- 탈퇴 시각(unix ms)
 );
 
 -- 유료 콘텐츠를 실제로 처음 연 시각.
