@@ -400,7 +400,7 @@ function passwordError(pw) {
 
 // 가입 시 받는 동의의 버전. 약관·방침을 개정하면 이 값을 함께 올려,
 // 어느 판본에 동의했는지 계정별로 남긴다(재동의가 필요한 회원을 가려낼 근거).
-const CONSENT_VERSION = 'terms-2026-07-29/privacy-2026-08-08';
+const CONSENT_VERSION = 'terms-2026-07-29/privacy-2026-08-08b';
 
 function validateSignup(body) {
   const name = (body.name || '').trim();
