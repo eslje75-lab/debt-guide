@@ -98,7 +98,7 @@
     </label>
   </div>
 
-  <p class="text-xs text-slate-400 text-center mb-2">※ 입력하신 내용을 AI가 분석해 누락·불명확·수치 불일치 등을 참고용으로 안내합니다. 로그인 후 이용할 수 있으며, 하루 이용 횟수에 제한이 있습니다.</p>
+  <p class="text-xs text-slate-400 text-center mb-2">※ 입력하신 내용을 AI가 분석해 누락·불명확·수치 불일치 등을 참고용으로 안내합니다. <strong class="text-slate-500">패키지를 구매하신 회원</strong>이 이용할 수 있으며(패키지별 제공 회수 차감), 하루 이용 횟수에도 제한이 있습니다.</p>
 
   <!-- 검토 버튼 -->
   <button onclick="runReview()" id="review-btn"
@@ -433,7 +433,7 @@
       });
       const j = await res.json();
       if (!j.ok) {
-        // 403 = 회수 소진(체험 1회 또는 패키지 총량) — 안내 후 요금제로 유도
+        // 403 = 미구매 또는 패키지 회수 소진 — 안내 후 요금제로 유도
         if (res.status === 403) {
           if (confirm((j.error || '이용 가능한 검토 회수를 모두 사용했습니다.') + '\n\n요금제 안내를 볼까요?')) {
             location.href = 'pricing.html';
@@ -524,9 +524,6 @@
       const warn = quota.left <= 2;
       html += `<p class="text-[11px] mt-2 ${warn ? 'text-amber-600 font-medium' : 'text-purple-400'}">
         서류검토 AI 잔여 ${quota.left}회 / 총 ${quota.limit}회${warn ? ' — 곧 소진됩니다' : ''}</p>`;
-    } else if (quota && quota.type === 'trial') {
-      html += `<p class="text-[11px] mt-2 text-amber-600 font-medium">무료 체험 1회를 사용하셨습니다.
-        계속 이용하시려면 <a href="pricing.html" class="underline">패키지 구매</a>가 필요합니다.</p>`;
     }
     if (usage) html += `<p class="text-purple-400 text-[11px] mt-1">오늘 이용: ${usage.used}/${usage.limit}회</p>`;
     html += '</div>';

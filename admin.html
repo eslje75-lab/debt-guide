@@ -117,8 +117,7 @@
               <th class="py-2 pr-3 font-medium">가입일</th>
               <th class="py-2 pr-3 font-medium">이름</th>
               <th class="py-2 pr-3 font-medium">이메일</th>
-              <th class="py-2 pr-3 font-medium">연락처</th>
-              <th class="py-2 font-medium">AI 체험</th>
+              <th class="py-2 font-medium">연락처</th>
             </tr>
           </thead>
           <tbody id="user-rows"></tbody>
@@ -206,28 +205,6 @@
       const j = await res.json();
       if (!j.ok) { alert(j.error || '회수에 실패했습니다.'); return; }
       alert('회수가 완료되었습니다.');
-      load();
-    } catch (e) {
-      alert('서버에 연결할 수 없습니다.');
-    } finally {
-      _refundBusy = false;
-    }
-  }
-
-  // AI 무료 체험 1회 초기화 — 지인 테스트·오작동 구제용. 구매자 이용권과는 무관.
-  async function resetTrial(email) {
-    if (_refundBusy) return;
-    if (!confirm(`${email} 님의 AI 서류검토 무료 체험(1회)을 초기화합니다.\n다시 1회 이용할 수 있게 됩니다. 계속하시겠습니까?`)) return;
-    _refundBusy = true;
-    try {
-      const res = await fetch(API_BASE + '/api/admin/reset-trial', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.getSession().token },
-        body: JSON.stringify({ email }),
-      });
-      const j = await res.json();
-      if (!j.ok) { alert(j.error || '초기화에 실패했습니다.'); return; }
-      alert('체험 횟수가 초기화되었습니다.');
       load();
     } catch (e) {
       alert('서버에 연결할 수 없습니다.');
@@ -356,11 +333,7 @@
         <td class="py-2 pr-3 text-slate-500 text-xs whitespace-nowrap">${fmtDateStr(u.created_at)}</td>
         <td class="py-2 pr-3 text-slate-700">${esc(u.name)}</td>
         <td class="py-2 pr-3 text-slate-600">${esc(u.email)}</td>
-        <td class="py-2 pr-3 text-slate-600 text-xs whitespace-nowrap">${u.phone ? esc(u.phone) : '<span class="text-slate-300">-</span>'}</td>
-        <td class="py-2 text-xs whitespace-nowrap">${
-          u.trial_used
-            ? `<button onclick="resetTrial('${esc(u.email)}')" class="text-slate-600 border border-slate-200 rounded-lg px-2.5 py-1 hover:bg-slate-50 transition-colors">체험 초기화</button>`
-            : '<span class="text-slate-300">미사용</span>'}</td>
+        <td class="py-2 text-slate-600 text-xs whitespace-nowrap">${u.phone ? esc(u.phone) : '<span class="text-slate-300">-</span>'}</td>
       </tr>`).join('');
   }
 

@@ -145,13 +145,12 @@ CREATE TABLE IF NOT EXISTS entitlements (
 );
 CREATE INDEX IF NOT EXISTS idx_entitlements_user ON entitlements(user_id);
 
--- 미구매자 AI 검토 체험(1회) 소진 기록.
--- 전자상거래법 시행령 제21조의2 제3호(체험용 디지털콘텐츠 제공)를 함께 충족시켜,
--- 제17조 제2항 제5호에 따른 환불 제한의 근거를 미리보기(제1호)와 이중으로 갖춘다.
-CREATE TABLE IF NOT EXISTS ai_trial (
-  user_id  INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  used_at  INTEGER NOT NULL
-);
+-- ※ ai_trial(미구매자 AI 검토 체험 1회) 테이블은 2026-08-08 폐지·삭제됨.
+--    탈퇴 시 users FK CASCADE로 함께 지워져 재가입만 하면 체험이 무한 반복됐고,
+--    검토 1회마다 Anthropic API 실비가 나가 비용이 새는 구조였다.
+--    법 제17조⑥ 단서의 시험사용 조치는 시행령 제21조의2 각 호 중 하나 이상이면 되고,
+--    제1호(일부 이용의 허용 = 유료 콘텐츠 미리보기)를 유지하므로 요건은 그대로 충족된다.
+--    다시 만들지 말 것. 서류검토 AI는 entitlements(패키지 회수)로만 판정한다.
 
 -- Phase 5(이메일 인프라): 비밀번호 재설정·이메일 인증용 일회성 토큰.
 -- 세션과 동일하게 원본 토큰은 저장하지 않고 SHA-256 해시만 보관한다(DB 유출 시 무효).
