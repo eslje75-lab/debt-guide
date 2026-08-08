@@ -355,6 +355,28 @@
   </div>
 </div>
 
+<!-- 결제 전 휴대폰 번호 인증 모달 — 유료회원 연락 신뢰성 확보(SMS 인증). 미인증 시에만 노출. -->
+<div id="phone-verify-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+    <h3 class="font-bold text-slate-800 text-lg mb-1">휴대폰 번호 인증</h3>
+    <p class="text-sm text-slate-500 mb-4">결제 진행 시 문제가 생겼을 때 연락드리기 위해 번호 인증이 한 번 필요합니다. 인증 정보는 연락 목적으로만 사용됩니다.</p>
+    <div class="space-y-2">
+      <div class="flex gap-2">
+        <input id="pv-phone" type="tel" inputmode="numeric" placeholder="010-1234-5678" class="flex-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm" autocomplete="tel">
+        <button id="pv-send-btn" onclick="pvSend()" class="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors shrink-0">인증번호 받기</button>
+      </div>
+      <div id="pv-otp-box" class="hidden flex gap-2">
+        <input id="pv-otp" type="text" inputmode="numeric" maxlength="6" placeholder="인증번호 6자리" class="flex-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm tracking-widest" autocomplete="one-time-code">
+        <button id="pv-verify-btn" onclick="pvVerify()" class="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors shrink-0">확인</button>
+      </div>
+      <p id="pv-msg" class="text-xs hidden"></p>
+    </div>
+    <div class="flex justify-end mt-5">
+      <button onclick="pvCancel()" class="border border-slate-300 px-5 py-2.5 text-slate-700 text-sm hover:bg-slate-50 transition-colors rounded-xl">취소</button>
+    </div>
+  </div>
+</div>
+
 <div id="footer-placeholder"></div>
 <div id="toast"></div>
 
@@ -465,6 +487,67 @@
     'correction-rehab': 8, 'correction-bankrupt': 8,
   };
 
+  // ── 결제 전 휴대폰 인증 ─────────────────────────────────────────
+  // 이미 인증돼 있으면 그 번호를 즉시 반환. 미인증이면 모달을 띄워 인증을 마치게 하고,
+  // 성공 시 인증된 번호(문자열)를, 취소/닫기 시 null을 resolve 한다.
+  let _pvResolve = null;
+  function pvMsg(text, tone) {
+    const el = document.getElementById('pv-msg');
+    if (!text) { el.classList.add('hidden'); return; }
+    el.classList.remove('hidden');
+    el.className = 'text-xs ' + (tone === 'err' ? 'text-red-500' : tone === 'ok' ? 'text-green-600' : 'text-slate-500');
+    el.textContent = text;
+  }
+  async function ensurePhoneVerified() {
+    // 서버에서 최신 인증 상태 확인
+    const me = await Auth.me();
+    if (me.ok && me.user && me.user.phoneVerified) return me.user.phone || '';
+    // 미인증 → 모달로 인증 진행
+    return new Promise((resolve) => {
+      _pvResolve = resolve;
+      document.getElementById('pv-phone').value = (me.ok && me.user && me.user.phone) ? me.user.phone.replace(/\D/g, '') : '';
+      document.getElementById('pv-otp').value = '';
+      document.getElementById('pv-otp-box').classList.add('hidden');
+      document.getElementById('pv-send-btn').textContent = '인증번호 받기';
+      pvMsg('', '');
+      document.getElementById('phone-verify-modal').classList.remove('hidden');
+      document.getElementById('pv-phone').focus();
+    });
+  }
+  function pvClose(result) {
+    document.getElementById('phone-verify-modal').classList.add('hidden');
+    const r = _pvResolve; _pvResolve = null;
+    if (r) r(result);
+  }
+  function pvCancel() { pvClose(null); }
+  let _pvBusy = false;
+  async function pvSend() {
+    if (_pvBusy) return;
+    const phone = document.getElementById('pv-phone').value.replace(/\D/g, '');
+    if (!/^01\d{7,9}$/.test(phone)) { pvMsg('올바른 휴대폰 번호를 입력해주세요. (예: 010-1234-5678)', 'err'); return; }
+    const btn = document.getElementById('pv-send-btn');
+    _pvBusy = true; btn.disabled = true;
+    pvMsg('인증번호를 보내는 중…', '');
+    const r = await Auth.sendPhoneCode(phone);
+    _pvBusy = false; btn.disabled = false;
+    if (!r.ok) { pvMsg(r.error || '인증번호 발송에 실패했습니다.', 'err'); return; }
+    document.getElementById('pv-otp-box').classList.remove('hidden');
+    document.getElementById('pv-otp').focus();
+    btn.textContent = '재발송';
+    pvMsg('인증번호를 문자로 보냈습니다. 5분 안에 입력해주세요.', 'ok');
+  }
+  async function pvVerify() {
+    if (_pvBusy) return;
+    const code = document.getElementById('pv-otp').value.replace(/\D/g, '');
+    if (!code) { pvMsg('인증번호를 입력해주세요.', 'err'); return; }
+    const btn = document.getElementById('pv-verify-btn');
+    _pvBusy = true; btn.disabled = true;
+    const r = await Auth.verifyPhoneCode(code);
+    _pvBusy = false; btn.disabled = false;
+    if (!r.ok) { pvMsg(r.error || '인증에 실패했습니다.', 'err'); return; }
+    pvClose(r.phone || '');   // 인증 완료 → 결제 계속
+  }
+
   async function startPayment(plan, price, pkg) {
     if (_payBusy) return;
 
@@ -502,11 +585,12 @@
     );
     if (!consent) return;
 
-    // 연락처(선택) — 결제·환불 등 문제 발생 시 연락용. SMS 인증이 아니며, 비워두면 수집하지 않는다
-    // (마이페이지에 이미 등록한 번호가 있으면 그대로 유지됨).
-    const phoneIn = window.prompt('문제 발생 시 연락받을 휴대폰 번호를 입력해주세요. (선택)\n마이페이지에서 나중에 등록·수정할 수도 있습니다. 원치 않으면 비워두세요.', '');
-    if (phoneIn === null) return;   // 취소 = 결제 중단
-    const buyerPhone = phoneIn.replace(/\D/g, '');
+    // 만 19세 이상 자기신고 — 미성년 결제 방지(성인 '인증'이 아니라 자기신고. 이 서비스는 청소년유해매체 아님).
+    if (!confirm('본인은 만 19세 이상이며, 위 거래조건에 동의하고 결제를 진행합니다.\n\n확인을 누르면 만 19세 이상임에 동의하는 것으로 봅니다.')) return;
+
+    // 유료회원 연락 신뢰성 — 휴대폰 번호 인증. 이미 인증돼 있으면 그 번호를 쓰고, 미인증이면 인증 모달을 띄운다.
+    const buyerPhone = await ensurePhoneVerified();
+    if (buyerPhone === null) return;   // 취소 = 결제 중단
 
     _payBusy = true;
     try {
@@ -550,14 +634,7 @@
       }).then(r => r.json());
       if (!done.ok) { showToast(done.error || '결제 확인에 실패했습니다.', 'warn'); return; }
 
-      // 입력한 연락처를 계정에 저장(선택). 실패해도 결제 완료에는 영향 없음.
-      if (buyerPhone) {
-        fetch(API_BASE + '/api/user/phone', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.getSession().token },
-          body: JSON.stringify({ phone: buyerPhone }),
-        }).catch(() => {});
-      }
+      // (인증된 번호는 인증 시점에 서버가 이미 저장함 — 별도 저장 불필요)
       // 서버가 부여한 plan 데이터를 로컬에 반영(즉시 UI 반영)
       const g = done.granted || {};
       Object.entries(g).forEach(([k, v]) => Storage.save(k, v));

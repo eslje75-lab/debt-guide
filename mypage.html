@@ -101,14 +101,34 @@
     <h3 class="font-bold text-slate-700 mb-3">🔒 계정 설정</h3>
     <div id="account-info" class="text-sm text-slate-500 mb-4"></div>
 
-    <!-- 연락처(선택) — 문제 발생 시 연락용. SMS 인증 아님. -->
+    <!-- 휴대폰 번호 — 유료 결제 시 연락용. 번호 인증(SMS)은 결제 진행에 필요하나 여기서 미리 해둘 수 있다. -->
     <div class="mb-4 max-w-sm">
-      <label class="block text-sm font-medium text-slate-700 mb-1.5">연락처 <span class="text-slate-400 font-normal text-xs">(선택 · 문제 발생 시 연락용, 본인인증 아님)</span></label>
-      <div class="flex gap-2">
-        <input id="acc-phone" type="tel" inputmode="numeric" placeholder="010-1234-5678" class="flex-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm" autocomplete="tel">
-        <button id="acc-phone-btn" onclick="doSavePhone()" class="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors shrink-0">저장</button>
+      <label class="block text-sm font-medium text-slate-700 mb-1.5">휴대폰 번호 <span class="text-slate-400 font-normal text-xs">(문제 발생 시 연락용 · 유료 결제 시 번호 인증 필요)</span></label>
+
+      <!-- 인증 완료 상태 -->
+      <div id="phone-verified-box" class="hidden">
+        <div class="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2.5">
+          <span class="text-green-600 text-sm">✓</span>
+          <span id="phone-verified-num" class="text-sm text-slate-700 font-medium flex-1"></span>
+          <span class="text-xs text-green-700">인증 완료</span>
+        </div>
+        <button onclick="startPhoneChange()" class="text-xs text-slate-400 hover:text-blue-700 transition-colors mt-1.5">다른 번호로 변경</button>
       </div>
-      <p id="acc-phone-msg" class="text-xs mt-1 hidden"></p>
+
+      <!-- 입력·인증 상태 -->
+      <div id="phone-input-box">
+        <div class="flex gap-2">
+          <input id="acc-phone" type="tel" inputmode="numeric" placeholder="010-1234-5678" class="flex-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm" autocomplete="tel">
+          <button id="acc-code-btn" onclick="doSendCode()" class="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors shrink-0">인증번호 받기</button>
+        </div>
+        <!-- 인증번호 입력 -->
+        <div id="otp-box" class="hidden flex gap-2 mt-2">
+          <input id="acc-otp" type="text" inputmode="numeric" maxlength="6" placeholder="인증번호 6자리" class="flex-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm tracking-widest" autocomplete="one-time-code">
+          <button id="acc-verify-btn" onclick="doVerifyCode()" class="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors shrink-0">확인</button>
+        </div>
+        <p id="acc-phone-msg" class="text-xs mt-1 hidden"></p>
+        <p class="text-xs text-slate-400 mt-1">인증 없이 연락처만 남기려면 <button onclick="doSavePhone()" class="underline hover:text-slate-600">저장만 하기</button></p>
+      </div>
     </div>
 
     <button id="pw-toggle-btn" onclick="togglePwForm()" class="border border-slate-300 px-5 py-2.5 text-slate-700 text-sm hover:bg-slate-50 transition-colors rounded-xl">비밀번호 변경</button>
@@ -437,18 +457,75 @@
     if (d.length === 10) return d.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
     return d;
   }
+  // 계정 로드 시 서버의 phone / phoneVerified로 화면 상태 결정.
   async function loadPhone() {
     try {
       const res = await fetch(API_BASE + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + Auth.getSession().token } });
       const j = await res.json();
-      if (j.ok && j.user && j.user.phone) document.getElementById('acc-phone').value = formatPhone(j.user.phone);
+      if (!j.ok || !j.user) return;
+      if (j.user.phoneVerified) renderPhoneVerified(j.user.phone);
+      else if (j.user.phone) document.getElementById('acc-phone').value = formatPhone(j.user.phone);
     } catch (e) { /* 오프라인 — 빈칸 유지 */ }
   }
-  async function doSavePhone() {
+  function renderPhoneVerified(phone) {
+    document.getElementById('phone-verified-num').textContent = formatPhone(phone);
+    document.getElementById('phone-verified-box').classList.remove('hidden');
+    document.getElementById('phone-input-box').classList.add('hidden');
+  }
+  // '다른 번호로 변경' — 입력 상태로 되돌린다(재인증 필요).
+  function startPhoneChange() {
+    document.getElementById('phone-verified-box').classList.add('hidden');
+    document.getElementById('phone-input-box').classList.remove('hidden');
+    document.getElementById('otp-box').classList.add('hidden');
+    document.getElementById('acc-phone').value = '';
+    document.getElementById('acc-phone').focus();
+    phoneMsg('', '');
+  }
+  function phoneMsg(text, tone) {
     const msg = document.getElementById('acc-phone-msg');
-    const btn = document.getElementById('acc-phone-btn');
+    if (!text) { msg.classList.add('hidden'); return; }
+    msg.classList.remove('hidden');
+    msg.className = 'text-xs mt-1 ' + (tone === 'err' ? 'text-red-500' : tone === 'ok' ? 'text-green-600' : 'text-slate-500');
+    msg.textContent = text;
+  }
+
+  // 인증번호 발송. 솔라피 미설정 시 서버가 503 → 안내만 표시.
+  let _codeBusy = false;
+  async function doSendCode() {
+    if (_codeBusy) return;
+    const phone = document.getElementById('acc-phone').value.replace(/\D/g, '');
+    if (!/^01\d{7,9}$/.test(phone)) { phoneMsg('올바른 휴대폰 번호를 입력해주세요. (예: 010-1234-5678)', 'err'); return; }
+    const btn = document.getElementById('acc-code-btn');
+    _codeBusy = true; btn.disabled = true;
+    phoneMsg('인증번호를 보내는 중…', '');
+    const r = await Auth.sendPhoneCode(phone);
+    _codeBusy = false; btn.disabled = false;
+    if (!r.ok) { phoneMsg(r.error || '인증번호 발송에 실패했습니다.', 'err'); return; }
+    document.getElementById('otp-box').classList.remove('hidden');
+    document.getElementById('acc-otp').focus();
+    btn.textContent = '재발송';
+    phoneMsg('인증번호를 문자로 보냈습니다. 5분 안에 입력해주세요.', 'ok');
+  }
+
+  // 인증번호 확인. 성공 시 phone_verified=1, 인증완료 상태로 전환.
+  let _verifyBusy = false;
+  async function doVerifyCode() {
+    if (_verifyBusy) return;
+    const code = document.getElementById('acc-otp').value.replace(/\D/g, '');
+    if (!code) { phoneMsg('인증번호를 입력해주세요.', 'err'); return; }
+    const btn = document.getElementById('acc-verify-btn');
+    _verifyBusy = true; btn.disabled = true;
+    const r = await Auth.verifyPhoneCode(code);
+    _verifyBusy = false; btn.disabled = false;
+    if (!r.ok) { phoneMsg(r.error || '인증에 실패했습니다.', 'err'); return; }
+    renderPhoneVerified(r.phone);
+    showToast('휴대폰 번호가 인증되었습니다.', 'success');
+  }
+
+  // 인증 없이 연락처만 저장(비유료 이용자용). 빈 값이면 삭제.
+  async function doSavePhone() {
     const val = document.getElementById('acc-phone').value.trim();
-    btn.disabled = true;
+    phoneMsg('저장 중…', '');
     try {
       const res = await fetch(API_BASE + '/api/user/phone', {
         method: 'POST',
@@ -456,18 +533,12 @@
         body: JSON.stringify({ phone: val }),
       });
       const j = await res.json();
-      msg.classList.remove('hidden');
-      if (!j.ok) { msg.className = 'text-xs mt-1 text-red-500'; msg.textContent = j.error || '저장에 실패했습니다.'; }
-      else {
-        msg.className = 'text-xs mt-1 text-green-600';
-        msg.textContent = j.phone ? '연락처가 저장되었습니다.' : '연락처가 삭제되었습니다.';
-        document.getElementById('acc-phone').value = formatPhone(j.phone);
-      }
+      if (!j.ok) { phoneMsg(j.error || '저장에 실패했습니다.', 'err'); return; }
+      document.getElementById('acc-phone').value = formatPhone(j.phone);
+      phoneMsg(j.phone ? '연락처가 저장되었습니다. (미인증)' : '연락처가 삭제되었습니다.', 'ok');
     } catch (e) {
-      msg.classList.remove('hidden'); msg.className = 'text-xs mt-1 text-red-500';
-      msg.textContent = '네트워크 오류로 저장하지 못했습니다.';
+      phoneMsg('네트워크 오류로 저장하지 못했습니다.', 'err');
     }
-    btn.disabled = false;
   }
 
   function togglePwForm() {

@@ -489,6 +489,16 @@ const Auth = {
     return r;
   },
 
+  // 결제 유료회원 SMS 번호 인증 — 인증번호 발송(로그인 필요). 서버가 쿨다운·시간당 제한 처리.
+  async sendPhoneCode(phone) {
+    return this._api('/api/phone/send-code', { auth: true, body: { phone: String(phone || '').replace(/\D/g, '') } });
+  },
+
+  // 발송된 인증번호 검증 — 성공 시 서버가 users.phone + phone_verified 설정.
+  async verifyPhoneCode(code) {
+    return this._api('/api/phone/verify-code', { auth: true, body: { code: String(code || '').replace(/\D/g, '') } });
+  },
+
   async changePassword(currentPassword, newPassword) {
     return this._api('/api/auth/change-password', {
       auth: true, body: { currentPassword, newPassword },
