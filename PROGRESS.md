@@ -34,6 +34,30 @@ API 라우트 20개 중 메일 관련 0건. Resend/SendGrid/SMTP 등 발송 코�
 
 ## 현재 상태 (최신이 위로)
 
+### 2026-08-08 (7차) — 진행 단계 지도(로드맵) UI 재구현 ⚠️미배포
+
+사용자 제보: 로드맵 카드가 **원형으로 찌그러져 글자가 밖으로 넘침**. 원인은 `css/styles.css`의 **pill 자동 규칙**(`button.bg-blue-700`·`button.bg-slate-700`·`button.border-slate-200` → `border-radius:9999px !important`)이 한 줄 버튼용인데 **여러 줄짜리 로드맵 카드까지 잡은 것**. 디자인 시스템 규칙과 컴포넌트가 충돌한 사례.
+
+- **`css/styles.css` 하단에 로드맵 섹션 신설**: `button.roadmap-step`으로 pill 예외(반드시 pill 규칙보다 **뒤에** 위치해야 함, 주석으로 명시). flex 컬럼 + `min-height:104px`로 카드 높이 통일, `.roadmap-title`에 `word-break: keep-all`(한글 음절 중간 줄바꿈 방지), `.roadmap-bar`(3px 진행바).
+- **카드 구조 재설계**(rehabilitation·bankruptcy 공통): 단계번호 **원형 배지**(완료 시 ✓) + `n단계` 라벨 → 제목 → 하단 **진행바 + n/총계**. 상태 3종(현재=채움 / 완료=초록 / 미완=흰색)을 배지·바 색으로 함께 표현.
+- **그리드**: rehabilitation이 `grid-cols-3 sm:grid-cols-5`라 8단계가 3열로 눌려 있었다 → 양쪽 모두 **`grid-cols-2 sm:grid-cols-3 lg:grid-cols-4`**(모바일 2열, 데스크톱 4×2).
+- **접근성**: 현재 단계에 `aria-current="step"`, 각 버튼에 `aria-label`("3단계 소득 정리 — 2개 중 1개 완료"), `type="button"` 명시. ⚠️`<button>` 안에 `<div>`는 HTML 규격 위반이라 **블록 배치는 span+CSS**로 처리(원래 코드는 div였음).
+- 안내 문구에 완료(초록) 색 의미와 "눌러서 이동" 추가.
+- **검증**: 인라인 스크립트 파싱 0에러, 로컬 서버(3456)에서 자산 반영 확인. **눈으로 보는 최종 확인은 사용자.**
+
+### 2026-08-08 (6차) — 탈퇴 시 법정 보존기록 누락 2건 수정 + AI 체험 초기화 ⚠️미배포
+
+관리자 권한·탈퇴 기능 점검 중 발견한 **전자상거래법 시행령 제6조(계약·청약철회 기록 5년, 대금결제 기록 5년) 위반 소지 2건**을 수정. 판매 오픈 전에 반드시 반영해야 하는 건.
+
+- **①환불된 결제가 탈퇴와 함께 소멸하던 문제**: `handleDeleteAccount`의 아카이브 조건이 `status='paid'`뿐이라, **환불(`refunded`) 건은 `payments_archive`에 안 들어가고 CASCADE로 삭제**됐다. 환불도 '대금결제에 관한 기록'이므로 5년 보존 대상. → `status IN ('paid','refunded')`로 확대 + `payments_archive`에 **`refunded_at` 컬럼 추가**(환불 시각 보존). `handleAdminRefund`의 아카이브 분기도 `refunded_at` 기록하도록 수정.
+- **②청약철회 신청기록이 탈퇴 시 소멸하던 문제**: `withdrawal_requests`가 `users` FK CASCADE라 탈퇴하면 통째로 사라졌다. 시행령 제6조의 '계약 또는 청약철회등에 관한 기록 5년' 대상. → **`withdrawal_archive` 테이블 신설**(FK 없음), 탈퇴 시 신청 사실만 이관. ⚠️**신청 사유(`reason`)는 일부러 옮기지 않는다** — 청약철회는 사유를 요하지 않아 보존 의무 대상이 아니고, 이용자 자유서술 텍스트를 5년 보관하면 최소수집 원칙 위반. 방침에도 "사유는 탈퇴 시 파기" 명시.
+- **AI 무료 체험 1회 초기화(신규)**: `POST /api/admin/reset-trial` + 관리자 회원목록에 **[체험 초기화]** 버튼(`trial_used`인 회원만 노출). 지금까지 `ai_trial`은 한 번 쓰면 되돌릴 창구가 아예 없어 지인 테스트에 걸렸다. 구매자 회수(`entitlements.ai_used`)는 결제와 얽혀 있어 건드리지 않음(환불·회수로 처리).
+- **방침 개정(`privacy.html`)**: 제3항 보존표에 '청약철회 신청·처리 일시' 추가, 제7항에 보존 항목 열거 갱신 + 사유 파기 명시, 제14항 변경이력에 반영(시행일 동일 2026-08-08). **`CONSENT_VERSION` → `terms-2026-07-29/privacy-2026-08-08c`**.
+- **검증**: `node --check` 통과. **로컬 D1 샌드박스에서 탈퇴 시나리오 실측** — paid·refunded 2건 아카이브(refunded_at=2200 보존), pending 제외, 청약철회 1건 아카이브(사유 없이), 원본 payments·withdrawal_requests는 CASCADE로 0건, users 0건 확인.
+- **유료 게이팅 배선 점검**: 4개 유료 페이지(rehabilitation·bankruptcy·maintenance·supplement) 전부 `requirePackage()` + `lockSection()` 호출 확인. 서버(`/api/data`의 `plan_packages`)가 최종 판정이라 **테스트 지급 회수는 재로그인 없이 다음 페이지 로드부터 반영**됨(오프라인일 때만 로컬 캐시 신뢰).
+- **✅원격 D1 마이그레이션 적용 완료(2026-08-08)**: `payments_archive.refunded_at` 컬럼 추가 + `withdrawal_archive` 테이블 생성, `sqlite_master`로 실재 확인. ⚠️**Worker 배포는 아직**(`npx wrangler deploy` 잔여) — DB만 앞서 있는 상태라 현재 라이브는 정상 동작(새 컬럼·표를 아무도 안 쓰는 상태). 배포 전엔 관리자 [체험 초기화] 버튼도 404다.
+- ⚠️`wrangler d1 execute --remote`의 CREATE TABLE·`wrangler deploy`는 자동 승인 정책에 막힘 → D1은 **Cloudflare MCP `d1_database_query`로 우회 적용**, 배포는 사용자 실행 필요.
+
 ### 2026-08-08 (5차) — 방침에 SMS 수탁자 추가 + 실발송 E2E 성공 ✅배포
 
 솔라피 실설정·실발송 완료 후, 미뤄뒀던 방침 개정(4차 남은 ③) 처리. **SMS 번호 인증 전 구간(백엔드·프론트·실발송·방침) 완료.**

@@ -456,3 +456,33 @@ input[type="number"][class*="pr-14"] { text-align: right; }
 .text-xs.leading-loose   { line-height: 2 !important; }
 .text-xs.leading-normal  { line-height: 1.5 !important; }
 .text-xs.leading-snug    { line-height: 1.375 !important; }
+
+/* ══════════════════════════════════════════════
+   진행 단계 지도(로드맵) 카드 — rehabilitation / bankruptcy
+   ══════════════════════════════════════════════ */
+
+/* ⚠️ 위 "Pill buttons" 규칙(button.bg-blue-700 / button.bg-slate-700 /
+   button.border-slate-200 …)이 border-radius: 9999px !important 를 강제한다.
+   한 줄짜리 버튼에는 맞지만, 제목·진행바가 들어가는 여러 줄 카드에 걸리면
+   카드가 원형으로 찌그러져 글자가 밖으로 넘친다(2026-08-08 수정).
+   → 로드맵 카드만 예외로 되돌린다. 이 규칙은 반드시 pill 규칙보다 뒤에 있어야 한다.
+   같은 이유로 카드 마크업에서 .roadmap-step 클래스를 빼지 말 것. */
+button.roadmap-step {
+  border-radius: 14px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 104px;
+}
+.roadmap-head { display: flex; align-items: center; gap: 6px; }
+.roadmap-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; flex: none;
+  border-radius: 9999px;
+  font-size: 11px; font-weight: 700; line-height: 1;
+}
+/* 한글은 음절 단위로 끊기면 읽기 나쁘다 — 단어 단위로만 줄바꿈 */
+.roadmap-title { display: block; word-break: keep-all; }
+.roadmap-foot { margin-top: auto; display: flex; align-items: center; gap: 6px; }
+.roadmap-bar { flex: 1 1 auto; display: block; height: 3px; border-radius: 9999px; overflow: hidden; }
+.roadmap-bar > span { display: block; height: 100%; border-radius: 9999px; transition: width .3s ease; }

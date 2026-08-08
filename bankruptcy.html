@@ -84,8 +84,8 @@
   <!-- 진행 단계 지도 (로드맵) -->
   <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
     <h3 class="font-bold text-slate-800 mb-0.5 text-sm">🗺️ 진행 단계 지도</h3>
-    <p class="text-xs text-slate-400 mb-3">신청 준비부터 면책까지 전체 흐름입니다. <strong class="text-slate-700">진한 단계</strong>가 지금 할 단계입니다.</p>
-    <div id="roadmap" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+    <p class="text-xs text-slate-400 mb-3">신청 준비부터 면책까지 전체 흐름입니다. <strong class="text-slate-700">진한 단계</strong>가 지금 할 단계, <strong class="text-green-700">초록 단계</strong>는 다 끝낸 단계입니다. 눌러서 이동하세요.</p>
+    <div id="roadmap" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2"></div>
   </div>
 
   <!-- 선택된 단계 체크리스트 -->
@@ -555,6 +555,9 @@
     }
   }
 
+  // 로드맵 카드 — 단계번호 배지 + 제목 + 진행바. 상태는 셋(현재/완료/미완).
+  // ⚠️ .roadmap-step 클래스를 빼면 styles.css의 pill 규칙에 걸려 카드가 원형으로 찌그러진다.
+  // ⚠️ <button> 안에는 <div>를 넣을 수 없다(HTML 규격) — 블록 배치는 span + CSS로 한다.
   function renderRoadmap(saved) {
     const el = document.getElementById('roadmap');
     if (!el) return;
@@ -562,17 +565,31 @@
       const p = stepProgress(saved, step);
       const complete = p.done >= p.total && p.total > 0;
       const isActive = i === activeStep;
+      const pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
       const shortTitle = step.title.replace(/^\d+단계 · /, '');
-      const cls = isActive
+      const box = isActive
         ? 'bg-slate-700 text-white border-slate-700'
         : complete
-          ? 'bg-green-50 text-green-700 border-green-200 hover:border-green-400'
-          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400';
+          ? 'bg-green-50 text-green-800 border-green-200 hover:border-green-400'
+          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400';
+      const badge = isActive ? 'bg-white/25 text-white'
+        : complete ? 'bg-green-600 text-white' : 'bg-slate-100 text-slate-500';
+      const meta = isActive ? 'text-slate-300' : complete ? 'text-green-700' : 'text-slate-400';
+      const track = isActive ? 'bg-white/25' : complete ? 'bg-green-200' : 'bg-slate-100';
+      const fill = isActive ? 'bg-white' : complete ? 'bg-green-600' : 'bg-slate-600';
       return `
-        <button onclick="gotoStep(${i})" class="border rounded-xl p-2.5 text-left transition-colors ${cls}">
-          <div class="text-[11px] font-bold ${isActive ? 'text-slate-300' : complete ? 'text-green-500' : 'text-slate-400'}">${i + 1}단계${complete ? ' ✓' : ''}</div>
-          <div class="text-xs font-semibold leading-tight mt-0.5">${shortTitle}</div>
-          <div class="text-[11px] mt-1 ${isActive ? 'text-slate-300' : 'text-slate-400'}">${p.done}/${p.total}</div>
+        <button type="button" onclick="gotoStep(${i})" ${isActive ? 'aria-current="step"' : ''}
+          aria-label="${i + 1}단계 ${shortTitle} — ${p.total}개 중 ${p.done}개 완료"
+          class="roadmap-step border p-3 text-left transition-colors ${box}">
+          <span class="roadmap-head">
+            <span class="roadmap-num ${badge}">${complete ? '✓' : i + 1}</span>
+            <span class="text-[11px] font-medium ${meta}">${i + 1}단계</span>
+          </span>
+          <span class="roadmap-title text-xs font-semibold leading-snug">${shortTitle}</span>
+          <span class="roadmap-foot">
+            <span class="roadmap-bar ${track}"><span class="${fill}" style="width:${pct}%"></span></span>
+            <span class="text-[11px] ${meta}">${p.done}/${p.total}</span>
+          </span>
         </button>`;
     }).join('');
   }
