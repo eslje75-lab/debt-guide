@@ -573,7 +573,7 @@
     document.getElementById('pv-otp-box').classList.remove('hidden');
     document.getElementById('pv-otp').focus();
     btn.textContent = '재발송';
-    pvMsg('인증번호를 문자로 보냈습니다. 문자가 늦게 도착할 수 있습니다.', 'ok');
+    pvMsg('인증번호를 문자로 보냈습니다.', 'ok');
     pvStartTimer(r.expiresIn || 180);   // 서버가 알려준 유효시간으로 카운트다운
   }
   async function pvVerify() {

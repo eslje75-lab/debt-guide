@@ -516,7 +516,7 @@
     document.getElementById('otp-box').classList.remove('hidden');
     document.getElementById('acc-otp').focus();
     btn.textContent = '재발송';
-    phoneMsg('인증번호를 문자로 보냈습니다. 문자가 늦게 도착할 수 있습니다.', 'ok');
+    phoneMsg('인증번호를 문자로 보냈습니다.', 'ok');
     accStartTimer(r.expiresIn || 180);   // 서버가 알려준 유효시간으로 카운트다운
   }
 
