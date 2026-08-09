@@ -63,6 +63,11 @@ function renderHeader(activePage) {
           <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
           마이페이지
         </a>
+        ${user.isAdmin ? `
+        <a href="admin.html" class="flex items-center gap-2 px-4 py-2.5 text-sm text-blue-700 hover:bg-blue-50 font-medium">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m4 10V11m4 6V9M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          운영 대시보드
+        </a>` : ''}
         <button onclick="authLogout()" class="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
           로그아웃
@@ -460,15 +465,21 @@ const Auth = {
   },
 
   _saveSession(token, user) {
-    const session = { token, email: user.email, name: user.name, expiresAt: user.expiresAt, emailVerified: !!user.emailVerified };
+    // isAdmin은 헤더에 관리자 메뉴를 보여줄지 판단하는 표시용일 뿐이다.
+    // 위조해도 얻는 게 없다 — 관리자 API는 매 요청 서버가 ADMIN_EMAIL과 대조한다.
+    const session = { token, email: user.email, name: user.name, expiresAt: user.expiresAt, emailVerified: !!user.emailVerified, isAdmin: !!user.isAdmin };
     try { localStorage.setItem(this._KS, JSON.stringify(session)); } catch {}
     return session;
   },
 
-  // 세션 캐시의 emailVerified를 서버 값으로 갱신(있으면 저장). 미인증 안내 배너 판정에 쓴다.
-  _setVerified(v) {
+  // 세션 캐시를 서버 값으로 갱신. emailVerified는 미인증 배너, isAdmin은 관리자 메뉴 판정에 쓴다.
+  // 이미 로그인해 둔 세션도 me() 한 번이면 새 필드를 받으므로 재로그인이 필요 없다.
+  _setVerified(v, isAdmin) {
     const s = this.getSession();
-    if (s) { s.emailVerified = v; try { localStorage.setItem(this._KS, JSON.stringify(s)); } catch {} }
+    if (!s) return;
+    s.emailVerified = v;
+    if (isAdmin !== undefined) s.isAdmin = !!isAdmin;
+    try { localStorage.setItem(this._KS, JSON.stringify(s)); } catch {}
   },
 
   getSession() {
@@ -515,7 +526,7 @@ const Auth = {
   // 이메일 인증 상태를 서버에서 다시 받아 세션 캐시에 반영(배너 판정용).
   async me() {
     const r = await this._api('/api/auth/me', { method: 'GET', auth: true });
-    if (r.ok && r.user) this._setVerified(!!r.user.emailVerified);
+    if (r.ok && r.user) this._setVerified(!!r.user.emailVerified, r.user.isAdmin);
     return r;
   },
 

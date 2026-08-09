@@ -548,7 +548,7 @@ async function handleLogin(request, env, origin) {
   const session = await createSession(env.DB, user.id, remember);
   return ok({
     token: session.token,
-    user: { email: user.email, name: user.name, expiresAt: session.expiresAt, emailVerified: !!user.email_verified },
+    user: { email: user.email, name: user.name, expiresAt: session.expiresAt, emailVerified: !!user.email_verified, isAdmin: isAdminEmail(env, user.email) },
   }, origin);
 }
 
@@ -565,7 +565,7 @@ async function handleMe(request, env, origin) {
   const session = await getSessionUser(env.DB, request);
   if (!session) return err(401, '로그인이 필요합니다.', origin);
   return ok({
-    user: { email: session.email, name: session.name, expiresAt: session.expires_at, emailVerified: !!session.email_verified, phone: session.phone || '', phoneVerified: !!session.phone_verified },
+    user: { email: session.email, name: session.name, expiresAt: session.expires_at, emailVerified: !!session.email_verified, phone: session.phone || '', phoneVerified: !!session.phone_verified, isAdmin: isAdminEmail(env, session.email) },
   }, origin);
 }
 
@@ -1447,6 +1447,12 @@ async function handleAnalytics(request, env, origin) {
 
 /* ── 관리자 (운영자 전용 대시보드) ── */
 // 접근 권한: 로그인 세션의 이메일이 ADMIN_EMAIL과 일치할 때만.
+
+// 세션 이메일이 운영자인지. 화면에 관리자 메뉴를 보여줄지 판단하는 용도로만 쓴다.
+// ⚠️ 이 값으로 권한을 결정하지 않는다 — 실제 인가는 매 요청 requireAdmin이 서버에서 판정한다.
+function isAdminEmail(env, email) {
+  return !!env.ADMIN_EMAIL && !!email && email.toLowerCase() === env.ADMIN_EMAIL.toLowerCase().trim();
+}
 
 async function requireAdmin(db, request, env) {
   const session = await getSessionUser(db, request);
