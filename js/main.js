@@ -593,7 +593,7 @@ const Auth = {
   // 남겨 두면 공용 PC에서 다음 사용자에게 "○○ 패키지 이용 중"이 계속 보인다.
   // ⚠️ Storage.remove()를 쓰면 안 된다 — DataSync가 서버 user_data에서도 지워
   //    handleGetData의 plan_packages가 비어 정상 구매자가 잠긴다. 로컬만 지운다.
-  _PLAN_CACHE: ['plan', 'plan_type', 'plan_package', 'plan_package_name', 'plan_packages', 'entitlements', 'content_access'],
+  _PLAN_CACHE: ['plan', 'plan_type', 'plan_package', 'plan_package_name', 'plan_packages', 'plan_expires_at', 'entitlements', 'content_access'],
 
   logout() {
     const s = this.getSession();

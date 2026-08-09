@@ -127,7 +127,7 @@ function addMonths(ms, months) {
 }
 
 // 이용권 관련 키 — 서버(결제 검증)만 쓰기 가능. 클라이언트 동기화(put)에서는 거부된다.
-const PLAN_KEYS = new Set(['plan', 'plan_packages', 'plan_type', 'plan_package', 'plan_package_name']);
+const PLAN_KEYS = new Set(['plan', 'plan_packages', 'plan_type', 'plan_package', 'plan_package_name', 'plan_expires_at']);
 
 // 자체 익명 분석 — 허용된 이벤트만 집계(임의 값 오염 방지). 개인·세션·IP는 저장하지 않는다.
 const ANALYTICS_EVENTS = new Set(['pageview', 'diag_step', 'diag_complete', 'pay_start', 'pay_complete']);
@@ -1292,6 +1292,13 @@ async function grantPackage(env, userId, pkgKey) {
     puts.plan_package_name = info.name;
   }
   const now = Date.now();
+
+  // 이용기간·AI 회수 부여. plan_packages는 캐시일 뿐이고 실제 판정 근거는 entitlements다.
+  // 만료일도 서버가 함께 저장한다 — 클라이언트가 쓰게 두면 PLAN_KEYS 보호를 못 받아
+  // 위조가 가능하고, 환불 시 revokePackage가 지우지도 못한 채 남는다(2026-08-10 수정).
+  const ent = await grantEntitlement(env.DB, userId, pkgKey, now);
+  if (ent) puts.plan_expires_at = ent.expiresAt;
+
   const stmts = Object.entries(puts).map(([k, v]) =>
     env.DB.prepare(
       `INSERT INTO user_data (user_id, key, value, updated_at) VALUES (?1, ?2, ?3, ?4)
@@ -1299,9 +1306,7 @@ async function grantPackage(env, userId, pkgKey) {
     ).bind(userId, k, JSON.stringify(v), now));
   await env.DB.batch(stmts);
 
-  // 이용기간·AI 회수 부여. plan_packages는 캐시일 뿐이고 실제 판정 근거는 entitlements다.
-  const ent = await grantEntitlement(env.DB, userId, pkgKey, now);
-  return ent ? { ...puts, plan_expires_at: ent.expiresAt } : puts;   // 클라이언트가 localStorage에 즉시 반영
+  return puts;   // 클라이언트가 localStorage에 즉시 반영
 }
 
 // 본인 결제 내역 조회 — 마이페이지 열람용. 완료·환불·무료지급만(미완료 pending/failed 제외).
