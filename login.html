@@ -41,6 +41,17 @@
     .alert-success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
     .pw-toggle { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); cursor: pointer; color: #94a3b8; }
     .pw-toggle:hover { color: #475569; }
+    /* 하단 안내문 — 가운데 정렬 문장이 들쭉날쭉해 보이던 문제.
+       keep-all: 한글을 음절이 아니라 단어(어절) 단위로만 끊는다.
+       balance:  줄 길이를 고르게 나눠 "돕는 / 정보 제공 플랫폼입니다" 같은 어색한 끊김을 없앤다.
+       max-width: 한 줄이 너무 길어지면 balance만으로는 정리가 안 되므로 폭 자체를 제한. */
+    .auth-notice {
+      word-break: keep-all;
+      text-wrap: balance;
+      max-width: 24rem;
+      margin-left: auto;
+      margin-right: auto;
+    }
   </style>
 </head>
 <body class="bg-slate-50 min-h-screen flex flex-col">
@@ -192,11 +203,16 @@
         </div>
       </div>
 
-      <!-- 하단 안내 -->
-      <p class="text-center text-xs text-slate-400 mt-4 px-4 leading-relaxed">
-        챔로드는 개인회생·파산 절차를 스스로 이해하고 준비할 수 있도록 돕는 정보 제공 플랫폼입니다.<br>
-        법률상담·법률대리·사건 수임 또는 결과 보장을 제공하지 않습니다.
-      </p>
+      <!-- 하단 안내 — 두 문장을 각각 <p>로 둔다. <br>로 붙여 두면 text-wrap:balance가
+           두 문장을 한 덩어리로 보고 균형을 잡아 줄 나눔이 오히려 이상해진다. -->
+      <div class="mt-4 px-4">
+        <p class="auth-notice text-center text-xs text-slate-400 leading-relaxed">
+          챔로드는 개인회생·파산 절차를 스스로 이해하고 준비할 수 있도록 돕는 정보 제공 플랫폼입니다.
+        </p>
+        <p class="auth-notice text-center text-xs text-slate-400 leading-relaxed mt-1">
+          법률상담·법률대리·사건 수임 또는 결과 보장을 제공하지 않습니다.
+        </p>
+      </div>
     </div>
   </main>
 
