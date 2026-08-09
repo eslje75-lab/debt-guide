@@ -518,3 +518,28 @@ h1, h2, h3, h4 {
 .break-all, code, pre, .font-mono {
   word-break: break-all;
 }
+
+/* ══════════════════════════════════════════════
+   청약철회 진행 트래커 (마이페이지 결제 내역)
+   ══════════════════════════════════════════════ */
+/* ⚠️ 점은 반드시 position:absolute(=블록)로 둘 것.
+   인라인 <span>에는 width/height가 먹지 않아 점이 보이지 않는다(2026-08-09 수정). */
+.wd-step { position: relative; padding-left: 1.85rem; }
+.wd-step::before {                       /* 단계를 잇는 세로선 */
+  content: ''; position: absolute;
+  left: 0.44rem; top: 1.15rem; bottom: -0.85rem;
+  width: 2px; background: #e2e8f0;
+}
+.wd-step:last-child::before { display: none; }
+.wd-dot {
+  position: absolute; left: 0; top: 0.12rem;
+  width: 1rem; height: 1rem; border-radius: 9999px;
+  box-sizing: border-box;
+}
+.wd-dot--done { background: #16a34a; }
+.wd-dot--done::after {                   /* 체크 표시 */
+  content: '✓'; position: absolute; inset: 0;
+  color: #fff; font-size: 10px; line-height: 1rem; text-align: center; font-weight: 700;
+}
+.wd-dot--now  { background: #2563eb; box-shadow: 0 0 0 4px rgba(37,99,235,.16); }
+.wd-dot--wait { background: #fff; border: 2px solid #cbd5e1; }

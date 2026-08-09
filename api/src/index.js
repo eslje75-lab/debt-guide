@@ -1478,6 +1478,19 @@ async function handleAdminOverview(request, env, origin) {
      ORDER BY p.created_at DESC LIMIT 100`
   ).all();
 
+  // 청약철회 신청 — 미처리(pending)를 위로. 사유·개시 여부까지 한 번에 보여
+  // 운영자가 결제 내역을 따로 뒤지지 않고 판단할 수 있게 한다.
+  const withdrawals = await env.DB.prepare(
+    `SELECT w.payment_id, w.reason, w.status, w.created_at,
+            u.email, p.package, p.amount, p.paid_at, p.status AS payment_status,
+            c.first_access_at
+     FROM withdrawal_requests w
+     JOIN users u ON u.id = w.user_id
+     LEFT JOIN payments p ON p.payment_id = w.payment_id
+     LEFT JOIN content_access c ON c.user_id = w.user_id AND c.package = p.package
+     ORDER BY (w.status = 'pending') DESC, w.created_at DESC LIMIT 50`
+  ).all();
+
   // 최근 30일 익명 분석 집계 — 이벤트·라벨별 합계.
   const since = new Date(Date.now() - 30 * DAY_MS).toISOString().slice(0, 10);
   const analytics = await env.DB.prepare(
@@ -1494,6 +1507,7 @@ async function handleAdminOverview(request, env, origin) {
     },
     users: recentUsers.results || [],
     payments: recentPayments.results || [],
+    withdrawals: withdrawals.results || [],
     analytics: analytics.results || [],
   }, origin);
 }

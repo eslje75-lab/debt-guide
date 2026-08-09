@@ -99,6 +99,14 @@
       <div id="pay-empty" class="hidden text-center py-8 text-slate-400 text-sm">결제 내역이 없습니다.</div>
     </div>
 
+    <!-- 청약철회 신청 — 미처리 건을 결제 내역보다 위에 두어 놓치지 않게 한다 -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <h2 class="font-bold text-slate-800 mb-1">🧾 청약철회 신청 <span id="wd-count" class="text-xs font-normal text-slate-400"></span></h2>
+      <p class="text-xs text-slate-500 mb-3">미처리 건이 위에 옵니다. <strong>이용 개시 '있음'</strong>이면 이미 열어 본 부분이 있는 건이라 검토가 필요합니다. 처리는 아래 [환불]을 누르면 됩니다 — 결제 취소·이용권 회수·신청 종결·이용자 안내 메일이 함께 처리됩니다.</p>
+      <div id="wd-rows" class="space-y-2.5"></div>
+      <div id="wd-empty" class="hidden text-center py-8 text-slate-400 text-sm">청약철회 신청이 없습니다.</div>
+    </div>
+
     <!-- 익명 분석 (최근 30일) -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
       <h2 class="font-bold text-slate-800 mb-1">📈 이용 분석 <span class="text-xs font-normal text-slate-400">(최근 30일 · 익명 집계)</span></h2>
@@ -256,6 +264,54 @@
     </div>`;
   }
 
+  // 청약철회 신청 목록. 판단에 필요한 것(사유·이용 개시 여부·경과일)을 카드 하나에 모은다.
+  function renderWithdrawals(rows) {
+    const box = document.getElementById('wd-rows');
+    const pending = rows.filter(w => w.status === 'pending').length;
+    document.getElementById('wd-count').textContent =
+      rows.length ? (pending ? `(미처리 ${pending}건 / 전체 ${rows.length}건)` : `(전체 ${rows.length}건)`) : '';
+    document.getElementById('wd-empty').classList.toggle('hidden', rows.length > 0);
+    if (!rows.length) { box.innerHTML = ''; return; }
+
+    box.innerHTML = rows.map(w => {
+      const isPending = w.status === 'pending';
+      const started = !!w.first_access_at;
+      const days = w.paid_at ? Math.floor((Date.now() - w.paid_at) / 86400000) : null;
+      const badge = isPending
+        ? '<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">미처리</span>'
+        : w.status === 'auto_refunded'
+          ? '<span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">자동환불됨</span>'
+          : '<span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">처리완료</span>';
+      return `
+      <div class="border ${isPending ? 'border-amber-300 bg-amber-50' : 'border-slate-100 bg-white'} rounded-xl p-3.5">
+        <div class="flex items-start justify-between gap-3 flex-wrap">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              ${badge}
+              <span class="text-sm font-semibold text-slate-800">${PACKAGE_NAMES[w.package] || esc(w.package || '-')}</span>
+              <span class="text-sm text-slate-600">${won(w.amount)}</span>
+            </div>
+            <div class="text-xs text-slate-600 mt-1.5">${esc(w.email)}</div>
+            <div class="text-[11px] text-slate-400 break-all mt-0.5">주문번호 ${esc(w.payment_id)}</div>
+          </div>
+          <div class="text-right shrink-0">
+            <div class="text-xs text-slate-500">신청 ${fmtDate(w.created_at)}</div>
+            <div class="text-[11px] mt-1 ${started ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}">
+              이용 개시 ${started ? '있음' : '없음'}${days !== null ? ` · 결제 후 ${days}일` : ''}
+            </div>
+            ${w.payment_status === 'paid'
+              ? `<button onclick="refund('${esc(w.payment_id)}', '${esc(w.email)}', ${w.amount || 0})" class="mt-2 text-xs text-red-600 border border-red-200 bg-white rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">환불 처리</button>`
+              : `<div class="mt-2 text-[11px] text-slate-400">${w.payment_status === 'refunded' ? '환불 완료됨' : '처리 대상 아님'}</div>`}
+          </div>
+        </div>
+        <div class="mt-2.5 pt-2.5 border-t ${isPending ? 'border-amber-200' : 'border-slate-100'}">
+          <div class="text-[11px] text-slate-400 mb-0.5">신청 사유</div>
+          <div class="text-xs text-slate-700 whitespace-pre-wrap">${w.reason ? esc(w.reason) : '<span class="text-slate-400">(미기재)</span>'}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
   function renderAnalytics(rows) {
     const body = document.getElementById('analytics-body');
     if (!rows.length) { document.getElementById('analytics-empty').classList.remove('hidden'); return; }
@@ -321,6 +377,9 @@
             ? `<button onclick="revokeTest('${esc(p.payment_id)}', '${esc(p.email)}')" class="text-xs text-slate-600 border border-slate-200 rounded-lg px-2.5 py-1 hover:bg-slate-50 transition-colors">회수</button>`
             : ''}</td>
       </tr>`).join('');
+
+    // 청약철회 신청
+    renderWithdrawals(j.withdrawals || []);
 
     // 익명 분석
     renderAnalytics(j.analytics || []);
