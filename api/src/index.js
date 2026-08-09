@@ -68,6 +68,7 @@ const REFUND_WINDOW_MS = 14 * DAY_MS;   // 청약철회 기간: 결제일부터 
 
 // 결제 시 SMS 번호 인증(솔라피). 성인 '검증'은 하지 않고(자기신고), 유료 고객 연락처 진위만 확인.
 const OTP_TTL_MS = 3 * 60 * 1000;       // 인증코드 유효 3분(화면 카운트다운과 같은 값이어야 함)
+const SIGNUP_VERIFIED_TTL_MS = 30 * 60 * 1000;   // 이메일 인증 후 가입 완료까지 허용 시간
 const OTP_COOLDOWN_MS = 60 * 1000;      // 재발송 쿨다운 60초
 const OTP_WINDOW_MS = 60 * 60 * 1000;   // 발송횟수 제한 윈도우 1시간
 const OTP_MAX_SENDS = 5;                // 윈도우 내 최대 발송
@@ -441,32 +442,111 @@ function validateSignup(body) {
 
 /* ── 라우트 핸들러 ── */
 
+// 가입 인증코드 발송 — 계정이 만들어지기 전 단계다.
+// 메일이 실제로 나가는 지점이므로 Turnstile은 여기서 검증한다(가입 요청 자체는
+// 확인된 코드가 없으면 통과하지 못하므로, 캡차를 두 번 풀게 하지 않는다).
+async function handleSendSignupCode(request, env, origin) {
+  const body = await readJson(request);
+  const email = (body && typeof body.email === 'string' ? body.email : '').toLowerCase().trim();
+  if (!EMAIL_RE.test(email) || email.length > 254)
+    return err(400, '올바른 이메일 주소를 입력해주세요.', origin);
+
+  const human = await verifyTurnstile(env, body && body.turnstileToken, request.headers.get('CF-Connecting-IP'));
+  if (!human) return err(403, '자동 가입 방지 확인에 실패했습니다. 페이지를 새로고침한 뒤 다시 시도해주세요.', origin);
+
+  // 이미 가입된 주소는 여기서 알려준다. 어차피 가입 요청이 409로 같은 사실을 드러내고,
+  // 코드가 오지 않는 이유를 모른 채 기다리게 하는 편이 더 나쁘다(Turnstile 뒤라 자동 열거는 어렵다).
+  const exists = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
+  if (exists) return err(409, '이미 가입된 이메일입니다.', origin);
+
+  const now = Date.now();
+  const prev = await env.DB.prepare('SELECT * FROM email_otp WHERE email = ?').bind(email).first();
+  let windowStart = now, sendCount = 0;
+  if (prev) {
+    if (now - prev.last_sent < OTP_COOLDOWN_MS)
+      return err(429, `잠시 후 다시 시도해주세요. (${Math.ceil((OTP_COOLDOWN_MS - (now - prev.last_sent)) / 1000)}초)`, origin);
+    if (now - prev.window_start < OTP_WINDOW_MS) {
+      if (prev.send_count >= OTP_MAX_SENDS)
+        return err(429, '인증 요청이 많습니다. 1시간 후 다시 시도해주세요.', origin);
+      windowStart = prev.window_start; sendCount = prev.send_count;
+    }
+  }
+
+  const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
+  const codeHash = await sha256hex(code);
+  const sent = await sendEmail(env, email, '[챔로드] 가입 인증번호',
+    emailShell('가입 인증번호', `<p>아래 인증번호를 가입 화면에 입력해주세요. <strong>${Math.floor(OTP_TTL_MS / 60000)}분</strong> 안에 입력하셔야 합니다.</p>
+    <p style="font-size:30px;font-weight:700;letter-spacing:6px;color:#533afd;margin:20px 0">${code}</p>
+    <p style="font-size:13px;color:#6b7280">본인이 요청하지 않았다면 이 메일을 무시하세요. 인증번호를 타인에게 알려주지 마세요.</p>`));
+  if (!sent) return err(502, '인증 메일 발송에 실패했습니다. 주소를 확인하고 잠시 후 다시 시도해주세요.', origin);
+
+  await env.DB.prepare(
+    `INSERT INTO email_otp (email, code_hash, expires_at, attempts, last_sent, window_start, send_count, verified_at)
+     VALUES (?1, ?2, ?3, 0, ?4, ?5, ?6, NULL)
+     ON CONFLICT(email) DO UPDATE SET code_hash=?2, expires_at=?3, attempts=0, last_sent=?4,
+       window_start=?5, send_count=?6, verified_at=NULL`
+  ).bind(email, codeHash, now + OTP_TTL_MS, now, windowStart, sendCount + 1).run();
+
+  return ok({ sent: true, expiresIn: Math.floor(OTP_TTL_MS / 1000) }, origin);
+}
+
+// 가입 인증코드 확인 — 성공하면 verified_at을 남긴다. 실제 계정 생성은 signup에서.
+async function handleVerifySignupCode(request, env, origin) {
+  const body = await readJson(request);
+  const email = (body && typeof body.email === 'string' ? body.email : '').toLowerCase().trim();
+  const code = (body && typeof body.code === 'string' ? body.code : '').replace(/\D/g, '');
+  if (!email || !code) return err(400, '인증번호를 입력해주세요.', origin);
+
+  const row = await env.DB.prepare('SELECT * FROM email_otp WHERE email = ?').bind(email).first();
+  if (!row) return err(400, '인증번호를 먼저 요청해주세요.', origin);
+  const now = Date.now();
+  if (now > row.expires_at) return err(400, '인증번호가 만료되었습니다. 재발송을 눌러주세요.', origin);
+  if (row.attempts >= OTP_MAX_ATTEMPTS)
+    return err(429, '입력 시도가 많습니다. 재발송 후 다시 시도해주세요.', origin);
+
+  if (await sha256hex(code) !== row.code_hash) {
+    await env.DB.prepare('UPDATE email_otp SET attempts = attempts + 1 WHERE email = ?').bind(email).run();
+    return err(400, '인증번호가 올바르지 않습니다.', origin);
+  }
+
+  await env.DB.prepare('UPDATE email_otp SET verified_at = ? WHERE email = ?').bind(now, email).run();
+  return ok({ verified: true }, origin);
+}
+
 async function handleSignup(request, env, origin) {
   const body = await readJson(request);
   if (!body) return err(400, '잘못된 요청입니다.', origin);
   const v = validateSignup(body);
   if (v.error) return err(400, v.error, origin);
 
-  // 자동 가입 방지 — 계정 생성·메일 발송 전에 먼저 막는다(비용이 드는 작업 앞).
-  const human = await verifyTurnstile(env, body.turnstileToken, request.headers.get('CF-Connecting-IP'));
-  if (!human) return err(403, '자동 가입 방지 확인에 실패했습니다. 페이지를 새로고침한 뒤 다시 시도해주세요.', origin);
+  // 이메일 인증 확인 — 확인된 코드 없이는 계정을 만들지 않는다.
+  // (메일 발송 단계에서 Turnstile을 이미 통과했으므로 여기서 캡차를 다시 요구하지 않는다.)
+  const otp = await env.DB.prepare('SELECT verified_at FROM email_otp WHERE email = ?')
+    .bind(v.email).first();
+  if (!otp || !otp.verified_at)
+    return err(400, '이메일 인증을 먼저 완료해주세요.', origin);
+  if (Date.now() - otp.verified_at > SIGNUP_VERIFIED_TTL_MS)
+    return err(400, '이메일 인증이 만료되었습니다. 인증번호를 다시 받아주세요.', origin);
 
   const exists = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(v.email).first();
   if (exists) return err(409, '이미 사용 중인 이메일입니다.', origin);
 
   const passwordHash = await hashPassword(v.password, env.PEPPER);
+  // 코드 확인을 마친 주소로만 계정이 생기므로 email_verified를 1로 시작한다.
+  // 가입 후 인증 메일을 따로 보내지 않는다(이미 인증된 상태다).
   const res = await env.DB.prepare(
-    `INSERT INTO users (email, name, password_hash, agreed_at, consent_version)
-     VALUES (?, ?, ?, ?, ?)`
+    `INSERT INTO users (email, name, password_hash, agreed_at, consent_version, email_verified)
+     VALUES (?, ?, ?, ?, ?, 1)`
   ).bind(v.email, v.name, passwordHash, Date.now(), CONSENT_VERSION).run();
 
   const userId = res.meta.last_row_id;
+  // 쓴 코드는 지운다 — 남겨 두면 같은 인증으로 다른 계정을 또 만들 수 있다.
+  await env.DB.prepare('DELETE FROM email_otp WHERE email = ?').bind(v.email).run();
+
   const session = await createSession(env.DB, userId, false);
-  // 이메일 인증(소프트) — 실패해도 가입은 완료되고, 인증 여부와 무관하게 로그인·이용 가능.
-  await sendVerifyEmail(env, userId, v.email, v.name);
   return ok({
     token: session.token,
-    user: { email: v.email, name: v.name, expiresAt: session.expiresAt, emailVerified: false },
+    user: { email: v.email, name: v.name, expiresAt: session.expiresAt, emailVerified: true, isAdmin: isAdminEmail(env, v.email) },
   }, origin);
 }
 
@@ -1668,6 +1748,8 @@ const ROUTES = {
   'POST /api/admin/refund': handleAdminRefund,
   'POST /api/admin/grant': handleAdminGrant,
   'POST /api/admin/revoke-test': handleAdminRevokeTest,
+  'POST /api/auth/send-signup-code': handleSendSignupCode,
+  'POST /api/auth/verify-signup-code': handleVerifySignupCode,
   'POST /api/auth/signup': handleSignup,
   'POST /api/auth/login': handleLogin,
   'POST /api/auth/logout': handleLogout,

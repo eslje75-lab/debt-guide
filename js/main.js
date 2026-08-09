@@ -510,12 +510,23 @@ const Auth = {
   // agree = 이용약관·개인정보처리방침 동의 + 만 14세 이상 확인(화면 체크박스 하나로 받는다).
   // 서버가 이 값을 필수로 요구하고 동의 시각·버전을 저장한다 — 화면에서만 검사하면
   // 동의 사실을 남길 방법이 없고, API 직접 호출로 우회된다.
-  async signup(name, email, password, agree, turnstileToken) {
+  // 가입 이메일 인증 — 코드 발송·확인. 계정은 확인을 마친 뒤 signup()에서 만들어진다.
+  // Turnstile 토큰은 메일이 실제로 나가는 발송 단계에서만 쓴다.
+  async sendSignupCode(email, turnstileToken) {
+    return this._api('/api/auth/send-signup-code', {
+      body: { email: email.toLowerCase().trim(), turnstileToken: turnstileToken || '' },
+    });
+  },
+
+  async verifySignupCode(email, code) {
+    return this._api('/api/auth/verify-signup-code', {
+      body: { email: email.toLowerCase().trim(), code: String(code || '').replace(/\D/g, '') },
+    });
+  },
+
+  async signup(name, email, password, agree) {
     const r = await this._api('/api/auth/signup', {
-      body: {
-        name: name.trim(), email: email.toLowerCase().trim(), password, agree: agree === true,
-        turnstileToken: turnstileToken || '',   // 서버는 시크릿 미설정 시 이 값을 무시한다
-      },
+      body: { name: name.trim(), email: email.toLowerCase().trim(), password, agree: agree === true },
     });
     if (!r.ok) return r;
     const user = this._saveSession(r.token, r.user);

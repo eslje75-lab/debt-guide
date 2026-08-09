@@ -152,6 +152,20 @@ CREATE INDEX IF NOT EXISTS idx_entitlements_user ON entitlements(user_id);
 --    제1호(일부 이용의 허용 = 유료 콘텐츠 미리보기)를 유지하므로 요건은 그대로 충족된다.
 --    다시 만들지 말 것. 서류검토 AI는 entitlements(패키지 회수)로만 판정한다.
 
+-- 가입 전 이메일 인증 코드(2026-08-09). 계정이 아직 없으므로 user_id가 아니라 이메일로 키를 잡는다.
+-- 가입 폼에서 코드를 받아 확인한 뒤에야 계정이 만들어지므로, 미인증 계정이 아예 생기지 않는다.
+-- verified_at = 코드 확인에 성공한 시각. 가입은 이 시각으로부터 일정 시간 안에만 허용한다.
+CREATE TABLE IF NOT EXISTS email_otp (
+  email        TEXT PRIMARY KEY,
+  code_hash    TEXT    NOT NULL,      -- SHA-256(코드) hex. 원문은 저장하지 않는다.
+  expires_at   INTEGER NOT NULL,
+  attempts     INTEGER NOT NULL DEFAULT 0,
+  last_sent    INTEGER NOT NULL,      -- 재발송 쿨다운 기준
+  window_start INTEGER NOT NULL,      -- 발송횟수 제한 윈도우 시작
+  send_count   INTEGER NOT NULL DEFAULT 0,
+  verified_at  INTEGER                -- null이면 아직 미인증
+);
+
 -- Phase 5(이메일 인프라): 비밀번호 재설정·이메일 인증용 일회성 토큰.
 -- 세션과 동일하게 원본 토큰은 저장하지 않고 SHA-256 해시만 보관한다(DB 유출 시 무효).
 -- purpose='reset'(비밀번호 재설정) | 'verify'(가입 이메일 인증). 사용 시 used_at 기록 → 재사용 차단.
