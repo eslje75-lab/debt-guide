@@ -16,8 +16,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 로컬 개발
 
-별도 빌드 과정 없음. VS Code의 **Live Server** 확장으로 `index.html`을 열면 로컬에서 바로 확인 가능.
-Claude 자동 브라우저 테스트용으로는 `.claude/launch.json`의 `chamroad-static` 설정(node 정적 서버, 포트 3456)을 preview로 실행.
+별도 빌드 과정 없음. `node tools/serve.js` → http://localhost:3456 (또는 VS Code **Live Server** 확장).
+`.claude/launch.json`의 `chamroad-static`도 같은 서버를 쓴다.
+
+포트 3456인 이유: Worker의 `ALLOWED_ORIGINS`에 들어 있어 로컬 화면에서 운영 API를 호출해 볼 수 있다.
+기본 API 대상은 `wrangler dev`(:8787)이고, 운영 API로 붙으려면 주소에 **`?api=prod`**를 한 번 붙인다
+(그 브라우저에 기억된다. 되돌리려면 `?api=local`). 결제 점검용으로 `?paytest=1`도 있다 —
+버튼만 열릴 뿐 실제 허용은 서버 명단(`payAllowlisted`)이 판정한다.
+
+### PC를 바꿀 때
+
+저장소에 없는 것은 **`api/.dev.vars`** 하나뿐이다(`.claude/settings*.json`은 기계별 설정이라 제외).
+새 PC에서는 `git clone` → `cd api && npm install` → `npx wrangler login` → `.dev.vars` 재작성 순.
+
+⚠️ **`.dev.vars`의 `PEPPER`는 반드시 비밀번호 관리자에 따로 백업해 둘 것.**
+Cloudflare에 올린 시크릿은 이름만 조회되고 값은 다시 읽을 수 없다. PEPPER를 잃으면
+기존 회원의 비밀번호 해시를 검증할 수 없어 전원 재설정해야 한다.
+나머지 시크릿(Anthropic·Resend·솔라피·포트원·Turnstile)은 각 콘솔에서 재발급하면 된다.
 
 ※ 과거 단일파일 빌드 산출물(`app.html`, `build.ps1`)은 2026-07-02에 삭제됨 — 다시 만들지 말 것.
 

@@ -1,5 +1,14 @@
-.claude/
+# Claude Code 설정 — 검증 에이전트·스킬은 저장소에 보존하고(PC를 바꿔도 남아야 하는 자산),
+# 기계마다 달라지는 개인 설정만 제외한다. 절대경로·권한 목록이라 다른 PC에서 의미가 없다.
+.claude/settings.json
+.claude/settings.local.json
+
 채무해결플랫폼/
+
+# 로컬 개발용 시크릿. 절대 커밋하지 말 것.
+# ⚠️ PEPPER는 Cloudflare에 올린 뒤 다시 읽을 수 없다 — 이 파일이 유일한 사본이므로
+#    반드시 비밀번호 관리자에 따로 백업해 둘 것. 잃으면 기존 회원 비밀번호를 검증할 수 없다.
 api/.dev.vars
+
 api/.wrangler/
 api/node_modules/
