@@ -365,9 +365,15 @@
         <input id="pv-phone" type="tel" inputmode="numeric" placeholder="010-1234-5678" class="flex-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm" autocomplete="tel">
         <button id="pv-send-btn" onclick="pvSend()" class="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors shrink-0">인증번호 받기</button>
       </div>
-      <div id="pv-otp-box" class="hidden flex gap-2">
-        <input id="pv-otp" type="text" inputmode="numeric" maxlength="6" placeholder="인증번호 6자리" class="flex-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm tracking-widest" autocomplete="one-time-code">
-        <button id="pv-verify-btn" onclick="pvVerify()" class="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors shrink-0">확인</button>
+      <div id="pv-otp-box" class="hidden">
+        <div class="flex gap-2 items-center">
+          <div class="relative flex-1">
+            <input id="pv-otp" type="text" inputmode="numeric" maxlength="6" placeholder="인증번호 6자리" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-14 text-sm tracking-widest" autocomplete="one-time-code">
+            <!-- 남은 시간은 입력칸 안 오른쪽에. 안내문(pv-msg)과 겹치지 않게 별도 요소로 둔다 -->
+            <span id="pv-timer" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400 tabular-nums"></span>
+          </div>
+          <button id="pv-verify-btn" onclick="pvVerify()" class="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors shrink-0">확인</button>
+        </div>
       </div>
       <p id="pv-msg" class="text-xs hidden"></p>
     </div>
@@ -515,11 +521,44 @@
     });
   }
   function pvClose(result) {
+    pvStopTimer();   // 모달을 닫으면 카운트다운도 멈춘다(취소·완료 공통)
     document.getElementById('phone-verify-modal').classList.add('hidden');
     const r = _pvResolve; _pvResolve = null;
     if (r) r(result);
   }
   function pvCancel() { pvClose(null); }
+
+  // 인증번호 유효시간 카운트다운 — 서버 OTP_TTL과 같은 값을 응답에서 받아 쓴다.
+  // 0이 되면 서버도 거절하므로 입력을 막고 재발송으로 유도한다.
+  let _pvTimerId = null;
+  function pvStopTimer() {
+    if (_pvTimerId) { clearInterval(_pvTimerId); _pvTimerId = null; }
+    const t = document.getElementById('pv-timer');
+    if (t) t.textContent = '';
+  }
+  function pvStartTimer(sec) {
+    pvStopTimer();
+    let left = Math.max(0, parseInt(sec, 10) || 0);
+    const el = document.getElementById('pv-timer');
+    const tick = () => {
+      if (left <= 0) {
+        pvStopTimer();
+        document.getElementById('pv-otp').disabled = true;
+        document.getElementById('pv-verify-btn').disabled = true;
+        pvMsg('인증번호가 만료되었습니다. [재발송]을 눌러 새 번호를 받아주세요.', 'err');
+        return;
+      }
+      el.textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+      el.classList.toggle('text-red-500', left <= 30);
+      el.classList.toggle('text-slate-400', left > 30);
+      left--;
+    };
+    document.getElementById('pv-otp').disabled = false;
+    document.getElementById('pv-verify-btn').disabled = false;
+    tick();
+    _pvTimerId = setInterval(tick, 1000);
+  }
+
   let _pvBusy = false;
   async function pvSend() {
     if (_pvBusy) return;
@@ -534,7 +573,8 @@
     document.getElementById('pv-otp-box').classList.remove('hidden');
     document.getElementById('pv-otp').focus();
     btn.textContent = '재발송';
-    pvMsg('인증번호를 문자로 보냈습니다. 5분 안에 입력해주세요.', 'ok');
+    pvMsg('인증번호를 문자로 보냈습니다. 문자가 늦게 도착할 수 있습니다.', 'ok');
+    pvStartTimer(r.expiresIn || 180);   // 서버가 알려준 유효시간으로 카운트다운
   }
   async function pvVerify() {
     if (_pvBusy) return;

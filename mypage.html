@@ -122,9 +122,15 @@
           <button id="acc-code-btn" onclick="doSendCode()" class="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors shrink-0">인증번호 받기</button>
         </div>
         <!-- 인증번호 입력 -->
-        <div id="otp-box" class="hidden flex gap-2 mt-2">
-          <input id="acc-otp" type="text" inputmode="numeric" maxlength="6" placeholder="인증번호 6자리" class="flex-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm tracking-widest" autocomplete="one-time-code">
-          <button id="acc-verify-btn" onclick="doVerifyCode()" class="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors shrink-0">확인</button>
+        <div id="otp-box" class="hidden mt-2">
+          <div class="flex gap-2 items-center">
+            <div class="relative flex-1">
+              <input id="acc-otp" type="text" inputmode="numeric" maxlength="6" placeholder="인증번호 6자리" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 pr-14 text-sm tracking-widest" autocomplete="one-time-code">
+              <!-- 남은 시간(안내문과 겹치지 않도록 입력칸 안에 표시) -->
+              <span id="acc-timer" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400 tabular-nums"></span>
+            </div>
+            <button id="acc-verify-btn" onclick="doVerifyCode()" class="bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm hover:bg-blue-800 transition-colors shrink-0">확인</button>
+          </div>
         </div>
         <p id="acc-phone-msg" class="text-xs mt-1 hidden"></p>
         <p class="text-xs text-slate-400 mt-1">인증 없이 연락처만 남기려면 <button onclick="doSavePhone()" class="underline hover:text-slate-600">저장만 하기</button></p>
@@ -510,7 +516,38 @@
     document.getElementById('otp-box').classList.remove('hidden');
     document.getElementById('acc-otp').focus();
     btn.textContent = '재발송';
-    phoneMsg('인증번호를 문자로 보냈습니다. 5분 안에 입력해주세요.', 'ok');
+    phoneMsg('인증번호를 문자로 보냈습니다. 문자가 늦게 도착할 수 있습니다.', 'ok');
+    accStartTimer(r.expiresIn || 180);   // 서버가 알려준 유효시간으로 카운트다운
+  }
+
+  // 인증번호 유효시간 카운트다운(서버 OTP_TTL과 동일 값). 0이면 서버도 거절하므로 입력을 막는다.
+  let _accTimerId = null;
+  function accStopTimer() {
+    if (_accTimerId) { clearInterval(_accTimerId); _accTimerId = null; }
+    const t = document.getElementById('acc-timer');
+    if (t) t.textContent = '';
+  }
+  function accStartTimer(sec) {
+    accStopTimer();
+    let left = Math.max(0, parseInt(sec, 10) || 0);
+    const el = document.getElementById('acc-timer');
+    const tick = () => {
+      if (left <= 0) {
+        accStopTimer();
+        document.getElementById('acc-otp').disabled = true;
+        document.getElementById('acc-verify-btn').disabled = true;
+        phoneMsg('인증번호가 만료되었습니다. [재발송]을 눌러 새 번호를 받아주세요.', 'err');
+        return;
+      }
+      el.textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+      el.classList.toggle('text-red-500', left <= 30);
+      el.classList.toggle('text-slate-400', left > 30);
+      left--;
+    };
+    document.getElementById('acc-otp').disabled = false;
+    document.getElementById('acc-verify-btn').disabled = false;
+    tick();
+    _accTimerId = setInterval(tick, 1000);
   }
 
   // 인증번호 확인. 성공 시 phone_verified=1, 인증완료 상태로 전환.
@@ -524,6 +561,7 @@
     const r = await Auth.verifyPhoneCode(code);
     _verifyBusy = false; btn.disabled = false;
     if (!r.ok) { phoneMsg(r.error || '인증에 실패했습니다.', 'err'); return; }
+    accStopTimer();
     renderPhoneVerified(r.phone);
     showToast('휴대폰 번호가 인증되었습니다.', 'success');
   }

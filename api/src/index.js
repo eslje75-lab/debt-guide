@@ -67,7 +67,7 @@ const BUSINESS_INFO = {
 const REFUND_WINDOW_MS = 14 * DAY_MS;   // 청약철회 기간: 결제일부터 14일(약관 제6조)
 
 // 결제 시 SMS 번호 인증(솔라피). 성인 '검증'은 하지 않고(자기신고), 유료 고객 연락처 진위만 확인.
-const OTP_TTL_MS = 5 * 60 * 1000;       // 인증코드 유효 5분
+const OTP_TTL_MS = 3 * 60 * 1000;       // 인증코드 유효 3분(화면 카운트다운과 같은 값이어야 함)
 const OTP_COOLDOWN_MS = 60 * 1000;      // 재발송 쿨다운 60초
 const OTP_WINDOW_MS = 60 * 60 * 1000;   // 발송횟수 제한 윈도우 1시간
 const OTP_MAX_SENDS = 5;                // 윈도우 내 최대 발송
@@ -606,7 +606,7 @@ async function handleSendCode(request, env, origin) {
 
   const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
   const codeHash = await sha256hex(code);
-  const sent = await sendSms(env, phone, `[챔로드] 인증번호 ${code} (5분 내 입력). 타인에게 알려주지 마세요.`);
+  const sent = await sendSms(env, phone, `[챔로드] 인증번호 ${code} (3분 내 입력). 타인에게 알려주지 마세요.`);
   if (!sent) return err(502, '문자 발송에 실패했습니다. 번호를 확인하고 잠시 후 다시 시도해주세요.', origin);
 
   await env.DB.prepare(
@@ -615,7 +615,8 @@ async function handleSendCode(request, env, origin) {
      ON CONFLICT(user_id) DO UPDATE SET phone=?2, code_hash=?3, expires_at=?4, attempts=0, last_sent=?5, window_start=?6, send_count=?7`
   ).bind(session.id, phone, codeHash, now + OTP_TTL_MS, now, windowStart, sendCount + 1).run();
 
-  return ok({ sent: true, message: '인증번호를 문자로 보냈습니다.' }, origin);
+  // expiresIn(초)을 함께 준다 — 화면 카운트다운이 서버 유효시간과 어긋나지 않도록.
+  return ok({ sent: true, expiresIn: Math.floor(OTP_TTL_MS / 1000), message: '인증번호를 문자로 보냈습니다.' }, origin);
 }
 
 // SMS 인증 코드 검증 — 성공 시 users.phone + phone_verified 설정, OTP 행 삭제.
