@@ -410,7 +410,11 @@ const Auth = {
       const res = await fetch(API_BASE + path, {
         method, headers, body: body ? JSON.stringify(body) : null,
       });
-      return await res.json();
+      const j = await res.json();
+      // HTTP 상태를 함께 돌려준다 — 호출부가 409(중복) 같은 특정 실패를 구분해
+      // 다른 UI를 보여줄 수 있도록. 서버 응답에 status 필드가 있으면 덮어쓰지 않는다.
+      if (j && typeof j === 'object' && j.status === undefined) j.status = res.status;
+      return j;
     } catch (e) {
       return { ok: false, error: '서버에 연결할 수 없습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요.' };
     }

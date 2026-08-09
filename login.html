@@ -129,6 +129,13 @@
                 <label class="block text-sm font-medium text-slate-700 mb-1.5">이메일</label>
                 <input id="s-email" type="email" class="input-field" placeholder="example@email.com" autocomplete="email">
                 <p id="s-email-err" class="error-msg">올바른 이메일을 입력해주세요.</p>
+                <!-- 이미 가입된 이메일일 때만 노출(서버 409 응답 기준). 다음 행동을 바로 제시한다. -->
+                <p id="s-email-dup" class="hidden text-xs text-slate-500 mt-1.5">
+                  이미 가입된 이메일입니다.
+                  <button type="button" class="text-blue-600 hover:underline font-medium" onclick="goLoginWithEmail()">이 이메일로 로그인</button>
+                  <span class="text-slate-300">·</span>
+                  <a href="find-account.html" class="text-blue-600 hover:underline">비밀번호를 잊으셨나요?</a>
+                </p>
               </div>
 
               <div>
@@ -224,6 +231,15 @@
     document.querySelectorAll('.alert-box').forEach(el => el.classList.remove('show'));
     document.querySelectorAll('.error-msg').forEach(el => el.classList.remove('show'));
     document.querySelectorAll('.input-field').forEach(el => el.classList.remove('error'));
+    document.getElementById('s-email-dup').classList.add('hidden');
+  }
+
+  // 중복 안내에서 '이 이메일로 로그인' — 입력한 주소를 로그인 칸으로 옮겨준다.
+  function goLoginWithEmail() {
+    const email = document.getElementById('s-email').value.trim();
+    switchTab('login');
+    const target = document.getElementById('l-email');
+    if (target) { target.value = email; document.getElementById('l-pw').focus(); }
   }
 
   function showAlert(id, msg) {
@@ -301,6 +317,13 @@
     if (!result.ok) {
       // 토큰은 1회용 — 실패하면 위젯을 새로 돌려야 재시도가 된다.
       if (_tsWidgetId !== null) turnstile.reset(_tsWidgetId);
+      // 이메일 중복(409)은 페이지 맨 위 경고 대신 이메일 칸 바로 아래에 띄운다.
+      // 어느 칸이 문제인지 즉시 보이고, 로그인·비밀번호 찾기로 바로 갈 수 있게.
+      if (result.status === 409) {
+        fieldError('s-email', 's-email-err', '이미 가입된 이메일입니다.');
+        document.getElementById('s-email-dup').classList.remove('hidden');
+        return;
+      }
       showAlert('signup-alert', result.error);
       return;
     }
@@ -343,6 +366,13 @@
   function showFindAccount() {
     location.href = 'find-account.html';
   }
+
+  // 이메일을 고치기 시작하면 중복 안내를 즉시 거둔다(고친 주소에 대한 판정이 아니므로).
+  document.getElementById('s-email').addEventListener('input', () => {
+    document.getElementById('s-email-dup').classList.add('hidden');
+    document.getElementById('s-email').classList.remove('error');
+    document.getElementById('s-email-err').classList.remove('show');
+  });
 
   // Enter 키 지원
   document.addEventListener('keydown', (e) => {
