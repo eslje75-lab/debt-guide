@@ -391,6 +391,12 @@ const API_BASE = (location.hostname === 'localhost' || location.hostname === '12
 // + 포트원 라이브 채널 시크릿 교체 및 라이브 결제 1건 검증. 그 뒤 이 값만 true로.
 const PAYMENTS_ENABLED = false;
 
+// 자동 가입 방지(Cloudflare Turnstile) 사이트 키.
+// 빈 문자열이면 위젯을 아예 띄우지 않는다 — 키 발급 전에도 가입이 정상 동작하도록.
+// 서버 짝은 Worker 시크릿 TURNSTILE_SECRET. ⚠️둘 다 설정해야 실제로 보호된다.
+// 발급: Cloudflare 대시보드 → Turnstile → 위젯 추가(도메인 chamroad.com) → 사이트 키를 여기에.
+const TURNSTILE_SITE_KEY = '';
+
 const Auth = {
   _KS: 'cdg_auth_session',
 
@@ -450,9 +456,12 @@ const Auth = {
   // agree = 이용약관·개인정보처리방침 동의 + 만 14세 이상 확인(화면 체크박스 하나로 받는다).
   // 서버가 이 값을 필수로 요구하고 동의 시각·버전을 저장한다 — 화면에서만 검사하면
   // 동의 사실을 남길 방법이 없고, API 직접 호출로 우회된다.
-  async signup(name, email, password, agree) {
+  async signup(name, email, password, agree, turnstileToken) {
     const r = await this._api('/api/auth/signup', {
-      body: { name: name.trim(), email: email.toLowerCase().trim(), password, agree: agree === true },
+      body: {
+        name: name.trim(), email: email.toLowerCase().trim(), password, agree: agree === true,
+        turnstileToken: turnstileToken || '',   // 서버는 시크릿 미설정 시 이 값을 무시한다
+      },
     });
     if (!r.ok) return r;
     const user = this._saveSession(r.token, r.user);

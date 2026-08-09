@@ -40,6 +40,18 @@ const RESET_TTL_MS = 30 * 60 * 1000;   // 비밀번호 재설정 토큰 유효 3
 const VERIFY_TTL_MS = 3 * DAY_MS;      // 이메일 인증 토큰 유효 3일
 const EMAIL_COOLDOWN_MS = 60 * 1000;   // 같은 목적 재발송 최소 간격(메일 폭탄 방지)
 
+// 자동 가입 방지(Cloudflare Turnstile). 가입은 1건마다 인증메일이 1통 나가므로,
+// 제한이 없으면 스크립트로 Resend 일일 한도(약 100통)를 태워 정상 이용자의
+// 비밀번호 재설정 메일까지 막을 수 있다. 그 경로를 캡차로 끊는다.
+// 시크릿 TURNSTILE_SECRET이 없으면 검증을 건너뛴다(설정 전에도 가입이 막히지 않도록).
+// 프론트 사이트 키는 js/main.js의 TURNSTILE_SITE_KEY — 둘 다 설정해야 실제로 작동한다.
+const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+
+// 판매 잠금(서버측). 프론트 js/main.js의 PAYMENTS_ENABLED와 짝이며, API를 직접
+// 호출하는 우회를 막는다. ⚠️판매 오픈 시 이 값과 main.js 값을 함께 true로 바꿀 것
+// (LAUNCH-CHECKLIST 2단계). 한쪽만 바꾸면 결제가 503으로 막힌다.
+const PAYMENTS_ENABLED = false;
+
 // 사업자 신원 — 전자상거래법 제10조(표시)·제13조②(계약내용 서면)에 들어갈 값.
 // ⚠️ 사업자등록 후 실값으로 교체할 것. 판매(PAYMENTS_ENABLED)는 사업자등록 후에 열리므로
 //    실제 결제·주문확인 메일이 나가는 시점엔 아래가 실값이어야 한다. terms 제11조·privacy 12항과 일치시킬 것.
@@ -433,6 +445,10 @@ async function handleSignup(request, env, origin) {
   const v = validateSignup(body);
   if (v.error) return err(400, v.error, origin);
 
+  // 자동 가입 방지 — 계정 생성·메일 발송 전에 먼저 막는다(비용이 드는 작업 앞).
+  const human = await verifyTurnstile(env, body.turnstileToken, request.headers.get('CF-Connecting-IP'));
+  if (!human) return err(403, '자동 가입 방지 확인에 실패했습니다. 페이지를 새로고침한 뒤 다시 시도해주세요.', origin);
+
   const exists = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(v.email).first();
   if (exists) return err(409, '이미 사용 중인 이메일입니다.', origin);
 
@@ -453,6 +469,29 @@ async function handleSignup(request, env, origin) {
 }
 
 // 로그인 실패 1건 기록. 윈도우 내면 누적, 지났으면 리셋. 한도 도달 시 잠금 설정.
+// Turnstile 토큰 검증. 시크릿 미설정이면 통과시킨다(기능 도입 전/설정 전에도 가입은 되어야 함).
+// 토큰은 1회용이라 실패 시 프론트에서 위젯을 reset해야 재시도가 된다.
+// 네트워크 오류로 Cloudflare에 못 물어본 경우도 통과시킨다 — 캡차 장애가 가입 전면 중단이 되면 안 된다.
+async function verifyTurnstile(env, token, ip) {
+  if (!env.TURNSTILE_SECRET) return true;
+  if (!token || typeof token !== 'string') return false;
+  try {
+    const form = new URLSearchParams({ secret: env.TURNSTILE_SECRET, response: token });
+    if (ip) form.set('remoteip', ip);
+    const r = await fetch(TURNSTILE_VERIFY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString(),
+    });
+    const j = await r.json();
+    if (!j.success) console.error('turnstile rejected', JSON.stringify(j['error-codes'] || []));
+    return j.success === true;
+  } catch (e) {
+    console.error('turnstile verify error', e.message);
+    return true;
+  }
+}
+
 async function recordLoginFail(env, email, att, now) {
   let failCount, windowStart;
   if (att && att.window_start && (now - att.window_start) < LOGIN_WINDOW_MS) {
@@ -1074,6 +1113,9 @@ async function handleAiReview(request, env, origin) {
 async function handlePaymentPrepare(request, env, origin) {
   const session = await getSessionUser(env.DB, request);
   if (!session) return err(401, '로그인이 필요합니다.', origin);
+  // 판매 잠금 — 프론트 버튼만 막으면 API 직접 호출로 우회되므로 여기서도 막는다.
+  if (!PAYMENTS_ENABLED)
+    return err(503, '현재는 결제를 받지 않고 있습니다. 정식 오픈 준비 중입니다.', origin);
   if (!env.PORTONE_STORE_ID || !env.PORTONE_CHANNEL_KEY)
     return err(503, '결제 기능이 아직 준비 중입니다.', origin);
   const body = await readJson(request);
