@@ -597,6 +597,22 @@ const Auth = {
   }
 };
 
+/* ── 탭 간 계정 전환 감지 ──
+   localStorage는 같은 사이트의 모든 탭이 공유한다. 그래서 다른 탭에서 로그아웃하거나
+   다른 계정으로 로그인하면, 이 탭은 화면만 옛 계정인 채로 남는다.
+   그 상태에서 무언가를 저장하면 옛 계정 화면의 값이 새 계정 데이터에 섞여 들어갈 수 있다
+   (진단 결과·진행률 등은 계정별로 서버에 저장되므로 실제 오염이 된다).
+   계정이 바뀐 것을 감지하면 이 탭을 새로 고쳐 현재 계정 기준으로 다시 그린다.
+
+   ⚠️ storage 이벤트는 '변경을 일으킨 탭'에는 발생하지 않는다 — 새로고침 루프가 생기지 않는다.
+   이메일이 그대로면(토큰 갱신·이메일 인증 상태 반영 등) 무시한다. */
+window.addEventListener('storage', (e) => {
+  if (e.key !== Auth._KS) return;
+  const emailOf = (v) => { try { return (JSON.parse(v || 'null') || {}).email || ''; } catch (err) { return ''; } };
+  if (emailOf(e.oldValue) === emailOf(e.newValue)) return;   // 같은 계정 — 화면을 흔들 이유가 없다
+  location.reload();
+});
+
 /* ── Toast ── */
 function showToast(msg, type = 'info') {
   let t = document.getElementById('toast');
