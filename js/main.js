@@ -395,7 +395,7 @@ const PAYMENTS_ENABLED = false;
 // 빈 문자열이면 위젯을 아예 띄우지 않는다 — 키 발급 전에도 가입이 정상 동작하도록.
 // 서버 짝은 Worker 시크릿 TURNSTILE_SECRET. ⚠️둘 다 설정해야 실제로 보호된다.
 // 발급: Cloudflare 대시보드 → Turnstile → 위젯 추가(도메인 chamroad.com) → 사이트 키를 여기에.
-const TURNSTILE_SITE_KEY = '';
+const TURNSTILE_SITE_KEY = '0x4AAAAAAEK3qFCpNWXawW8r';
 
 const Auth = {
   _KS: 'cdg_auth_session',

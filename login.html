@@ -217,6 +217,7 @@
     document.getElementById('tab-login').classList.toggle('active',  tab === 'login');
     document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
     hideAlerts();
+    if (tab === 'signup') renderTurnstile();   // 패널이 보이는 순간에 그린다(아래 주석 참조)
   }
 
   function hideAlerts() {
@@ -309,21 +310,29 @@
 
   /* ── 자동 가입 방지(Cloudflare Turnstile) ──
      사이트 키가 없으면 스크립트조차 불러오지 않는다(불필요한 외부 요청·의존 제거).
-     explicit 렌더를 쓰는 이유: 회원가입 탭이 숨겨진 상태로 시작하므로 자동 렌더는 폭이 0이 된다. */
+     ⚠️explicit 렌더 + 지연 렌더인 이유: 회원가입 패널은 .form-panel{display:none}으로 시작한다.
+       숨겨진 컨테이너에 그리면 위젯 폭이 0으로 잡혀 깨지므로, 패널이 실제로 보이는
+       시점(회원가입 탭 클릭)에 딱 한 번 그린다. 스크립트 로드와 탭 클릭 중
+       무엇이 먼저 일어나도 되도록 양쪽에서 renderTurnstile()을 호출한다. */
   let _tsWidgetId = null;
+  let _tsReady = false;
+
+  function renderTurnstile() {
+    if (!_tsReady || _tsWidgetId !== null) return;                 // 미로드 or 이미 그림
+    if (!document.getElementById('panel-signup').classList.contains('active')) return;
+    try {
+      _tsWidgetId = turnstile.render('#signup-turnstile', {
+        sitekey: TURNSTILE_SITE_KEY,
+        action: 'signup',
+        theme: 'light',
+      });
+      document.getElementById('signup-turnstile').classList.add('mb-1');
+    } catch (e) { _tsWidgetId = null; }   // 렌더 실패 시 캡차 없이 진행(서버가 최종 판정)
+  }
 
   function initTurnstile() {
     if (typeof TURNSTILE_SITE_KEY === 'undefined' || !TURNSTILE_SITE_KEY) return;
-    window.onTurnstileLoad = () => {
-      try {
-        _tsWidgetId = turnstile.render('#signup-turnstile', {
-          sitekey: TURNSTILE_SITE_KEY,
-          action: 'signup',
-          theme: 'light',
-        });
-        document.getElementById('signup-turnstile').classList.add('mb-1');
-      } catch (e) { _tsWidgetId = null; }   // 렌더 실패 시 캡차 없이 진행(서버가 최종 판정)
-    };
+    window.onTurnstileLoad = () => { _tsReady = true; renderTurnstile(); };
     const s = document.createElement('script');
     s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit';
     s.async = true; s.defer = true;
