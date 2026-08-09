@@ -121,7 +121,7 @@
                 <button type="button" class="text-sm text-slate-500 hover:text-blue-600 hover:underline" onclick="showFindAccount()">아이디 · 비밀번호 찾기</button>
               </div>
 
-              <button class="btn-primary" onclick="doLogin()">로그인</button>
+              <button id="login-btn" class="btn-primary" onclick="doLogin()">로그인</button>
             </div>
           </div>
 
@@ -191,7 +191,7 @@
                    위젯을 띄우지 않으므로 이 자리는 그대로 비어 있게 된다. -->
               <div id="signup-turnstile"></div>
 
-              <button class="btn-primary" onclick="doSignup()">회원가입</button>
+              <button id="signup-btn" class="btn-primary" onclick="doSignup()">회원가입</button>
 
               <p class="text-center text-sm text-slate-500">
                 이미 계정이 있으신가요?
@@ -262,13 +262,34 @@
     const el = document.getElementById(id);
     el.textContent = msg;
     el.classList.add('show');
+    scrollIntoViewSafely(el);   // 경고는 폼 맨 위에 있어 스크롤을 내린 상태면 안 보인다
+  }
+
+  // 처리 중 버튼 상태 — 누른 즉시 반응이 보여야 "먹통인가?" 하는 오해가 없다.
+  function setBusy(btnId, busy, label) {
+    const b = document.getElementById(btnId);
+    if (!b) return;
+    b.disabled = busy;
+    if (busy) { b.dataset.label = b.textContent; b.textContent = label; }
+    else if (b.dataset.label) { b.textContent = b.dataset.label; }
   }
 
   function fieldError(fieldId, errId, msg) {
     const f = document.getElementById(fieldId);
     const e = document.getElementById(errId);
-    if (msg) { f.classList.add('error'); e.textContent = msg; e.classList.add('show'); f.focus(); return true; }
+    if (msg) {
+      f.classList.add('error'); e.textContent = msg; e.classList.add('show'); f.focus();
+      scrollIntoViewSafely(f);   // 폼이 길어 화면 밖에 있으면 focus만으로는 못 볼 수 있다
+      return true;
+    }
     f.classList.remove('error'); e.classList.remove('show'); return false;
+  }
+
+  // 오류를 화면 가운데로 끌어온다. 긴 폼에서 아래쪽 버튼을 누르면 위쪽 메시지가
+  // 스크롤 밖이라 "눌렀는데 아무 일도 안 일어난다"고 느끼게 되는 문제를 막는다.
+  function scrollIntoViewSafely(el) {
+    if (!el || typeof el.scrollIntoView !== 'function') return;
+    try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { el.scrollIntoView(); }
   }
 
   function togglePw(inputId, btn) {
@@ -292,8 +313,10 @@
     if (hasErr || _authBusy) return;
 
     _authBusy = true;
+    setBusy('login-btn', true, '로그인 중…');
     const result = await Auth.login(email, password, false);
     _authBusy = false;
+    setBusy('login-btn', false);
     if (!result.ok) { showAlert('login-alert', result.error); return; }
 
     location.replace(getNextUrl());
@@ -328,8 +351,10 @@
     }
 
     _authBusy = true;
+    setBusy('signup-btn', true, '가입 처리 중…');
     const result = await Auth.signup(name, email, pw, terms, tsToken);
     _authBusy = false;
+    setBusy('signup-btn', false);
     if (!result.ok) {
       // 토큰은 1회용 — 실패하면 위젯을 새로 돌려야 재시도가 된다.
       if (_tsWidgetId !== null) turnstile.reset(_tsWidgetId);
