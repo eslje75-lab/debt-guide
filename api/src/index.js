@@ -830,6 +830,14 @@ async function handleGetData(request, env, origin) {
   const owned = Array.isArray(data.plan_packages) ? data.plan_packages : [];
   // PACKAGE_TERMS에 없는 레거시 키는 만료 개념이 없으므로 그대로 통과시킨다
   data.plan_packages = owned.filter(k => !known.has(k) || activeKeys.includes(k));
+  // 이미 제공이 개시된 패키지 목록 — 프론트가 '열면 환불 제외' 사전 고지를
+  // 다시 띄울지 판단하는 데 쓴다(이미 개시된 뒤라면 물을 이유가 없다).
+  try {
+    const acc = await env.DB.prepare('SELECT package FROM content_access WHERE user_id = ?')
+      .bind(session.id).all();
+    data.content_access = (acc.results || []).map(r => r.package);
+  } catch (e) { data.content_access = []; }
+
   data.entitlements = ents.map(e => ({
     package: e.package,
     expiresAt: e.expires_at,
@@ -1222,8 +1230,15 @@ async function handlePaymentHistory(request, env, origin) {
   if (!session) return err(401, '로그인이 필요합니다.', origin);
   const rows = await env.DB.prepare(
     // first_access_at = 콘텐츠를 처음 연 시각. 환불 가능 여부(전상법 제17조②5호) 판단 근거로 함께 내려준다.
+    // first_access_at = 콘텐츠를 처음 연 시각. 환불 가능 여부(전상법 제17조②5호) 판단 근거.
+    // withdrawal_* = 청약철회 신청의 접수·처리 상태. 신청자가 "지금 어디까지 왔는지"를
+    // 마이페이지에서 확인할 수 있어야 해서 함께 내려준다(같은 주문의 최신 신청 1건).
     `SELECT p.payment_id, p.package, p.amount, p.status, p.created_at, p.paid_at, p.refunded_at,
-            c.first_access_at
+            c.first_access_at,
+            (SELECT w.status     FROM withdrawal_requests w
+              WHERE w.payment_id = p.payment_id ORDER BY w.created_at DESC LIMIT 1) AS withdrawal_status,
+            (SELECT w.created_at FROM withdrawal_requests w
+              WHERE w.payment_id = p.payment_id ORDER BY w.created_at DESC LIMIT 1) AS withdrawal_at
      FROM payments p
      LEFT JOIN content_access c ON c.user_id = p.user_id AND c.package = p.package
      WHERE p.user_id = ? AND p.status IN ('paid','refunded','test')

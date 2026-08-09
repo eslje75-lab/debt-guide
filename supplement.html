@@ -477,8 +477,9 @@
     document.getElementById('example-modal').style.removeProperty('display');
   }
 
-  function showDocExample(i) {
-    noteContentOpened();   // 서식 작성예시 열람 = 제공 개시(환불 기준)
+  async function showDocExample(i) {
+    // 서식 작성예시 열람 = 제공 개시(환불 기준). 처음이면 사전 고지 후 동의를 받는다.
+    if (!(await confirmContentOpen())) return;
     const d = DOC_EXAMPLES[i];
     document.getElementById('modal-title').textContent = d.name + ' — 작성예시';
     const box = document.getElementById('modal-content');

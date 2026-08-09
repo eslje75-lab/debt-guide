@@ -571,7 +571,7 @@ const Auth = {
   // 남겨 두면 공용 PC에서 다음 사용자에게 "○○ 패키지 이용 중"이 계속 보인다.
   // ⚠️ Storage.remove()를 쓰면 안 된다 — DataSync가 서버 user_data에서도 지워
   //    handleGetData의 plan_packages가 비어 정상 구매자가 잠긴다. 로컬만 지운다.
-  _PLAN_CACHE: ['plan', 'plan_type', 'plan_package', 'plan_package_name', 'plan_packages', 'entitlements'],
+  _PLAN_CACHE: ['plan', 'plan_type', 'plan_package', 'plan_package_name', 'plan_packages', 'entitlements', 'content_access'],
 
   logout() {
     const s = this.getSession();
@@ -977,6 +977,9 @@ async function requirePackage(allowed, pkgName) {
     });
     const j = await res.json();
     const serverPkgs = (j && j.ok && j.data && j.data.plan_packages) || [];
+    // 이 패키지의 제공이 이미 개시됐는지 — 사전 고지를 다시 띄우지 않기 위한 판단 근거
+    const opened = (j && j.ok && j.data && j.data.content_access) || [];
+    _accessOpenedBefore = Array.isArray(opened) && opened.some(p => allowed.includes(p));
     if (has(serverPkgs)) unlockContent(allowed);  // 실제 보유 확정 → 전체 공개
     else enterPreview(pkgName, true);             // 미보유 확정 → 미리보기(로컬 위조도 여기서 걸림)
   } catch (e) {
@@ -1049,6 +1052,58 @@ function noteContentOpened() {
   if (_accessNoted || isPreview()) return;   // 미리보기 상태의 열람은 '제공 개시'가 아니다
   _accessNoted = true;
   markContentAccess(_gatePackages);
+}
+
+/* ── 제공 개시 전 사전 고지 ──
+   구매자가 잠긴 콘텐츠를 '처음' 열기 직전에 환불 제한을 알리고 확인을 받는다.
+   법 제17조 제6항 단서는 청약철회 제한이 유효하려면 '청약철회 불가 사실의 표시'를
+   요구하는데, 결제 화면의 고지보다 실제로 열리는 이 순간의 고지가 가장 확실하다.
+   동시에 이용자가 무심코 열어 환불 기회를 잃는 것을 막는다.
+
+   반환: true = 열어도 됨(기록 완료), false = 이용자가 취소함.
+   이미 열람 기록이 있거나(_accessOpenedBefore) 미리보기면 묻지 않는다. */
+let _accessOpenedBefore = false;   // 서버에 first_access_at이 이미 있는 패키지인가
+
+async function confirmContentOpen() {
+  if (isPreview()) return true;                       // 미리보기는 제공 개시가 아니다
+  if (_accessNoted || _accessOpenedBefore) return true;  // 이미 개시된 뒤 — 다시 묻지 않는다
+  const ok = await openNoticeModal();
+  if (!ok) return false;
+  noteContentOpened();
+  return true;
+}
+
+// 사전 고지 모달 — 브라우저 기본 confirm 대신 직접 그린다(내용이 길고, 법적 고지라 읽혀야 한다).
+function openNoticeModal() {
+  return new Promise((resolve) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'fixed inset-0 z-[200] bg-black/40 flex items-center justify-center p-4';
+    wrap.innerHTML = `
+      <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-5" role="dialog" aria-modal="true" aria-labelledby="oc-t">
+        <h3 id="oc-t" class="font-bold text-slate-800 mb-2">이 부분을 열면 환불 대상에서 제외됩니다</h3>
+        <p class="text-sm text-slate-600 leading-relaxed">
+          지금 여시는 내용은 <strong>여는 즉시 제공이 개시</strong>되어, 그 부분에 대해서는
+          <strong class="text-amber-700">환불을 받으실 수 없습니다</strong>(전자상거래법 제17조 제2항 제5호).
+        </p>
+        <ul class="mt-3 space-y-1.5 text-xs text-slate-500 list-disc pl-4">
+          <li><strong class="text-slate-600">아직 열지 않은 단계</strong>는 결제일부터 14일 이내라면 그대로 환불됩니다.</li>
+          <li>먼저 살펴보고 결정하고 싶으시면 <strong class="text-slate-600">지금 닫으셔도</strong> 됩니다.</li>
+          <li>한 번 확인하시면 이 안내는 다시 표시되지 않습니다.</li>
+        </ul>
+        <div class="flex gap-2 justify-end mt-5">
+          <button id="oc-no" class="border border-slate-300 px-4 py-2 text-slate-700 text-sm rounded-xl hover:bg-slate-50 transition-colors">닫기</button>
+          <button id="oc-yes" class="bg-blue-700 text-white px-4 py-2 rounded-xl text-sm hover:bg-blue-800 transition-colors">이해했습니다, 열기</button>
+        </div>
+      </div>`;
+    const done = (v) => { wrap.remove(); document.removeEventListener('keydown', onKey); resolve(v); };
+    const onKey = (e) => { if (e.key === 'Escape') done(false); };
+    document.body.appendChild(wrap);
+    wrap.querySelector('#oc-no').onclick = () => done(false);
+    wrap.querySelector('#oc-yes').onclick = () => done(true);
+    wrap.onclick = (e) => { if (e.target === wrap) done(false); };   // 바깥 클릭 = 닫기
+    document.addEventListener('keydown', onKey);
+    wrap.querySelector('#oc-yes').focus();
+  });
 }
 
 function markContentAccess(allowed) {
