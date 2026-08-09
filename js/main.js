@@ -391,6 +391,16 @@ const API_BASE = (location.hostname === 'localhost' || location.hostname === '12
 // + 포트원 라이브 채널 시크릿 교체 및 라이브 결제 1건 검증. 그 뒤 이 값만 true로.
 const PAYMENTS_ENABLED = false;
 
+// 결제 버튼을 열어 둘지. 공개 사이트에서는 위 플래그 그대로지만,
+// 로컬(localhost/127.0.0.1)에서는 항상 열어 둔다 — 판매 오픈 전에도 결제 전 구간을
+// 실제로 눌러 보며 점검하기 위해서다. 열어 두는 건 '버튼'뿐이고,
+// 실제 주문 생성 허용 여부는 서버가 판정한다(api/src/index.js: 판매 잠금 + 관리자 예외).
+// 즉 이 함수가 true여도 관리자가 아니면 서버가 503으로 막는다.
+function paymentsOpen() {
+  const local = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  return PAYMENTS_ENABLED || local;
+}
+
 // 자동 가입 방지(Cloudflare Turnstile) 사이트 키.
 // 빈 문자열이면 위젯을 아예 띄우지 않는다 — 키 발급 전에도 가입이 정상 동작하도록.
 // 서버 짝은 Worker 시크릿 TURNSTILE_SECRET. ⚠️둘 다 설정해야 실제로 보호된다.

@@ -1114,7 +1114,10 @@ async function handlePaymentPrepare(request, env, origin) {
   const session = await getSessionUser(env.DB, request);
   if (!session) return err(401, '로그인이 필요합니다.', origin);
   // 판매 잠금 — 프론트 버튼만 막으면 API 직접 호출로 우회되므로 여기서도 막는다.
-  if (!PAYMENTS_ENABLED)
+  // 예외: 운영자 계정(ADMIN_EMAIL)은 잠금 중에도 결제 전 구간을 실제로 돌려볼 수 있어야 한다.
+  // 판매를 공개로 열지 않고 결제→환불 E2E를 점검하기 위한 통로다(포트원은 아직 테스트 채널).
+  const isAdmin = !!env.ADMIN_EMAIL && session.email === env.ADMIN_EMAIL.toLowerCase().trim();
+  if (!PAYMENTS_ENABLED && !isAdmin)
     return err(503, '현재는 결제를 받지 않고 있습니다. 정식 오픈 준비 중입니다.', origin);
   if (!env.PORTONE_STORE_ID || !env.PORTONE_CHANNEL_KEY)
     return err(503, '결제 기능이 아직 준비 중입니다.', origin);
