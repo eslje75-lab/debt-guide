@@ -1107,6 +1107,15 @@ async function handleAiReview(request, env, origin) {
   return ok({ review, quota, usage: { used: usedToday + 1, limit: DAILY_AI_LIMIT } }, origin);
 }
 
+// 판매 잠금 예외 명단 — 운영자 + TEST_PAY_EMAILS(쉼표 구분).
+// 이메일은 개인정보라 저장소(공개 GitHub)에 두지 않고 Worker 시크릿으로만 관리한다.
+function payAllowlisted(env, email) {
+  if (!email) return false;
+  const raw = (env.ADMIN_EMAIL || '') + ',' + (env.TEST_PAY_EMAILS || '');
+  const allow = new Set(raw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
+  return allow.has(email.toLowerCase());
+}
+
 /* ── 결제 (Phase 4: 포트원 PortOne V2) ── */
 // 흐름: prepare(서버가 주문·금액 확정) → 브라우저 PortOne.requestPayment → complete(서버가 포트원 조회로 금액·상태 검증 후 패키지 부여)
 
@@ -1114,10 +1123,10 @@ async function handlePaymentPrepare(request, env, origin) {
   const session = await getSessionUser(env.DB, request);
   if (!session) return err(401, '로그인이 필요합니다.', origin);
   // 판매 잠금 — 프론트 버튼만 막으면 API 직접 호출로 우회되므로 여기서도 막는다.
-  // 예외: 운영자 계정(ADMIN_EMAIL)은 잠금 중에도 결제 전 구간을 실제로 돌려볼 수 있어야 한다.
-  // 판매를 공개로 열지 않고 결제→환불 E2E를 점검하기 위한 통로다(포트원은 아직 테스트 채널).
-  const isAdmin = !!env.ADMIN_EMAIL && session.email === env.ADMIN_EMAIL.toLowerCase().trim();
-  if (!PAYMENTS_ENABLED && !isAdmin)
+  // 예외: 운영자(ADMIN_EMAIL)와 점검용 허용 계정(TEST_PAY_EMAILS)만 잠금 중에도 주문을 만들 수 있다.
+  // 판매를 공개로 열지 않고 결제→환불→탈퇴 E2E를 돌리기 위한 통로다(포트원은 아직 테스트 채널).
+  // ⚠️판매 오픈 후에는 TEST_PAY_EMAILS 시크릿을 지울 것 — 남겨 둘 이유가 없다.
+  if (!PAYMENTS_ENABLED && !payAllowlisted(env, session.email))
     return err(503, '현재는 결제를 받지 않고 있습니다. 정식 오픈 준비 중입니다.', origin);
   if (!env.PORTONE_STORE_ID || !env.PORTONE_CHANNEL_KEY)
     return err(503, '결제 기능이 아직 준비 중입니다.', origin);

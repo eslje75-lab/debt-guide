@@ -414,7 +414,17 @@ const PAYMENTS_ENABLED = false;
 // 즉 이 함수가 true여도 관리자가 아니면 서버가 503으로 막는다.
 function paymentsOpen() {
   const local = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-  return PAYMENTS_ENABLED || local;
+  // ?paytest=1 — 라이브 사이트에서 점검할 때 결제 버튼을 여는 스위치.
+  // 탭을 닫으면 사라지도록 sessionStorage에 둔다(주소창에서 파라미터가 사라져도 유지되게).
+  // 여는 건 버튼뿐이고, 실제 주문 생성은 서버 허용 명단(payAllowlisted)이 판정한다.
+  let testMode = false;
+  try {
+    const q = new URLSearchParams(location.search).get('paytest');
+    if (q === '1') sessionStorage.setItem('cdg_paytest', '1');
+    if (q === '0') sessionStorage.removeItem('cdg_paytest');
+    testMode = sessionStorage.getItem('cdg_paytest') === '1';
+  } catch (e) {}
+  return PAYMENTS_ENABLED || local || testMode;
 }
 
 // 자동 가입 방지(Cloudflare Turnstile) 사이트 키.
@@ -442,6 +452,9 @@ const Auth = {
       if (j && typeof j === 'object' && j.status === undefined) j.status = res.status;
       return j;
     } catch (e) {
+      // 화면 문구만으로는 원인을 알 수 없다(CORS·차단·오프라인·주소오류가 전부 같은 메시지).
+      // 어떤 주소로 무엇이 실패했는지 콘솔에 남겨 진단할 수 있게 한다.
+      console.error('[챔로드] API 요청 실패:', method, API_BASE + path, '/ auth=' + auth, e);
       return { ok: false, error: '서버에 연결할 수 없습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요.' };
     }
   },
