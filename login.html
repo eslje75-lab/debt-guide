@@ -141,10 +141,10 @@
                 <input id="s-email" type="email" class="input-field" placeholder="example@email.com" autocomplete="email">
                 <p id="s-email-err" class="error-msg">올바른 이메일을 입력해주세요.</p>
                 <!-- 이미 가입된 이메일일 때만 노출(서버 409 응답 기준). 다음 행동을 바로 제시한다. -->
+                <!-- 문구는 바로 위 빨간 에러줄(s-email-err)이 담당한다. 여기는 '다음 행동'만. -->
                 <p id="s-email-dup" class="hidden text-xs text-slate-500 mt-1.5">
-                  이미 가입된 이메일입니다.
                   <button type="button" class="text-blue-600 hover:underline font-medium" onclick="goLoginWithEmail()">이 이메일로 로그인</button>
-                  <span class="text-slate-300">·</span>
+                  <span class="text-slate-300 mx-1">·</span>
                   <a href="find-account.html" class="text-blue-600 hover:underline">비밀번호를 잊으셨나요?</a>
                 </p>
               </div>
