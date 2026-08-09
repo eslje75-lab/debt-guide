@@ -375,9 +375,21 @@ if (typeof window !== 'undefined') {
 /* ── Auth (백엔드 API 연동 — Cloudflare Worker) ── */
 // 세션 캐시는 localStorage(cdg_auth_session)에 두고 동기 조회(getSession 등)는 캐시로,
 // 로그인·가입·비밀번호 변경은 서버 API로 처리한다.
-const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-  ? 'http://localhost:8787'
-  : 'https://api.chamroad.com';
+// 로컬에서는 기본이 wrangler dev(:8787)다. 다만 결제 E2E처럼 운영 API로 붙어야 하는
+// 점검이 있어서(관리자 예외·포트원 채널·운영 D1이 거기 있다) 전환 스위치를 둔다.
+//   ?api=prod  → 이후 이 브라우저는 운영 API 사용(localStorage에 기억)
+//   ?api=local → 원래대로 wrangler dev
+// 공개 사이트(localhost가 아닌 곳)에서는 이 스위치가 아예 동작하지 않는다.
+const API_BASE = (() => {
+  const PROD = 'https://api.chamroad.com';
+  if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') return PROD;
+  const q = new URLSearchParams(location.search).get('api');
+  if (q === 'prod') { try { localStorage.setItem('cdg_api_target', 'prod'); } catch (e) {} }
+  if (q === 'local') { try { localStorage.removeItem('cdg_api_target'); } catch (e) {} }
+  let target = null;
+  try { target = localStorage.getItem('cdg_api_target'); } catch (e) {}
+  return target === 'prod' ? PROD : 'http://localhost:8787';
+})();
 
 // 판매 개시 스위치. false면 결제 진입 자체를 막고 '준비 중'으로 안내한다.
 //
