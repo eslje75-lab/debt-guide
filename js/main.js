@@ -388,7 +388,11 @@ const API_BASE = (() => {
   if (q === 'local') { try { localStorage.removeItem('cdg_api_target'); } catch (e) {} }
   let target = null;
   try { target = localStorage.getItem('cdg_api_target'); } catch (e) {}
-  return target === 'prod' ? PROD : 'http://localhost:8787';
+  const base = target === 'prod' ? PROD : 'http://localhost:8787';
+  // 로컬에서 어느 API를 보고 있는지 콘솔에 남긴다 — 8787로 가 있으면 요청이
+  // 서버에 닿지 못해 "서버에 연결할 수 없습니다"만 뜨고 원인이 안 보인다.
+  console.info('[챔로드] API_BASE =', base, '(바꾸려면 ?api=prod / ?api=local)');
+  return base;
 })();
 
 // 판매 개시 스위치. false면 결제 진입 자체를 막고 '준비 중'으로 안내한다.
