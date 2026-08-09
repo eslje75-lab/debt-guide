@@ -304,7 +304,9 @@ function escHtml(s) {
 
 // 공통 메일 틀 — 메일 클라이언트는 외부 CSS/클래스를 무시하므로 인라인 스타일만 쓴다.
 function emailShell(title, bodyHtml) {
-  return `<div style="font-family:-apple-system,'Malgun Gothic',sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1a1a2e;line-height:1.6">
+  // word-break:keep-all — 한글이 어절 중간에서 끊기지 않게(메일 클라이언트 기본은 음절 단위로 끊는다).
+  // overflow-wrap:break-word — 주문번호·URL처럼 긴 문자열은 예외적으로 끊어서 넘침을 막는다.
+  return `<div style="font-family:-apple-system,'Malgun Gothic',sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1a1a2e;line-height:1.6;word-break:keep-all;overflow-wrap:break-word">
   <div style="font-size:20px;font-weight:700;color:#533afd;margin-bottom:16px">챔로드</div>
   <h1 style="font-size:18px;margin:0 0 12px">${escHtml(title)}</h1>
   ${bodyHtml}
@@ -1599,6 +1601,27 @@ async function handleAdminRefund(request, env, origin) {
     ).bind(order.user_id, order.package).first();
     if (!remain || remain.c === 0) await revokePackage(env, order.user_id, order.package);
   } catch (e) { console.error('revoke after refund failed', e.message); }
+
+  // 청약철회 신청 건이 있으면 종결 처리한다. 안 그러면 처리했는데도 'pending'으로 남아
+  // 관리자가 같은 건을 다시 검토하게 된다.
+  try {
+    await env.DB.prepare("UPDATE withdrawal_requests SET status='resolved' WHERE payment_id=? AND status='pending'")
+      .bind(paymentId).run();
+  } catch (e) { console.error('withdrawal resolve failed', e.message); }
+
+  // 처리 결과 통지 — 접수 메일에서 "검토 후 처리 결과를 이메일로 안내드립니다"라고 약속했으므로
+  // 운영자가 손으로 메일을 쓰지 않아도 자동으로 나가야 한다(약속과 구현의 일치).
+  try {
+    const buyer = await env.DB.prepare('SELECT email, name FROM users WHERE id = ?')
+      .bind(order.user_id).first();
+    if (buyer && buyer.email) {
+      await sendEmail(env, buyer.email, '[챔로드] 환불 처리 완료',
+        emailShell('환불 처리 완료', `<p>${escHtml(buyer.name || '')}님, 요청하신 건이 <strong>전액 환불</strong> 처리되었습니다.</p>
+        <p style="font-size:13px;color:#374151">주문번호: ${escHtml(paymentId)}<br>금액: ${Number(order.amount).toLocaleString()}원</p>
+        <p style="font-size:13px;color:#6b7280">카드 결제 취소는 카드사 정책에 따라 영업일 기준 수일이 걸릴 수 있습니다.
+        해당 패키지의 이용권은 함께 회수되었습니다.</p>`)).catch(() => {});
+    }
+  } catch (e) { console.error('refund notice mail failed', e.message); }
 
   return ok({ refunded: true }, origin);
 }

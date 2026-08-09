@@ -486,3 +486,35 @@ button.roadmap-step {
 .roadmap-foot { margin-top: auto; display: flex; align-items: center; gap: 6px; }
 .roadmap-bar { flex: 1 1 auto; display: block; height: 3px; border-radius: 9999px; overflow: hidden; }
 .roadmap-bar > span { display: block; height: 100%; border-radius: 9999px; transition: width .3s ease; }
+
+/* ══════════════════════════════════════════════
+   한글 줄바꿈 (2026-08-09)
+   — 브라우저 기본값(word-break: normal)은 한글을 '음절' 단위로 끊는다.
+     그래서 "전액이" 같은 어절이 "전액" / "이"로 갈라져 다음 줄로 넘어가고,
+     읽는 눈이 어절을 다시 붙여야 해서 피로해진다.
+   ══════════════════════════════════════════════ */
+
+/* keep-all: 한글을 어절(띄어쓰기) 단위로만 끊는다.
+   overflow-wrap: 그 결과 한 덩어리가 너무 길어지는 경우(주문번호·URL·긴 영문)에는
+   예외적으로 끊어서 가로 넘침을 막는다. 둘을 같이 써야 안전하다. */
+body {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* 문단·목록은 줄 끝에 한 단어만 남는 것(고아 줄)까지 정리한다.
+   지원하지 않는 브라우저는 무시하므로 폴백이 따로 필요 없다. */
+p, li, dd, blockquote, figcaption {
+  text-wrap: pretty;
+}
+
+/* 제목은 줄 길이를 고르게 나눈다 — 두 줄짜리 제목이 "긴 줄 + 한 단어"로 깨지는 것을 막는다. */
+h1, h2, h3, h4 {
+  text-wrap: balance;
+}
+
+/* 예외: 끊을 곳이 없는 긴 문자열이 들어가는 자리.
+   keep-all이면 컨테이너를 뚫고 나가므로 여기서만 음절 단위 강제 줄바꿈을 허용한다. */
+.break-all, code, pre, .font-mono {
+  word-break: break-all;
+}
