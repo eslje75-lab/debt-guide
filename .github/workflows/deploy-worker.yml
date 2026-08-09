@@ -44,3 +44,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: api
+          # ⚠️ 버전을 반드시 고정할 것. 액션 기본값은 wrangler 3.x인데 3.x는
+          #    wrangler.jsonc(JSON 형식 설정)를 못 읽어 "Missing entry-point"로 실패한다.
+          #    로컬에서 쓰는 버전과 맞춘다.
+          wranglerVersion: '4.120.0'
