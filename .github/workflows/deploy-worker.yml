@@ -1,0 +1,46 @@
+# Worker 자동 배포
+#
+# 왜: 화면(GitHub Pages)은 push하면 자동 반영되는데 서버(Cloudflare Worker)만 수동이라,
+#     둘이 어긋난 상태로 운영되는 사고가 반복됐다(결제 잠금·허용 명단·인증 시간 미반영 등).
+#     api/ 아래가 바뀐 push에서만 배포하므로, 화면만 고친 push는 이 워크플로를 건드리지 않는다.
+#
+# 순서: Worker 배포는 보통 10초, GitHub Pages 빌드는 1~3분이 걸린다.
+#       따라서 한 번의 push로도 "서버 먼저, 화면 나중"이 자연히 지켜진다.
+#
+# 필요한 것: 저장소 Settings → Secrets and variables → Actions 에 등록
+#   - CLOUDFLARE_API_TOKEN   (필수) Cloudflare 대시보드에서 'Edit Cloudflare Workers' 템플릿으로 발급
+#   - CLOUDFLARE_ACCOUNT_ID  (선택) 토큰이 여러 계정에 걸쳐 있을 때만 필요
+#
+# ⚠️ D1 마이그레이션(테이블·컬럼 변경)은 자동화하지 않는다. 되돌리기 어려운 작업이라
+#    사람이 확인하고 실행해야 한다. api/migrations/*.sql 은 여전히 수동으로 적용할 것.
+
+name: Deploy Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch:   # 필요하면 Actions 탭에서 수동 실행도 가능
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 문법이 깨진 코드는 프로덕션에 올라가지 않게 여기서 막는다.
+      - name: 문법 검사
+        run: node --check api/src/index.js
+
+      - name: Cloudflare Worker 배포
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: api

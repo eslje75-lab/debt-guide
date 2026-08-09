@@ -19,9 +19,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 별도 빌드 과정 없음. VS Code의 **Live Server** 확장으로 `index.html`을 열면 로컬에서 바로 확인 가능.
 Claude 자동 브라우저 테스트용으로는 `.claude/launch.json`의 `chamroad-static` 설정(node 정적 서버, 포트 3456)을 preview로 실행.
 
-배포는 `git push origin main` 으로 완료. 몇 분 후 GitHub Pages에 반영됨.
-
 ※ 과거 단일파일 빌드 산출물(`app.html`, `build.ps1`)은 2026-07-02에 삭제됨 — 다시 만들지 말 것.
+
+## 배포 (2026-08-09 자동화)
+
+**`git push origin main` 하나로 화면과 서버가 모두 반영된다.**
+
+| 대상 | 경로 | 걸리는 시간 |
+|---|---|---|
+| 화면 (HTML·CSS·JS) | push → GitHub Pages 자동 빌드 | 1~3분 + 브라우저 캐시 최대 10분(`max-age=600`) |
+| 서버 (`api/src/index.js`) | push → GitHub Actions(`.github/workflows/deploy-worker.yml`) → `wrangler deploy` | 10초 내외 |
+
+- 서버 배포는 `api/**`가 바뀐 push에서만 돈다. 화면만 고친 push는 Actions를 거치지 않는다.
+- Worker(10초)가 Pages(1~3분)보다 먼저 끝나므로 **"서버 먼저, 화면 나중"** 순서가 자연히 지켜진다.
+  이 순서가 중요한 이유: 옛 화면 + 새 서버는 안전하지만, 새 화면 + 옛 서버는 없는 기능을 불러 깨진다.
+- 배포 전 `node --check api/src/index.js`가 자동 실행된다. 문법 오류면 배포되지 않는다.
+- 실패하면 GitHub 저장소 **Actions** 탭에서 로그 확인. 수동 배포는 여전히 `cd api && npx wrangler deploy`.
+
+⚠️ **D1 마이그레이션은 자동화하지 않았다.** 테이블·컬럼 변경은 되돌리기 어려우므로
+`api/migrations/*.sql`을 사람이 확인하고 `wrangler d1 execute chamroad --remote --command "..."`로 적용한다.
+(원격은 `--file`이 인증오류를 내므로 `--command`를 쓸 것.)
+
+⚠️ **약관·개인정보처리방침 변경은 즉시 반영하면 안 된다.** 시행 7일 전 공지(이용자에게 불리한 변경은 30일 전)가
+법정 의무다. 문서의 시행일·변경이력을 함께 갱신하고, 서버 `CONSENT_VERSION`도 올릴 것.
 
 ## 아키텍처
 
