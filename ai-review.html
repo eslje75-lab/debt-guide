@@ -41,7 +41,7 @@
       <ul class="text-sm text-green-700 space-y-1">
         <li>• 필수항목 누락 여부 확인</li>
         <li>• 내용이 짧거나 불명확한 부분 안내</li>
-        <li>• 숫자 불일치 가능성 지적</li>
+        <li>• 법원이 추가로 물을 만한 점을 질문으로 정리</li>
         <li>• 서류별 작성 팁·실전 예시 연결</li>
         <li>• 제출 서류 세트 중 몇 종을 검토했는지 추적</li>
       </ul>
@@ -53,9 +53,23 @@
         <li>• 사건 결과 예측</li>
         <li>• 면책 가능성 단정</li>
         <li>• 신청서 자동 작성</li>
-        <li>• 법률 상담 대체</li>
+        <li>• <strong>합계·비율 계산 (→ 숫자 검산기)</strong></li>
       </ul>
     </div>
+  </div>
+
+  <!-- 숫자는 AI가 아니라 코드로 계산한다 — 이 안내는 모든 서류 유형에 공통 -->
+  <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
+    <h3 class="font-bold text-blue-800 text-sm mb-1">🧮 숫자는 <a href="numcheck.html" class="underline">숫자 검산기</a>에서 계산하세요 <span class="text-xs font-normal text-blue-600">(무료)</span></h3>
+    <p class="text-xs text-blue-700 leading-relaxed mb-2">
+      합계·안분율·가용소득×변제횟수 같은 계산은 AI가 하지 않습니다. 언어모델의 산술은 틀려도 그럴듯해 보이기 때문에,
+      챔로드는 이 부분을 <strong>계산 코드</strong>로 따로 처리합니다. 이 화면의 AI 검토는 <strong>서류 하나</strong>를 읽고 빠진 것을 질문으로 돌려줍니다.
+    </p>
+    <p class="text-xs text-blue-700 leading-relaxed">
+      🔗 <strong>서류를 다 쓰신 뒤에는 <a href="numcheck.html?tab=cross" class="underline">서류 간 대조</a>를 꼭 한 번 돌려 보세요.</strong>
+      채권자목록의 채권액이 변제계획안과 같은지, 가용소득이 월 변제액과 같은지, 진술서에 쓰신 이야기가 목록의 숫자와 맞는지를 <strong>여러 서류를 한꺼번에 놓고</strong> 봅니다.
+      서류를 하나씩 따로 보면 안 보이는 어긋남이고, 보정명령이 가장 많이 나오는 지점입니다.
+    </p>
   </div>
 
   <!-- 서류 유형 선택 -->
@@ -66,6 +80,11 @@
       <span id="pkg-filter-text" class="text-xs text-slate-600 leading-relaxed"></span>
     </div>
     <div id="doc-type-groups"></div>
+    <!-- 금액이 들어가는 서류를 고르면 검산기로 안내한다 (AI는 이 계산을 하지 않는다) -->
+    <div id="numcheck-hint" class="mt-4 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3" style="display:none">
+      <p class="text-xs text-blue-800 leading-relaxed"><strong>이 서류에는 금액이 들어갑니다.</strong> <span id="numcheck-hint-text"></span></p>
+      <a id="numcheck-hint-link" href="numcheck.html" class="inline-block mt-2 text-xs text-blue-700 font-medium hover:underline">🧮 숫자 검산기로 계산해 보기 →</a>
+    </div>
   </div>
 
   <!-- 텍스트 입력 -->
@@ -74,7 +93,10 @@
       <h3 class="font-semibold text-slate-800">작성한 내용을 붙여넣으세요</h3>
       <a id="example-link" href="rehabilitation.html#example-library" class="text-xs text-purple-700 hover:underline">📝 이 서류의 실전 작성예시 보기 →</a>
     </div>
-    <p class="text-xs text-slate-400 mb-3">개인정보(이름·주민번호 등)는 제거하거나 ○○으로 대체 후 입력하세요.</p>
+    <p class="text-xs text-slate-500 mb-3 leading-relaxed">
+      <strong class="text-slate-700">작성하신 그대로 붙여넣으세요.</strong> 질병·폐업 같은 사정을 지우면 검토가 제대로 되지 않습니다.
+      <strong class="text-slate-700">주민등록번호는 보내기 직전 자동으로 가려집니다</strong>(법령상 처리할 수 없는 정보라 저장·전송하지 않습니다).
+    </p>
     <textarea id="doc-input" rows="10" placeholder="여기에 작성하신 내용을 붙여넣어 주세요.
 예시: 신청인 ○○○ (생년월일 ○○○○.○○.○○)
 주소: ○○시 ○○구 ○○로 ○○
@@ -98,7 +120,13 @@
     </label>
   </div>
 
-  <p class="text-xs text-slate-400 text-center mb-2">※ 입력하신 내용을 AI가 분석해 누락·불명확·수치 불일치 등을 참고용으로 안내합니다. <strong class="text-slate-500">패키지를 구매하신 회원</strong>이 이용할 수 있으며(패키지별 제공 회수 차감), 하루 이용 횟수에도 제한이 있습니다.</p>
+  <!-- 민감정보 별도 동의 (개인정보 보호법 제23조) — 검토 전 필수 -->
+  <div id="sensitive-card" class="mb-4"></div>
+
+  <!-- 이용자의 절차 상황을 함께 보낼지 (기본 켬, 언제든 끌 수 있음) -->
+  <div id="aictx-card" class="mb-4"></div>
+
+  <p class="text-xs text-slate-400 text-center mb-2">※ 입력하신 내용을 AI가 분석해 빠진 항목·불명확한 부분을 참고용으로 안내합니다(숫자 계산은 하지 않습니다 — <a href="numcheck.html" class="underline hover:text-slate-600">숫자 검산기</a>). <strong class="text-slate-500">패키지를 구매하신 회원</strong>이 이용할 수 있으며(패키지별 제공 회수 차감), 하루 이용 횟수에도 제한이 있습니다.</p>
 
   <!-- 검토 버튼 -->
   <button onclick="runReview()" id="review-btn"
@@ -135,6 +163,7 @@
 <div id="toast"></div>
 
 <script src="js/main.js"></script>
+<script src="js/aicontext.js"></script>
 <script>
   initPage('ai-review');
 
@@ -379,12 +408,32 @@
     return DOC_GROUPS.find(g => g.types.includes(t)) || DOC_GROUPS[0];
   }
 
+  // 금액이 들어가는 서류 → 검산기의 어느 탭으로 보낼지. 여기 없는 유형(진술서·보정서 등)은
+  // 서술형이라 AI 검토가 본령이고 검산할 숫자가 없다.
+  const NUMCHECK_TAB = {
+    'creditor-list':  { tab: 'creditor', what: '채권자별 원금+이자 합계와 안분율의 합(100%)을 계산해 확인할 수 있습니다.' },
+    'bk-creditor':    { tab: 'creditor', what: '채권자별 금액의 합계가 목록 맨 아래 합계와 맞는지 계산해 확인할 수 있습니다.' },
+    'income-expense': { tab: 'income',   what: '수입−생계비로 월 가용소득을 계산하고, 실제 지출이 표준생계비를 넘는지 확인할 수 있습니다.' },
+    'bk-income':      { tab: 'income',   what: '수입·지출 합계와 부족분을 계산해 확인할 수 있습니다.' },
+    'asset-list':     { tab: 'plan',     what: '재산 합계(청산가치)를 계산하고, 변제 총액이 그 이상인지 확인할 수 있습니다.' },
+    'bk-asset':       { tab: 'plan',     what: '재산 합계를 계산해 확인할 수 있습니다.' },
+    'rehab-plan':     { tab: 'plan',     what: '가용소득×변제횟수가 청산가치 이상인지, 채권자별 월 배당액의 합이 가용소득과 같은지 계산해 확인할 수 있습니다.' },
+  };
+
   function onTypeChange() {
     const t = currentType();
     const g = groupOfType(t);
     const link = document.getElementById('example-link');
     link.href = g.exampleUrl;
     link.textContent = '📝 ' + DOC_RULES[t].label + ' 실전 작성예시 보기 →';
+
+    const nc = NUMCHECK_TAB[t];
+    const box = document.getElementById('numcheck-hint');
+    box.style.display = nc ? 'block' : 'none';
+    if (nc) {
+      document.getElementById('numcheck-hint-text').textContent = nc.what + ' AI 검토는 숫자를 계산하지 않습니다.';
+      document.getElementById('numcheck-hint-link').href = 'numcheck.html?tab=' + nc.tab;
+    }
   }
 
   function reviewNext() {
@@ -402,16 +451,26 @@
       showToast('검토할 내용을 좀 더 입력해 주세요 (최소 30자 이상).', 'warn');
       return;
     }
-    // 로컬 개인정보 사전 경고(전송 전) — 주민번호 패턴
-    if (/\d{6}-[1-4]\d{6}/.test(text)) {
-      if (!confirm('주민등록번호로 보이는 숫자가 있습니다. 개인정보 보호를 위해 ○○으로 가린 뒤 검토하는 것을 권장합니다.\n\n그래도 이대로 검토할까요?')) return;
-    }
     // 로그인 게이트 — 실제 AI 검토는 계정 필요
     if (!Auth.isLoggedIn()) {
       if (confirm('AI 서류 검토는 로그인 후 이용할 수 있습니다. 로그인 화면으로 이동할까요?')) {
         location.href = 'login.html?next=' + encodeURIComponent(location.href);
       }
       return;
+    }
+    // 민감정보 별도 동의(개인정보 보호법 제23조) — 아직 동의 전이면 체크가 필요하다
+    const consent = sensitiveConsentPayload();
+    if (consent === false) {
+      showToast('민감정보 처리 동의에 체크해 주세요. 동의하시면 내용을 지우지 않고 그대로 넣으셔도 됩니다.', 'warn');
+      document.getElementById('sensitive-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    // 주민등록번호는 동의로도 처리할 수 없다(제24조의2) → 경고가 아니라 **여기서 지운다**.
+    // 서버도 다시 지우지만(진짜 경계선), 화면에서도 지워 이용자가 무엇이 나갔는지 알 수 있게 한다.
+    const masked = maskIdNumbers(text);
+    if (masked !== text) {
+      textarea.value = masked;
+      showToast('주민등록번호로 보이는 숫자를 자동으로 가렸습니다. 이 정보는 전송·저장되지 않습니다.', 'info');
     }
 
     const docType = currentType();
@@ -428,7 +487,9 @@
           docType,
           docLabel: rules.label,
           checklist: rules.required.map(r => r.split('|')[0]),
-          text,
+          text: masked,                    // 주민등록번호를 지운 본문만 나간다
+          context: AiContext.payload(),    // 체크를 끄면 null — 아무것도 보내지 않는다
+          sensitiveConsent: consent,       // 이미 동의했으면 undefined(서버가 기록으로 통과시킨다)
         }),
       });
       const j = await res.json();
@@ -443,6 +504,10 @@
         showToast(j.error || 'AI 검토에 실패했습니다.', 'warn');
         return;
       }
+      if (consent === true) {                    // 서버가 방금 동의를 기록했다 → 화면도 반영
+        Auth.markSensitiveConsent(true);
+        renderSensitiveConsent('sensitive-card');
+      }
       renderReview(j.review, docType, rules, j.usage, j.quota);
     } catch (e) {
       showToast('서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.', 'warn');
@@ -454,6 +519,7 @@
 
   function renderReview(review, docType, rules, usage, quota) {
     const g = groupOfType(docType);
+    LAST_REVIEW = review;      // 검토 기록 저장 시 질문 주제만 꺼내 쓴다(원문은 저장하지 않음)
     let html = '';
 
     // ⚠️ 이 화면은 '판정'을 출력하지 않는다. "이상 없음", "제출 가능", 점수·등급 금지.
@@ -535,6 +601,14 @@
     renderTypeGroups(docType);
   }
 
+  /* 검토 기록 — ⚠️ **초안 원문을 저장하지 않는다.**
+     종전에는 본문 앞 80자를 preview로 저장했는데, 이 기록은 서버(D1)까지 동기화되고
+     법원 서류의 첫머리는 대개 "신청인 ○○○ (주민등록번호 …)"이라 주민등록번호가 서버에 남을 수
+     있었다. 「개인정보 보호법」 제24조의2는 주민등록번호를 동의로도 처리할 수 없게 정한다.
+     그래서 원문 대신 **AI가 만든 질문 주제**만 남긴다 — 이용자가 무엇을 보완해야 했는지
+     되짚는 데는 이쪽이 오히려 쓸모 있고, 이용자가 쓴 문장이 아니다. */
+  let LAST_REVIEW = null;
+
   function saveRecord() {
     const docType = currentType();
     const records = Storage.load('ai_records') || [];
@@ -542,12 +616,16 @@
       date: new Date().toLocaleDateString('ko-KR'),
       docType: docType,
       label: DOC_RULES[docType].label,
-      preview: textarea.value.substring(0, 80) + '...',
+      // 원문 인용(lawNotes.excerpt)은 담지 않는다 — 이용자가 쓴 문장이기 때문.
+      topics: (LAST_REVIEW && LAST_REVIEW.questions ? LAST_REVIEW.questions : [])
+        .map(q => q.topic).filter(Boolean).slice(0, 3),
     });
     Storage.save('ai_records', records.slice(0, 10));
     showToast('검토 기록이 마이페이지에 저장되었습니다.', 'success');
   }
 
+  renderSensitiveConsent('sensitive-card');
+  AiContext.renderCard('aictx-card');
   applyPkgNotice();
   renderTypeGroups(defaultType());
 </script>

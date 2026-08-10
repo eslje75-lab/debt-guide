@@ -15,13 +15,18 @@ CREATE TABLE IF NOT EXISTS users (
   consent_version TEXT,        -- 예: 'terms-2026-07-29/privacy-2026-08-06'
   email_verified INTEGER NOT NULL DEFAULT 0,  -- 이메일 인증 여부(소프트). 로그인·이용은 인증과 무관, 안내만.
   phone TEXT,                                 -- 연락처(휴대폰, 선택). 마이페이지 선택 입력 또는 결제 시 SMS 인증으로 확정.
-  phone_verified INTEGER NOT NULL DEFAULT 0   -- 결제 시 SMS 인증으로 진위 확인된 번호인지. 성인 '검증'은 아님(자기신고).
+  phone_verified INTEGER NOT NULL DEFAULT 0,  -- 결제 시 SMS 인증으로 진위 확인된 번호인지. 성인 '검증'은 아님(자기신고).
+  -- 민감정보(건강 등) 처리에 대한 별도 동의 시각(unix ms). NULL = 미동의 또는 철회.
+  -- 「개인정보 보호법」 제23조 제1항 제1호는 다른 동의와 '별도로' 받을 것을 요구하고,
+  -- 제22조 제3항은 그 입증책임을 처리자에게 지운다. AI 서류검토·서류 간 대조의 전제 조건.
+  sensitive_consent_at INTEGER
 );
 -- 기존 DB 반영: ALTER TABLE users ADD COLUMN agreed_at INTEGER;
 --               ALTER TABLE users ADD COLUMN consent_version TEXT;
 --               ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0;
 --               ALTER TABLE users ADD COLUMN phone TEXT;
 --               ALTER TABLE users ADD COLUMN phone_verified INTEGER NOT NULL DEFAULT 0;
+--               ALTER TABLE users ADD COLUMN sensitive_consent_at INTEGER;
 
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT PRIMARY KEY,          -- SHA-256(토큰) hex — 원본 토큰은 저장하지 않음

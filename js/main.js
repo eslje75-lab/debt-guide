@@ -180,6 +180,7 @@ function renderFooter() {
             <h4 class="footer-heading">주요 서비스</h4>
             <ul class="space-y-2">
               <li><a href="diagnosis.html" class="footer-link">무료 채무진단</a></li>
+              <li><a href="numcheck.html" class="footer-link">숫자 검산기 (무료)</a></li>
               <li><a href="pricing.html" class="footer-link">챔로드 셀프진행</a></li>
               <li><a href="discharge.html" class="footer-link">개인회생 면책신청 안내</a></li>
               <li><a href="resources.html" class="footer-link">FAQ</a></li>
@@ -224,6 +225,88 @@ function renderDisclaimer(containerId) {
       구체적인 법률 판단이 필요한 경우 변호사, 법무사, 대한법률구조공단 등 전문가 상담을 권장합니다.
     </div>
   `;
+}
+
+/* ── 주민등록번호 자동 가리기 ──
+   「개인정보 보호법」 제24조의2 제1항은 법령에 구체적 근거가 있는 경우 등이 아니면 주민등록번호를
+   처리할 수 없도록 정한다. **정보주체의 동의를 받아도 처리할 수 없다**는 점에서 제23조의 민감정보와
+   다르다. 우리에겐 그런 법령 근거가 없으므로, 주민등록번호는 **받지 않는 것이 유일하게 적법한 방법**이다.
+
+   종전에는 "주민번호를 ○○으로 가린 뒤 넣어 주세요"라고 안내하고 경고창에서 [예]를 누르면 그대로
+   보냈다 — 안내를 읽은 사람만 보호받는 구조였고, 법원 서류의 첫머리는 대개 "신청인 ○○○
+   (주민등록번호 …)"이라 실제로 걸릴 확률이 높았다. 그래서 **안내가 아니라 코드로 지운다.**
+
+   ⚠️ 같은 함수가 서버(api/src/index.js maskIdNumbers)에도 있다. 클라이언트를 우회할 수 있으므로
+      진짜 경계선은 서버다. 한쪽만 고치지 말 것.
+   ⚠️ 여권번호·운전면허번호(제24조 고유식별정보)는 가리지 않는다 — 개인회생 서류에 거의 나오지 않는데
+      과하게 가리면 검토 품질만 떨어진다. */
+const RRN_MASK = '○○○○○○-○○○○○○○';
+// 6자리 + (하이픈) + 7자리, 뒤 7자리의 첫 글자는 1~8(주민등록번호 1~4 / 외국인등록번호 5~8).
+// 앞뒤가 숫자면 제외 — 긴 숫자열(계좌번호 등)을 잘못 가리지 않도록.
+const RRN_RE = /(?<![0-9])[0-9]{6}-?[1-8][0-9]{6}(?![0-9])/g;
+
+function maskIdNumbers(text) {
+  return typeof text === 'string' ? text.replace(RRN_RE, RRN_MASK) : text;
+}
+function hasIdNumber(text) {
+  return typeof text === 'string' && new RegExp(RRN_RE.source).test(text);
+}
+
+/* ── 민감정보 처리에 대한 별도 동의 (개인정보 보호법 제23조) ──
+   진술서에는 질병·치료 같은 건강 정보가 사실상 반드시 들어간다(채무가 생긴 경위를 써야 하므로).
+   제23조 제1항 제1호는 이를 처리하려면 **다른 동의와 별도로** 동의를 받으라고 정한다.
+   그래서 "개인정보를 지우고 넣으세요"로 막는 대신, 동의를 제대로 받고 **있는 그대로 받는다.**
+   ⚠️ 주민등록번호는 이 동의로도 처리할 수 없다(제24조의2) — 그건 maskIdNumbers가 자동으로 지운다.
+   AI 검토·대조 화면 두 곳이 이 조각을 함께 쓴다. */
+function renderSensitiveConsent(elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const done = !!(Auth.getCurrentUser() && Auth.getCurrentUser().sensitiveConsent);
+
+  el.innerHTML = done ? `
+    <div class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5">
+      <p class="text-xs text-slate-500">✓ 민감정보 처리에 동의하셨습니다. <a href="mypage.html" class="underline">마이페이지</a>에서 철회하실 수 있습니다.</p>
+    </div>` : `
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+      <label class="flex items-start gap-2.5 cursor-pointer">
+        <input type="checkbox" id="sensitive-consent" class="mt-0.5 accent-amber-600">
+        <span class="flex-1">
+          <span class="block text-sm font-semibold text-amber-900">[필수] 민감정보 처리 동의</span>
+          <span class="block text-xs text-amber-800 leading-relaxed mt-1">
+            채무가 생긴 경위를 적다 보면 <strong>질병·치료 같은 건강에 관한 정보</strong>가 들어갈 수 있습니다.
+            이는 「개인정보 보호법」 제23조의 민감정보라 별도 동의가 필요합니다.
+            동의하시면 <strong>내용을 지우지 않고 그대로 넣으셔도 됩니다</strong> — 그래야 검토가 제대로 됩니다.
+          </span>
+          <span class="block text-[11px] text-amber-700 leading-relaxed mt-1.5">
+            처리 목적: 서류 완성도 점검 / 보유 기간: <strong>저장하지 않고 처리 즉시 폐기</strong>(검토 결과만 화면에 표시) /
+            동의를 거부하셔도 다른 기능은 이용하실 수 있으나 AI 검토·대조는 이용할 수 없습니다. 동의는 언제든 철회할 수 있습니다.
+          </span>
+          <span class="block text-[11px] text-slate-500 mt-1.5">
+            ※ <strong>주민등록번호는 동의와 무관하게 전송·저장되지 않습니다</strong> — 보내기 직전에 자동으로 가려집니다(법령상 처리 금지).
+          </span>
+        </span>
+      </label>
+    </div>`;
+}
+
+// 요청에 실을 값. 이미 동의했으면 서버가 기록으로 통과시키므로 undefined를 보내도 된다.
+function sensitiveConsentPayload() {
+  const cb = document.getElementById('sensitive-consent');
+  return cb ? cb.checked : undefined;
+}
+
+/* ── 표준생계비 (법원 인정 생계비의 하한) ──
+   2026년 기준중위소득(보건복지부 고시)의 60%. 개인회생 가용소득 계산의 공제 기준이다.
+   ⚠️ 이 상수는 사이트 전체의 단일 출처다 — 진단(js/diagnosis.js)·숫자 검산(js/numcheck.js)·
+   작성예시(rehabilitation.html)가 모두 이 값을 써야 한다. 어느 한 곳에 복사본을 만들지 말 것
+   (계산 기준이 갈리면 같은 화면에서 서로 다른 금액이 나온다 — CLAUDE.md '수치 불일치 방지' 참조).
+   매년 고시가 바뀌므로 연초에 갱신 대상. */
+const MEDIAN_INCOME_2026 = [0, 2564238, 4199292, 5359036, 6494738, 7556719, 8555952];
+// 인덱스: [미사용, 1인, 2인, 3인, 4인, 5인, 6인 이상]
+
+function getStandardLiving(householdSize) {
+  const idx = Math.min(Math.max(householdSize, 1), 6);
+  return Math.round(MEDIAN_INCOME_2026[idx] * 0.6); // 기준중위소득 60% = 법원 표준생계비
 }
 
 /* ── Storage: localStorage 동기 캐시 + 로그인 시 서버 미러링(Phase 2) ──
@@ -474,11 +557,14 @@ const Auth = {
 
   // 세션 캐시를 서버 값으로 갱신. emailVerified는 미인증 배너, isAdmin은 관리자 메뉴 판정에 쓴다.
   // 이미 로그인해 둔 세션도 me() 한 번이면 새 필드를 받으므로 재로그인이 필요 없다.
-  _setVerified(v, isAdmin) {
+  // 세션 캐시의 일부 필드만 갱신한다. undefined로 준 항목은 건드리지 않는다
+  // (한 필드를 갱신하려다 다른 필드를 지우는 사고를 막기 위해).
+  _setVerified(v, isAdmin, sensitiveConsent) {
     const s = this.getSession();
     if (!s) return;
-    s.emailVerified = v;
+    if (v !== undefined) s.emailVerified = v;
     if (isAdmin !== undefined) s.isAdmin = !!isAdmin;
+    if (sensitiveConsent !== undefined) s.sensitiveConsent = !!sensitiveConsent;
     try { localStorage.setItem(this._KS, JSON.stringify(s)); } catch {}
   },
 
@@ -537,7 +623,7 @@ const Auth = {
   // 이메일 인증 상태를 서버에서 다시 받아 세션 캐시에 반영(배너 판정용).
   async me() {
     const r = await this._api('/api/auth/me', { method: 'GET', auth: true });
-    if (r.ok && r.user) this._setVerified(!!r.user.emailVerified, r.user.isAdmin);
+    if (r.ok && r.user) this._setVerified(!!r.user.emailVerified, r.user.isAdmin, r.user.sensitiveConsent);
     return r;
   },
 
@@ -572,6 +658,17 @@ const Auth = {
   async verifyPhoneCode(code) {
     return this._api('/api/phone/verify-code', { auth: true, body: { code: String(code || '').replace(/\D/g, '') } });
   },
+
+  // 민감정보(건강 등) 처리에 대한 별도 동의 기록·철회 — 개인정보 보호법 제23조.
+  // 철회하면 AI 서류검토·서류 간 대조를 이용할 수 없다(그 처리에 동의가 필요하므로).
+  async setSensitiveConsent(consent) {
+    const r = await this._api('/api/user/sensitive-consent', { auth: true, body: { consent: !!consent } });
+    if (r.ok) this.markSensitiveConsent(!!consent);
+    return r;
+  },
+
+  // 서버가 이미 기록한 동의를 화면 캐시에 반영할 때(AI 검토 요청에 실어 보낸 경우 등)
+  markSensitiveConsent(v) { this._setVerified(undefined, undefined, !!v); },
 
   async changePassword(currentPassword, newPassword) {
     return this._api('/api/auth/change-password', {

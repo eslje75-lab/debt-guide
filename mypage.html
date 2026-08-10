@@ -140,6 +140,9 @@
       </div>
     </div>
 
+    <!-- 민감정보 처리 동의 상태·철회 (개인정보 보호법 제23조 — 동의는 언제든 철회할 수 있어야 한다) -->
+    <div id="sensitive-consent-box" class="mb-4 pb-4 border-b border-slate-100"></div>
+
     <button id="pw-toggle-btn" onclick="togglePwForm()" class="border border-slate-300 px-5 py-2.5 text-slate-700 text-sm hover:bg-slate-50 transition-colors rounded-xl">비밀번호 변경</button>
     <div id="pw-change-form" class="hidden mt-4 space-y-3 max-w-sm">
       <div>
@@ -311,16 +314,31 @@
       'statement': '진술서',
     };
     if (records.length > 0) {
-      // preview는 이용자가 쓴 서류 초안의 앞부분이라 HTML로 해석되면 안 된다(esc 필수).
-      document.getElementById('ai-records').innerHTML = records.map(r => `
+      // ⚠️ 초안 원문(옛 preview)은 더 이상 저장하지 않는다 — 주민등록번호가 서버에 남을 수 있었다
+      //    (개인정보 보호법 제24조의2, ai-review.html saveRecord 주석 참조).
+      //    지금은 AI가 만든 질문 주제(topics)만 남긴다. 옛 기록에 preview가 남아 있으면 화면에
+      //    그리지 않고 조용히 지운다 — 이용자가 아무것도 안 해도 정리되도록.
+      let cleaned = false;
+      const safe = records.map(r => {
+        if (r.preview !== undefined) { const { preview, ...rest } = r; cleaned = true; return rest; }
+        return r;
+      });
+      if (cleaned) Storage.save('ai_records', safe);
+
+      document.getElementById('ai-records').innerHTML = safe.map(r => {
+        const topics = Array.isArray(r.topics) ? r.topics.filter(Boolean) : [];
+        return `
         <div class="flex items-start gap-3 py-2.5 border-b border-slate-50 last:border-0">
           <span class="text-2xl shrink-0">🤖</span>
           <div class="flex-1 min-w-0">
             <div class="text-sm font-medium text-slate-700">${esc(r.label || DOC_LABELS[r.docType] || r.docType)}</div>
-            <div class="text-xs text-slate-400 truncate mt-0.5">${esc(r.preview)}</div>
+            ${topics.length
+              ? `<div class="text-xs text-slate-400 mt-0.5">여쭤본 것: ${topics.map(t => esc(t)).join(' · ')}</div>`
+              : '<div class="text-xs text-slate-300 mt-0.5">검토함</div>'}
           </div>
           <div class="text-xs text-slate-400 shrink-0">${esc(r.date)}</div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
     }
 
     // ── 결제 상태 (보유 패키지 전체 표시 — 추가옵션 구매 시에도 완주 패키지 기록 유지) ──
@@ -520,6 +538,37 @@
     document.getElementById('account-info').innerHTML =
       `<strong class="text-slate-700">${esc(user.name)}</strong> · ${esc(user.email)}`;
     loadPhone();
+    renderConsentBox();
+  }
+
+  /* 민감정보 처리 동의 상태와 철회 — 「개인정보 보호법」 제23조.
+     동의를 받아 두기만 하고 거둘 창구가 없으면 동의로서 온전하지 않다. */
+  function renderConsentBox() {
+    const el = document.getElementById('sensitive-consent-box');
+    if (!el) return;
+    const on = !!(Auth.getCurrentUser() && Auth.getCurrentUser().sensitiveConsent);
+    el.innerHTML = `
+      <p class="text-sm font-medium text-slate-700 mb-1">민감정보 처리 동의</p>
+      <p class="text-xs text-slate-500 leading-relaxed mb-2">
+        AI 서류검토·서류 간 대조에서 <strong>건강에 관한 정보</strong>(질병으로 채무가 생긴 경위 등)를 처리하는 데 대한 별도 동의입니다.
+        ${on ? '철회하시면 AI 검토·대조를 이용하실 수 없습니다.' : '동의하지 않으셔도 다른 기능은 모두 이용하실 수 있습니다.'}
+      </p>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs px-2.5 py-1 rounded-full ${on ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}">${on ? '✓ 동의함' : '동의하지 않음'}</span>
+        ${on ? '<button onclick="doRevokeConsent()" class="text-xs text-red-500 hover:underline">동의 철회</button>' : '<span class="text-xs text-slate-400">AI 검토 화면에서 동의하실 수 있습니다.</span>'}
+      </div>`;
+  }
+
+  async function doRevokeConsent() {
+    if (!confirm('민감정보 처리 동의를 철회하시겠습니까?\n\n철회하시면 AI 서류검토와 서류 간 대조를 이용하실 수 없습니다. 언제든 다시 동의하실 수 있습니다.')) return;
+    try {
+      const r = await Auth.setSensitiveConsent(false);
+      if (!r.ok) { showToast(r.error || '철회에 실패했습니다.', 'warn'); return; }
+      renderConsentBox();
+      showToast('민감정보 처리 동의를 철회했습니다.', 'success');
+    } catch (e) {
+      showToast('서버에 연결할 수 없습니다.', 'warn');
+    }
   }
 
   function formatPhone(d) {

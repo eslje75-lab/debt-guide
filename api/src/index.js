@@ -86,6 +86,11 @@ const ANTHROPIC_VERSION = '2023-06-01';
 // ⚠️ claude-sonnet-5는 thinking을 생략하면 adaptive thinking이 기본 동작이고,
 //    max_tokens는 사고 토큰 + 응답 토큰을 함께 제한한다. 1024로는 구조화 출력이 중간에 잘린다.
 const AI_MAX_TOKENS = 4096;
+// 추론이 도는 지역. 기본값 'global'은 "어느 지역에서든 돌 수 있다"는 뜻이라, 방침에 적은
+// "이전되는 국가: 미국"이 사실과 달라진다. 'us'로 고정해 **방침 기재와 실제를 일치**시킨다.
+// (저장 위치(workspace geo)는 현재 미국만 제공된다. 요금은 표준의 1.1배.)
+// ⚠️ Claude 4.6 이상 모델에서만 지원 — 구형 모델로 되돌리면 400이 난다.
+const AI_INFERENCE_GEO = 'us';
 const AI_EFFORT = 'medium';           // 형식·누락 점검 작업 — low는 얕고 high는 과함
 const DAILY_AI_LIMIT = 10;            // 남용 방지용 1일 상한. 실제 배분은 패키지 총량제(PACKAGE_TERMS.aiQuota)
 const AI_TEXT_MIN = 30;
@@ -246,7 +251,8 @@ async function getSessionUser(db, request) {
   if (!token) return null;
   const tokenHash = await sha256hex(token);
   const row = await db.prepare(
-    `SELECT s.token_hash, s.expires_at, u.id, u.email, u.name, u.created_at, u.email_verified, u.phone, u.phone_verified
+    `SELECT s.token_hash, s.expires_at, u.id, u.email, u.name, u.created_at, u.email_verified, u.phone, u.phone_verified,
+            u.sensitive_consent_at
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = ?`
   ).bind(tokenHash).first();
@@ -419,7 +425,7 @@ function passwordError(pw) {
 
 // 가입 시 받는 동의의 버전. 약관·방침을 개정하면 이 값을 함께 올려,
 // 어느 판본에 동의했는지 계정별로 남긴다(재동의가 필요한 회원을 가려낼 근거).
-const CONSENT_VERSION = 'terms-2026-08-08/privacy-2026-08-08c';
+const CONSENT_VERSION = 'terms-2026-08-10/privacy-2026-08-11';
 
 function validateSignup(body) {
   const name = (body.name || '').trim();
@@ -608,7 +614,7 @@ async function handleLogin(request, env, origin) {
   }
 
   const user = await env.DB.prepare(
-    'SELECT id, email, name, password_hash, email_verified FROM users WHERE email = ?'
+    'SELECT id, email, name, password_hash, email_verified, sensitive_consent_at FROM users WHERE email = ?'
   ).bind(email).first();
 
   // 사용자 없음/비밀번호 불일치를 같은 메시지로 — 이메일 존재 여부 노출 방지
@@ -628,7 +634,7 @@ async function handleLogin(request, env, origin) {
   const session = await createSession(env.DB, user.id, remember);
   return ok({
     token: session.token,
-    user: { email: user.email, name: user.name, expiresAt: session.expiresAt, emailVerified: !!user.email_verified, isAdmin: isAdminEmail(env, user.email) },
+    user: { email: user.email, name: user.name, expiresAt: session.expiresAt, emailVerified: !!user.email_verified, sensitiveConsent: !!user.sensitive_consent_at, isAdmin: isAdminEmail(env, user.email) },
   }, origin);
 }
 
@@ -645,7 +651,7 @@ async function handleMe(request, env, origin) {
   const session = await getSessionUser(env.DB, request);
   if (!session) return err(401, '로그인이 필요합니다.', origin);
   return ok({
-    user: { email: session.email, name: session.name, expiresAt: session.expires_at, emailVerified: !!session.email_verified, phone: session.phone || '', phoneVerified: !!session.phone_verified, isAdmin: isAdminEmail(env, session.email) },
+    user: { email: session.email, name: session.name, expiresAt: session.expires_at, emailVerified: !!session.email_verified, phone: session.phone || '', phoneVerified: !!session.phone_verified, sensitiveConsent: !!session.sensitive_consent_at, isAdmin: isAdminEmail(env, session.email) },
   }, origin);
 }
 
@@ -959,6 +965,9 @@ async function handleSyncData(request, env, origin) {
     let serialized;
     try { serialized = JSON.stringify(put[k]); } catch { continue; }
     if (serialized == null) continue;                      // undefined 값은 스킵
+    // 주민등록번호는 어떤 경로로도 서버에 남지 않게 한다(개인정보 보호법 제24조의2 — 동의로도 처리 불가).
+    // 여기는 모든 앱데이터가 지나가는 길목이라, 앞으로 새 기능이 추가돼도 자동으로 보호된다.
+    serialized = maskIdNumbers(serialized);
     if (serialized.length > MAX_VALUE_BYTES)
       return err(413, '저장 용량이 초과되었습니다.', origin);
     stmts.push(env.DB.prepare(
@@ -974,6 +983,17 @@ async function handleSyncData(request, env, origin) {
 
   if (stmts.length) await env.DB.batch(stmts);   // D1 batch = 트랜잭션
   return ok({}, origin);
+}
+
+/* ── 주민등록번호 자동 가리기 (진짜 경계선) ──
+   「개인정보 보호법」 제24조의2: 법령에 구체적 근거가 없으면 주민등록번호는 **동의를 받아도** 처리할 수 없다.
+   화면(js/main.js maskIdNumbers)에서도 가리지만 클라이언트는 우회할 수 있으므로, 외부(Anthropic)로
+   나가기 전과 저장 전에 서버가 다시 지운다. 한쪽만 고치지 말 것 — 두 곳의 정규식은 같아야 한다. */
+const RRN_MASK = '○○○○○○-○○○○○○○';
+const RRN_RE = /(?<![0-9])[0-9]{6}-?[1-8][0-9]{6}(?![0-9])/g;
+
+function maskIdNumbers(text) {
+  return typeof text === 'string' ? text.replace(RRN_RE, RRN_MASK) : text;
 }
 
 /* ── AI 서류검토 (Phase 3) ── */
@@ -1040,6 +1060,7 @@ const AI_SYSTEM_PROMPT = `당신은 대한민국 개인회생·파산 절차에�
 3. **결과를 예측하지 않는다.** 면책·인가 여부, 성공 가능성을 말하지 않는다.
 4. **이 사람의 사정에 법을 적용해 결론 내지 않는다.** "이 경우는 재량면책 대상이다" 같은 판단은 법률상담이다. 조문이 무엇을 정하는지의 **사실**만 전하고, 적용 여부는 이용자가 판단하게 한다.
 5. 추측으로 사실을 만들지 않는다. 초안에 없는 내용을 있는 것처럼 쓰지 않는다.
+6. **숫자를 계산하지 않는다.** 합계·차액·비율(안분율)·곱셈(가용소득×변제횟수)을 직접 계산하거나 "합계가 맞지 않습니다", "합계는 ○○원입니다" 같이 검산 결과를 말하지 않는다. 언어모델의 산술은 틀려도 그럴듯해 보이고, 이 서비스는 그 검산을 별도의 계산 코드(숫자 검산기)로 처리한다. 금액이 걸린 항목은 계산하지 말고 **질문으로만** 돌려준다 — 예: "채권자별 금액의 합계가 목록 맨 아래 합계 칸과 같은지 확인하셨나요? (사이트의 '숫자 검산기'에서 계산해 볼 수 있습니다)"
 
 ## 질문을 만드는 법
 - 나쁜 예(판정): "채무 발생 경위가 불충분합니다."
@@ -1070,18 +1091,121 @@ const AI_NARRATIVE_HINT = `
 - 빌린 돈의 사용처
 - 갚기 위해 시도한 노력 (추가 근로, 자산 처분, 채무조정 상담 등)
 - 현재의 소득·생활 상황
-- 시기·금액이 앞뒤로 어긋나는 곳은 questions로 되물어 확인하게 한다`;
+- 시기가 앞뒤로 어긋나 보이는 곳은 questions로 되물어 확인하게 한다(직접 계산하거나 정정하지 말고, 어긋나 보이는 두 곳을 그대로 인용해 되물을 것)`;
 
 // 진술서·경위서 계열인지 — 서술형 서류에만 보강 지침을 붙인다
 function isNarrativeDoc(docLabel) {
   return /진술서|경위|사정|생활상황/.test(docLabel || '');
 }
 
-async function callClaude(apiKey, docLabel, checklist, text) {
-  const system = AI_SYSTEM_PROMPT + (isNarrativeDoc(docLabel) ? AI_NARRATIVE_HINT : '');
+/* ── 이용자의 절차 상황(맥락) ──
+   챗봇에 서류를 붙여넣는 사람은 매번 상황을 설명해야 하지만, 이 서비스는 진단 답변으로 이미 알고 있다.
+   그 상황을 함께 넘기면 **이 사람에게 법원이 실제로 물을 것**을 질문에 반영할 수 있다.
+
+   ⚠️ 클라이언트가 보낸 것을 그대로 쓰지 않는다. 아래 사전에 있는 키만 통과시킨다.
+      ①방침(privacy.html)에 적은 이전 항목과 실제 전송 항목을 같게 유지하기 위해
+      ②이용자가 만든 문자열이 그대로 프롬프트에 섞여 지시로 읽히는 것을 막기 위해(프롬프트 인젝션)
+   ⚠️ 건강상태·채무 발생 원인·연령·금액은 여기에 **없다**. js/aicontext.js 상단 주석 참조 — 그쪽 목록을
+      늘리면 이 사전과 privacy.html을 함께 고쳐야 한다. */
+const CTX_INCOME = {
+  employed_insured:   '급여소득자(4대보험 가입)',
+  employed_uninsured: '급여소득자(4대보험 미가입 — 소득 증빙이 어려울 수 있음)',
+  freelance:          '프리랜서',
+  self:               '자영업자',
+  pension:            '연금·기타 소득',
+  none:               '소득 없음',
+};
+const CTX_LEGAL = {
+  seizure: '압류·추심을 받음', provisional: '가압류를 받음', order: '지급명령을 받음',
+  lawsuit: '소송이 진행 중', auction: '경매가 진행 중',
+};
+const CTX_PRIOR = {
+  'rehab-done-recent':    '개인회생 면책을 받은 지 5년이 지나지 않음',
+  'rehab-done-ok':        '개인회생 면책 이력 있음(5년 경과)',
+  'rehab-cancel':         '개인회생 폐지·취소 이력 있음',
+  'rehab-ongoing':        '개인회생이 진행 중',
+  'bankrupt-done-recent': '파산 면책을 받은 지 7년이 지나지 않음',
+  'bankrupt-done-ok':     '파산 면책 이력 있음(7년 경과)',
+  'bankrupt-denied':      '면책 불허가를 받은 이력 있음',
+  'bankrupt-cancel':      '파산 취소 이력 있음',
+  'bankrupt-ongoing':     '파산이 진행 중',
+};
+const CTX_RECENT_LOAN = {
+  'within-3m': '최근 3개월 이내에 새로 대출을 받음',
+  'within-1y': '최근 1년 이내에 새로 대출을 받음',
+};
+const CTX_FLAGS = {
+  employed:     '현재 재직 중(예상 퇴직금의 1/2이 재산에 산입된다)',
+  sideIncome:   '부수입이 있음',
+  personalDebt: '지인·개인 간 채무가 있음',
+  securedDebt:  '담보가 있는 채무가 있음',
+  closedBiz:    '폐업한 이력이 있음',
+  disposed:     '최근 재산을 처분한 이력이 있음',
+};
+
+function sanitizeContext(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  if (raw.procedure === 'rehab' || raw.procedure === 'bankrupt') out.procedure = raw.procedure;
+  if (typeof raw.hasIncome === 'boolean') out.hasIncome = raw.hasIncome;
+  if (CTX_INCOME[raw.incomeType]) out.incomeType = raw.incomeType;
+
+  const dep = Number(raw.dependents);
+  if (Number.isFinite(dep) && dep >= 0 && dep <= 20) out.dependents = Math.round(dep);
+
+  const arr = Number(raw.arrearsMonths);
+  if (Number.isFinite(arr) && arr > 0 && arr <= 600) out.arrearsMonths = Math.round(arr);
+
+  if (CTX_RECENT_LOAN[raw.recentLoan]) out.recentLoan = raw.recentLoan;
+
+  const legal = (Array.isArray(raw.legalActions) ? raw.legalActions : []).filter(v => CTX_LEGAL[v]);
+  if (legal.length) out.legalActions = legal.slice(0, 5);
+
+  const prior = (Array.isArray(raw.priorAdjustments) ? raw.priorAdjustments : []).filter(v => CTX_PRIOR[v]);
+  if (prior.length) out.priorAdjustments = prior.slice(0, 9);
+
+  for (const k of Object.keys(CTX_FLAGS)) if (raw[k] === true) out[k] = true;
+
+  return Object.keys(out).length ? out : null;
+}
+
+function contextToText(c) {
+  if (!c) return '';
+  const lines = [];
+  if (c.procedure) lines.push(`- 준비 중인 절차: ${c.procedure === 'rehab' ? '개인회생' : '개인파산·면책'}`);
+  if (c.incomeType)          lines.push(`- 소득 형태: ${CTX_INCOME[c.incomeType]}`);
+  else if (c.hasIncome === false) lines.push('- 소득 형태: 소득 없음');
+  if (c.dependents != null)  lines.push(`- 부양가족 ${c.dependents}명`);
+  if (c.arrearsMonths)       lines.push(`- 연체 기간 약 ${c.arrearsMonths}개월`);
+  if (c.recentLoan)          lines.push(`- ${CTX_RECENT_LOAN[c.recentLoan]}`);
+  if (c.legalActions)        lines.push(`- ${c.legalActions.map(v => CTX_LEGAL[v]).join(', ')}`);
+  if (c.priorAdjustments)    lines.push(`- ${c.priorAdjustments.map(v => CTX_PRIOR[v]).join(' / ')}`);
+  for (const k of Object.keys(CTX_FLAGS)) if (c[k]) lines.push(`- ${CTX_FLAGS[k]}`);
+  return lines.join('\n');
+}
+
+// 맥락이 있을 때만 붙이는 지침. 맥락을 '사실 인정'으로 쓰지 않게 선을 그어 둔다.
+const AI_CONTEXT_HINT = `
+
+## 함께 제공되는 '이용자가 답한 절차 상황'을 쓰는 법
+이용자가 사전 진단에서 스스로 답한 내용이며, 초안과 별개의 정보다.
+- **쓰는 방향**: 그 상황에서 법원이 통상 확인하는 것이 초안에 있는지 보고, 없으면 questions로 만든다.
+  예) 폐업 이력이 있다고 답했는데 초안에 폐업 이야기가 없다 → "폐업하신 경위와 시기를 적어 두셨나요?"
+  예) 지인 채무가 있다고 답했는데 초안에 그 이야기가 없다 → 관련 질문
+- **하지 말 것**: ①이 상황을 초안에 이미 쓰인 사실인 것처럼 present에 담지 않는다(초안에 없으면 없는 것이다)
+  ②이 상황에 법을 적용해 결론 내지 않는다("면책이 어렵다" 등 금지) ③상황과 초안이 다르면 어느 쪽이 틀렸다고
+  판정하지 말고, 어느 쪽이 맞는지 **되묻는 질문**으로 만든다(진단은 대략 답한 것일 수 있다).
+- 상황 항목이 초안과 무관하면 그냥 넘어간다. 억지로 질문을 만들지 않는다.`;
+
+async function callClaude(apiKey, docLabel, checklist, text, context) {
+  const ctxText = contextToText(context);
+  const system = AI_SYSTEM_PROMPT
+    + (isNarrativeDoc(docLabel) ? AI_NARRATIVE_HINT : '')
+    + (ctxText ? AI_CONTEXT_HINT : '');
   const userMsg =
     `검토 대상 서류: ${docLabel}\n` +
     (checklist && checklist.length ? `이 서류에 일반적으로 포함되는 항목(참고): ${checklist.join(', ')}\n` : '') +
+    (ctxText ? `\n## 이용자가 사전 진단에서 답한 절차 상황\n${ctxText}\n` : '') +
     `\n아래는 이용자가 직접 작성한 초안이다. 들어 있는 것을 확인하고, 빠진 것을 질문으로 만들라.\n` +
     `대체 문장을 써 주지 말 것.\n\n---\n${text}\n---`;
 
@@ -1095,6 +1219,7 @@ async function callClaude(apiKey, docLabel, checklist, text) {
     body: JSON.stringify({
       model: AI_MODEL,
       max_tokens: AI_MAX_TOKENS,
+      inference_geo: AI_INFERENCE_GEO,
       system,
       // 출력 형식을 스키마로 강제 — 프롬프트 준수에 기대지 않는다(AI_REVIEW_SCHEMA 주석 참조)
       output_config: {
@@ -1148,11 +1273,70 @@ async function handleAiReview(request, env, origin) {
   const docLabel = typeof body.docLabel === 'string' ? body.docLabel.slice(0, 100) : '서류';
   const checklist = Array.isArray(body.checklist)
     ? body.checklist.filter(s => typeof s === 'string').slice(0, 20) : [];
-  const text = typeof body.text === 'string' ? body.text.trim() : '';
+  // ⚠️ 마스킹은 길이 검사보다 **먼저** — 외부로 나갈 수 있는 경로에 원문이 남지 않게.
+  const text = maskIdNumbers(typeof body.text === 'string' ? body.text.trim() : '');
   if (text.length < AI_TEXT_MIN) return err(400, '검토할 내용을 30자 이상 입력해주세요.', origin);
   if (text.length > AI_TEXT_MAX) return err(413, '입력이 너무 깁니다. 서류를 나누어 검토해주세요.', origin);
 
-  // ── 회수 판정 ──
+  const context = sanitizeContext(body.context);
+
+  // 회수를 깎기 전에 동의부터 — 동의가 없어 되돌려보내는 요청이 회수를 소모하면 안 된다.
+  const consentErr = await requireSensitiveConsent(env, session, body, origin);
+  if (consentErr) return consentErr;
+
+  const gate = await checkAiQuota(env, session, origin);
+  if (gate.error) return gate.error;
+
+  let review;
+  try {
+    review = await callClaude(env.ANTHROPIC_API_KEY, docLabel, checklist, text, context);
+  } catch (e) {
+    console.error('ai review failed', e.message);
+    return err(502, 'AI 검토 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', origin);
+  }
+
+  const spent = await consumeAiQuota(env, session, gate);
+  return ok({ review, ...spent }, origin);
+}
+
+/* ── 민감정보 처리에 대한 별도 동의 (개인정보 보호법 제23조) ──
+   진술서·경위서에는 질병·치료 같은 **건강에 관한 정보**가 사실상 반드시 들어간다(채무가 왜 생겼는지를
+   써야 하므로). 이는 제23조 제1항의 민감정보이고, 처리하려면 "정보주체에게 처리사실을 알리고
+   **다른 개인정보 처리에 대한 동의와 별도로** 동의를 받은 경우"여야 한다.
+
+   종전에는 동의 절차가 없어 "개인정보는 지우고 넣으세요"로 막았는데, 그러면 채무 발생 경위를
+   제대로 쓸 수 없어 검토가 의미를 잃는다. 그래서 **동의를 제대로 받고 있는 그대로 받는다.**
+
+   ⚠️ 주민등록번호는 이 동의로도 처리할 수 없다(제24조의2) — 그쪽은 maskIdNumbers가 지운다.
+   ⚠️ 동의 사실의 입증책임은 처리자에게 있으므로(제22조 제3항) 화면 체크만으로는 부족하다.
+      users.sensitive_consent_at에 시각을 남기고, 이용자는 언제든 철회할 수 있다. */
+async function requireSensitiveConsent(env, session, body, origin) {
+  if (session.sensitive_consent_at) return null;           // 이미 동의함
+  if (body && body.sensitiveConsent === true) {
+    await env.DB.prepare('UPDATE users SET sensitive_consent_at = ? WHERE id = ?')
+      .bind(Date.now(), session.id).run();
+    return null;
+  }
+  return err(400, '건강 등 민감정보가 포함될 수 있다는 점에 대한 별도 동의가 필요합니다. 화면의 동의 항목을 확인해주세요.', origin);
+}
+
+// 동의 기록·철회. 철회하면 이후 AI 검토·대조를 이용할 수 없다(그 처리에 동의가 필요하므로).
+async function handleSensitiveConsent(request, env, origin) {
+  const session = await getSessionUser(env.DB, request);
+  if (!session) return err(401, '로그인이 필요합니다.', origin);
+
+  const body = await readJson(request, 2 * 1024);
+  if (!body || typeof body.consent !== 'boolean') return err(400, '잘못된 요청입니다.', origin);
+
+  await env.DB.prepare('UPDATE users SET sensitive_consent_at = ? WHERE id = ?')
+    .bind(body.consent ? Date.now() : null, session.id).run();
+  return ok({ sensitiveConsent: body.consent }, origin);
+}
+
+/* ── AI 회수 판정·차감 (서류검토와 서류 간 대조가 같은 회수를 쓴다) ──
+   두 기능이 같은 Anthropic 실비를 태우므로 회수도 한 주머니에서 나간다.
+   나눠서 관리하면 이용자도 헷갈리고 잔여 표시도 두 벌이 된다. */
+async function checkAiQuota(env, session, origin) {
   // 유효한 이용권의 잔여 회수(패키지 총량제)만 인정한다. 여러 패키지를 보유하면 잔여가 많은 쪽부터 쓴다.
   // 미구매자 체험 1회는 폐지됨(위 PACKAGES 아래 주석 참조) — 이용권이 없으면 여기서 끝난다.
   const now = Date.now();
@@ -1162,9 +1346,9 @@ async function handleAiReview(request, env, origin) {
   const ent = usable[0] || null;
 
   if (!ent) {
-    return err(403, ents.length
+    return { error: err(403, ents.length
       ? '보유하신 패키지의 서류검토 AI 회수를 모두 사용했습니다. 추가 회수는 요금제에서 구매하실 수 있습니다.'
-      : '서류검토 AI는 패키지를 구매하신 회원만 이용할 수 있습니다.', origin);
+      : '서류검토 AI는 패키지를 구매하신 회원만 이용할 수 있습니다.', origin) };
   }
 
   // 남용 방지용 일일 상한(총량제와 별개). 스크립트로 총량을 한 번에 태우는 것을 막는다.
@@ -1173,17 +1357,14 @@ async function handleAiReview(request, env, origin) {
     .bind(session.id, day).first();
   const usedToday = row ? row.count : 0;
   if (usedToday >= DAILY_AI_LIMIT)
-    return err(429, `오늘 이용 가능한 검토 횟수(${DAILY_AI_LIMIT}회)를 모두 사용했습니다. 내일 다시 이용해주세요.`, origin);
+    return { error: err(429, `오늘 이용 가능한 검토 횟수(${DAILY_AI_LIMIT}회)를 모두 사용했습니다. 내일 다시 이용해주세요.`, origin) };
 
-  let review;
-  try {
-    review = await callClaude(env.ANTHROPIC_API_KEY, docLabel, checklist, text);
-  } catch (e) {
-    console.error('ai review failed', e.message);
-    return err(502, 'AI 검토 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', origin);
-  }
+  return { ent, day, usedToday };
+}
 
-  // 성공 시에만 차감 — 실패한 호출은 회수를 소모하지 않는다
+// 성공 시에만 차감 — 실패한 호출은 회수를 소모하지 않는다
+async function consumeAiQuota(env, session, gate) {
+  const { ent, day, usedToday } = gate;
   await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO ai_usage (user_id, day, count) VALUES (?1, ?2, 1)
@@ -1193,9 +1374,210 @@ async function handleAiReview(request, env, origin) {
       'UPDATE entitlements SET ai_used = ai_used + 1 WHERE user_id = ? AND package = ? AND ai_used < ai_quota'
     ).bind(session.id, ent.package),
   ]);
+  return {
+    quota: { type: 'package', package: ent.package, used: ent.ai_used + 1, limit: ent.ai_quota, left: ent.ai_quota - ent.ai_used - 1 },
+    usage: { used: usedToday + 1, limit: DAILY_AI_LIMIT },
+  };
+}
 
-  const quota = { type: 'package', package: ent.package, used: ent.ai_used + 1, limit: ent.ai_quota, left: ent.ai_quota - ent.ai_used - 1 };
-  return ok({ review, quota, usage: { used: usedToday + 1, limit: DAILY_AI_LIMIT } }, origin);
+/* ── 서류 간 대조 (서술 ↔ 숫자) ──
+   숫자끼리의 대조는 브라우저의 js/crosscheck.js가 이미 코드로 한다. 여기서 하는 것은
+   **코드로는 불가능한 것 하나** — 진술서에 글로 쓴 이야기가 목록의 숫자와 어긋나는지 보는 일이다.
+   ("2022년에 처음 대출받았다"고 썼는데 채권자목록의 최초 발생일이 2020년인 경우 등)
+
+   숫자는 이미 계산되어 입력으로 들어온다. 모델은 **계산하지 않고 인용만** 한다 —
+   AI_SYSTEM_PROMPT 금지 6번과 같은 이유다. */
+const AI_CROSSCHECK_SCHEMA = {
+  type: 'object',
+  properties: {
+    conflicts: {
+      type: 'array',
+      description: '진술서의 서술과 제공된 숫자가 서로 어긋나 보이는 곳. 반드시 원문 인용과 질문을 함께 담는다.',
+      items: {
+        type: 'object',
+        properties: {
+          excerpt:  { type: 'string', description: '진술서에서 그대로 인용한 표현' },
+          figure:   { type: 'string', description: '대조한 숫자 사실. 제공된 값을 그대로 옮겨 적고 새로 계산하지 말 것.' },
+          question: { type: 'string', description: '어느 쪽이 맞는지 이용자가 확인하도록 던지는 질문' },
+        },
+        required: ['excerpt', 'figure', 'question'],
+        additionalProperties: false,
+      },
+    },
+    unexplained: {
+      type: 'array',
+      description: '숫자에는 있는데 진술서가 설명하지 않은 것. 법원이 되물을 만한 것만.',
+      items: {
+        type: 'object',
+        properties: {
+          figure:   { type: 'string', description: '설명이 없는 숫자 사실' },
+          question: { type: 'string', description: '이용자가 직접 답을 쓰도록 던지는 질문' },
+        },
+        required: ['figure', 'question'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['conflicts', 'unexplained'],
+  additionalProperties: false,
+};
+
+const AI_CROSSCHECK_PROMPT = `당신은 대한민국 개인회생 절차에서 이용자가 낸 **진술서(글)**와 **목록에 적힌 숫자**가 서로 맞는지만 대조하는 보조자다.
+
+## 입력
+- 이용자가 직접 쓴 진술서 초안
+- 같은 사건의 목록에서 이미 계산된 숫자들(채권자와 금액, 총 채무액, 소득·지출·가용소득, 재산 합계, 변제 횟수 등)
+
+## 당신이 하는 일 — 이 둘뿐이다
+1. **conflicts**: 진술서의 서술과 숫자가 어긋나 보이는 곳을 찾는다. 예) 진술서에 "2022년에 처음 대출을 받았다"고 썼는데 채권자 목록에 2020년 채권이 있는 경우, "직장을 그만두었다"고 썼는데 소득이 잡혀 있는 경우, "가진 재산이 없다"고 썼는데 재산 합계가 0이 아닌 경우, 진술서에 언급된 채권자가 목록에 없는 경우.
+2. **unexplained**: 숫자에는 있는데 진술서가 설명하지 않은 것 중, 법원이 통상 되물을 만한 것. 예) 채권자가 7곳인데 진술서는 2곳만 언급, 재산에 임차보증금이 있는데 주거 이야기가 없음.
+
+## 절대 금지
+1. **계산하지 않는다.** 합계·차액·비율을 새로 구하지 말고, 주어진 숫자를 **그대로 인용**만 한다. 주어지지 않은 수치를 만들어 내지 않는다.
+2. **대체 문장을 쓰지 않는다.** "이렇게 고쳐 쓰세요" 금지(법무사법 제2조 제1항 제1호). 무엇이 어긋나 보이는지 알려주고 질문만 한다.
+3. **판정하지 않는다.** "잘못됐다", "허위다", "불일치로 기각된다" 같은 평가·예측 금지(변호사법 제109조 제1호). 어느 쪽이 맞는지는 이용자만 안다.
+4. **추측으로 사실을 만들지 않는다.** 진술서에 없는 내용을 있는 것처럼 쓰지 않는다.
+5. 어긋남을 억지로 찾지 않는다. 없으면 빈 배열로 둔다 — 그것은 "서류가 맞다"는 뜻이 아니며, 그런 말을 덧붙이지도 않는다.
+
+## 질문을 만드는 법
+- 나쁜 예(판정): "진술서와 채권자목록이 불일치합니다."
+- 나쁜 예(대필): "'2020년부터 대출을 받기 시작하여'로 고쳐 쓰세요."
+- **좋은 예**: excerpt="2022년경 처음 대출을 받았습니다", figure="채권자목록의 ○○은행 채권 발생일 2020. 3. 15.", question="2020년에 받은 대출이 목록에 있습니다. 진술서의 시작 시점을 다시 확인해 보시겠어요?"
+
+## 톤
+한국어. 차분하게. 이용자를 불안하게 하지 않는다. 어긋나 보이는 것이 곧 잘못이라는 인상을 주지 않는다 — 표기 방식이 달라서 그렇게 보이는 경우도 많다.`;
+
+// 이용자에게 보여 줄 숫자 요약을 사람이 읽는 문장으로 만든다.
+// (JSON을 그대로 던지는 것보다 대조 정확도가 높고, 무엇이 전송되는지도 눈으로 확인하기 쉽다)
+function figuresToText(f) {
+  const won = (n) => Number(n || 0).toLocaleString('ko-KR') + '원';
+  const lines = [];
+  if (Array.isArray(f.creditors) && f.creditors.length) {
+    lines.push('[채권자목록]');
+    f.creditors.forEach((c, i) => lines.push(`  ${i + 1}. ${c.name || '(이름 없음)'} — ${won(c.amount)}`));
+    lines.push(`  총 채권액 ${won(f.creditorTotal)} (채권자 ${f.creditors.length}건)`);
+  }
+  if (f.income) {
+    lines.push('[수입·지출]');
+    lines.push(`  월 수입 합계 ${won(f.income.total)} / 월 지출 합계 ${won(f.income.expense)}`);
+    lines.push(`  가구원 ${f.income.household}인, 월 가용소득 ${won(f.income.disposable)}`);
+  }
+  if (f.plan) {
+    lines.push('[변제계획안·재산]');
+    lines.push(`  월 변제액 ${won(f.plan.disposable)} × ${f.plan.months}회 = 총 ${won(f.plan.totalRepay)}`);
+    lines.push(`  재산 합계(청산가치) ${won(f.plan.liquidation)}`);
+  }
+  return lines.join('\n');
+}
+
+async function callClaudeCrosscheck(apiKey, docLabel, text, figures, context) {
+  const ctxText = contextToText(context);
+  const userMsg =
+    `이용자가 쓴 서류: ${docLabel}\n\n` +
+    `## 같은 사건의 목록에서 이미 계산된 숫자\n${figuresToText(figures)}\n\n` +
+    (ctxText ? `## 이용자가 사전 진단에서 답한 절차 상황\n${ctxText}\n\n` : '') +
+    `## 이용자가 직접 쓴 초안\n---\n${text}\n---\n\n` +
+    `위 초안의 서술이 숫자·상황과 어긋나 보이는 곳, 숫자나 상황에는 있는데 초안이 설명하지 않은 것을 찾아 질문으로 돌려 달라. 숫자를 새로 계산하지 말 것.`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'x-api-key': apiKey, 'anthropic-version': ANTHROPIC_VERSION, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: AI_MODEL,
+      max_tokens: AI_MAX_TOKENS,
+      inference_geo: AI_INFERENCE_GEO,
+      system: AI_CROSSCHECK_PROMPT + (ctxText ? AI_CONTEXT_HINT : ''),
+      output_config: { effort: AI_EFFORT, format: { type: 'json_schema', schema: AI_CROSSCHECK_SCHEMA } },
+      messages: [{ role: 'user', content: userMsg }],
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`anthropic ${res.status}: ${body.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  if (data.stop_reason === 'max_tokens') throw new Error('anthropic: output truncated (max_tokens)');
+  if (data.stop_reason === 'refusal') throw new Error('anthropic: refused');
+
+  const parsed = JSON.parse((Array.isArray(data.content) ? data.content.find(c => c.type === 'text')?.text : '') || '');
+  const str = (v) => (typeof v === 'string' ? v.trim() : '');
+  const arr = (v) => (Array.isArray(v) ? v : []);
+  return {
+    conflicts: arr(parsed.conflicts)
+      .filter(c => c && str(c.excerpt) && str(c.question))
+      .map(c => ({ excerpt: str(c.excerpt), figure: str(c.figure), question: str(c.question) }))
+      .slice(0, 10),
+    unexplained: arr(parsed.unexplained)
+      .filter(u => u && str(u.question))
+      .map(u => ({ figure: str(u.figure), question: str(u.question) }))
+      .slice(0, 8),
+  };
+}
+
+// 서버로 받는 숫자 요약의 형태를 강제한다. 클라이언트를 믿지 않고, 여기 없는 필드는 버린다
+// (그래야 '이전되는 개인정보 항목'이 방침에 적힌 것과 실제로 같다 — privacy.html 국외이전 ② 참조).
+function sanitizeFigures(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const num = (v) => (Number.isFinite(Number(v)) ? Math.round(Number(v)) : 0);
+  const out = {};
+
+  if (Array.isArray(raw.creditors)) {
+    out.creditors = raw.creditors
+      .filter(c => c && typeof c === 'object')
+      .slice(0, 50)
+      .map(c => ({ name: String(c.name || '').slice(0, 60), amount: num(c.amount) }));
+    out.creditorTotal = num(raw.creditorTotal);
+  }
+  if (raw.income && typeof raw.income === 'object') {
+    out.income = {
+      total: num(raw.income.total), expense: num(raw.income.expense),
+      disposable: num(raw.income.disposable), household: Math.min(20, Math.max(1, num(raw.income.household) || 1)),
+    };
+  }
+  if (raw.plan && typeof raw.plan === 'object') {
+    out.plan = {
+      disposable: num(raw.plan.disposable), months: Math.min(120, Math.max(0, num(raw.plan.months))),
+      totalRepay: num(raw.plan.totalRepay), liquidation: num(raw.plan.liquidation),
+    };
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+async function handleAiCrosscheck(request, env, origin) {
+  const session = await getSessionUser(env.DB, request);
+  if (!session) return err(401, '로그인이 필요합니다.', origin);
+  if (!env.ANTHROPIC_API_KEY)
+    return err(503, 'AI 검토 기능이 아직 준비 중입니다. 잠시 후 다시 시도해주세요.', origin);
+
+  const body = await readJson(request, AI_BODY_BYTES);
+  if (!body) return err(400, '잘못된 요청입니다.', origin);
+
+  const docLabel = typeof body.docLabel === 'string' ? body.docLabel.slice(0, 100) : '진술서';
+  const text = maskIdNumbers(typeof body.text === 'string' ? body.text.trim() : '');
+  if (text.length < AI_TEXT_MIN) return err(400, '대조할 내용을 30자 이상 입력해주세요.', origin);
+  if (text.length > AI_TEXT_MAX) return err(413, '입력이 너무 깁니다. 서류를 나누어 대조해주세요.', origin);
+
+  const figures = sanitizeFigures(body.figures);
+  if (!figures) return err(400, '먼저 숫자 검산기에서 채권자목록·수입지출·변제계획안 중 하나 이상을 계산해주세요.', origin);
+  const context = sanitizeContext(body.context);
+
+  const consentErr = await requireSensitiveConsent(env, session, body, origin);
+  if (consentErr) return consentErr;
+
+  const gate = await checkAiQuota(env, session, origin);
+  if (gate.error) return gate.error;
+
+  let result;
+  try {
+    result = await callClaudeCrosscheck(env.ANTHROPIC_API_KEY, docLabel, text, figures, context);
+  } catch (e) {
+    console.error('ai crosscheck failed', e.message);
+    return err(502, 'AI 대조 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', origin);
+  }
+
+  const spent = await consumeAiQuota(env, session, gate);
+  return ok({ result, ...spent }, origin);
 }
 
 // 판매 잠금 예외 명단 — 운영자 + TEST_PAY_EMAILS(쉼표 구분).
@@ -1771,6 +2153,8 @@ const ROUTES = {
   'GET /api/data': handleGetData,
   'POST /api/data/sync': handleSyncData,
   'POST /api/ai/review': handleAiReview,
+  'POST /api/ai/crosscheck': handleAiCrosscheck,
+  'POST /api/user/sensitive-consent': handleSensitiveConsent,
   'POST /api/payment/prepare': handlePaymentPrepare,
   'POST /api/payment/complete': handlePaymentComplete,
   'GET /api/payment/history': handlePaymentHistory,

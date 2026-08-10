@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>숫자 검산기 | 챔로드</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css">
+  <meta name="description" content="채권자목록·수입지출·변제계획안의 합계와 안분율이 서로 맞는지 계산해 확인하는 도구. AI가 아니라 코드로 계산합니다.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#533afd">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="챔로드">
+  <meta property="og:image" content="https://chamroad.com/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:title" content="숫자 검산기 | 챔로드">
+  <meta property="og:description" content="채권자목록·수입지출·변제계획안의 숫자가 서로 맞는지 코드로 계산해 확인합니다.">
+  <meta property="og:url" content="https://chamroad.com/numcheck.html">
+</head>
+<body class="bg-slate-50">
+<div id="header-placeholder"></div>
+
+<section class="bg-blue-700 text-white py-8">
+  <div class="max-w-4xl mx-auto px-4">
+    <h1 class="text-2xl md:text-3xl font-bold mb-1">숫자 검산기</h1>
+    <p class="text-blue-100 text-sm">서류 안의 합계가 맞는지, <strong>서류끼리 숫자가 서로 맞는지</strong>까지 계산해서 확인합니다. 무료로 쓰실 수 있습니다.</p>
+  </div>
+</section>
+
+<div class="max-w-4xl mx-auto px-4 py-8">
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <h3 class="font-bold text-slate-800 text-base mb-2">🧮 이 도구가 하는 것</h3>
+      <ul class="text-sm text-slate-600 space-y-1 leading-relaxed">
+        <li>• 합계가 맞는지 (원금+이자, 세로 합계)</li>
+        <li>• 안분율의 합이 정확히 100%가 되는지</li>
+        <li>• 수입−생계비로 계산한 가용소득</li>
+        <li>• 가용소득 × 변제 횟수가 청산가치 이상인지</li>
+        <li>• <strong class="text-slate-700">서류끼리 숫자가 서로 맞는지</strong> — 채권자목록 ↔ 변제계획안 ↔ 수입·지출</li>
+      </ul>
+    </div>
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+      <h3 class="font-bold text-slate-800 text-base mb-2">🔒 알아 두실 것</h3>
+      <ul class="text-sm text-slate-600 space-y-1 leading-relaxed">
+        <li>• <strong class="text-slate-700">AI가 아니라 코드로 계산합니다</strong> — 같은 입력이면 언제나 같은 답이 나옵니다.</li>
+        <li>• <strong class="text-slate-700">입력하신 숫자는 저장되지 않습니다.</strong> 서버로 보내지 않고, 화면을 새로고침하면 지워집니다.</li>
+        <li>• 인가 여부나 결과를 예측하지 않습니다. 계산 결과와 관련 조문만 알려 드립니다.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 탭 -->
+  <div class="flex gap-2 mb-4 overflow-x-auto">
+    <button type="button" data-tab="creditor" onclick="showTab('creditor')" class="tab-btn whitespace-nowrap px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-600">📋 채권자목록</button>
+    <button type="button" data-tab="income"   onclick="showTab('income')"   class="tab-btn whitespace-nowrap px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-600">💰 수입·지출</button>
+    <button type="button" data-tab="plan"     onclick="showTab('plan')"     class="tab-btn whitespace-nowrap px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-600">📄 변제계획안</button>
+    <button type="button" data-tab="cross"    onclick="showTab('cross')"    class="tab-btn whitespace-nowrap px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-600">🔗 서류 간 대조</button>
+  </div>
+
+  <!-- ── 채권자목록 ── -->
+  <section id="tab-creditor" class="tab-panel">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 md:p-6">
+      <div class="flex items-start justify-between flex-wrap gap-2 mb-1">
+        <h2 class="font-bold text-slate-800">개인회생채권자목록</h2>
+        <button type="button" onclick="loadSample('creditor')" class="text-xs text-blue-700 hover:underline">예시 숫자 넣어 보기</button>
+      </div>
+      <p class="text-xs text-slate-400 mb-4">부채증명서의 금액을 그대로 옮겨 적으세요. 합계 칸은 비워 두면 원금+이자로 계산합니다.</p>
+
+      <div class="overflow-x-auto -mx-1 px-1">
+        <table class="w-full text-sm" style="min-width:520px">
+          <thead>
+            <tr class="text-xs text-slate-500">
+              <th class="text-left font-medium pb-2 pl-1">채권자</th>
+              <th class="text-right font-medium pb-2">원금</th>
+              <th class="text-right font-medium pb-2">이자</th>
+              <th class="text-right font-medium pb-2">합계 (선택)</th>
+              <th class="pb-2 w-8"></th>
+            </tr>
+          </thead>
+          <tbody id="creditor-rows"></tbody>
+        </table>
+      </div>
+      <button type="button" onclick="addRow('creditor')" class="mt-3 text-sm text-blue-700 hover:underline">+ 채권자 추가</button>
+
+      <div class="mt-4 pt-4 border-t border-slate-100">
+        <label class="block text-xs text-slate-500 mb-1">목록 맨 아래 '합계' 칸에 적으신 금액 (선택)</label>
+        <input id="creditor-declared" inputmode="numeric" placeholder="예: 46,700,000"
+          class="w-full sm:w-64 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-right">
+      </div>
+
+      <button type="button" onclick="runCreditor()" class="mt-5 w-full bg-blue-700 text-white py-3.5 rounded-xl font-bold text-base hover:bg-blue-800 transition-colors">검산하기</button>
+    </div>
+    <div id="creditor-result" class="mt-4"></div>
+  </section>
+
+  <!-- ── 수입·지출 ── -->
+  <section id="tab-income" class="tab-panel" style="display:none">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 md:p-6">
+      <div class="flex items-start justify-between flex-wrap gap-2 mb-1">
+        <h2 class="font-bold text-slate-800">수입·지출에 관한 목록</h2>
+        <button type="button" onclick="loadSample('income')" class="text-xs text-blue-700 hover:underline">예시 숫자 넣어 보기</button>
+      </div>
+      <p class="text-xs text-slate-400 mb-4">수입은 <strong>세후</strong> 월평균으로 적으세요. 급여명세서의 실수령액과 같아야 합니다.</p>
+
+      <h3 class="text-sm font-semibold text-slate-700 mb-2">수입 (월)</h3>
+      <table class="w-full text-sm"><tbody id="income-rows"></tbody></table>
+      <button type="button" onclick="addRow('income')" class="mt-2 text-sm text-blue-700 hover:underline">+ 수입 항목 추가</button>
+
+      <h3 class="text-sm font-semibold text-slate-700 mt-5 mb-2">지출 (월)</h3>
+      <table class="w-full text-sm"><tbody id="expense-rows"></tbody></table>
+      <button type="button" onclick="addRow('expense')" class="mt-2 text-sm text-blue-700 hover:underline">+ 지출 항목 추가</button>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5 pt-4 border-t border-slate-100">
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">부양가족 수 (본인 제외)</label>
+          <input id="income-dependents" inputmode="numeric" value="0"
+            class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm">
+          <p class="text-[11px] text-slate-400 mt-1">가구원 수에 따라 표준생계비가 달라집니다.</p>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">목록에 적으신 월 가용소득 (선택)</label>
+          <input id="income-declared" inputmode="numeric" placeholder="예: 1,061,457"
+            class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-right">
+        </div>
+      </div>
+
+      <button type="button" onclick="runIncome()" class="mt-5 w-full bg-blue-700 text-white py-3.5 rounded-xl font-bold text-base hover:bg-blue-800 transition-colors">검산하기</button>
+    </div>
+    <div id="income-result" class="mt-4"></div>
+  </section>
+
+  <!-- ── 변제계획안 ── -->
+  <section id="tab-plan" class="tab-panel" style="display:none">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 md:p-6">
+      <div class="flex items-start justify-between flex-wrap gap-2 mb-1">
+        <h2 class="font-bold text-slate-800">변제계획안</h2>
+        <button type="button" onclick="loadSample('plan')" class="text-xs text-blue-700 hover:underline">예시 숫자 넣어 보기</button>
+      </div>
+      <p class="text-xs text-slate-400 mb-4">월 가용소득 × 변제 횟수가 재산 합계(청산가치) 이상인지 계산합니다.</p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">월 가용소득</label>
+          <input id="plan-disposable" inputmode="numeric" placeholder="예: 1,061,457"
+            class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-right">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">변제 횟수 (개월)</label>
+          <input id="plan-months" inputmode="numeric" value="36"
+            class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-right">
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">계획안에 적으신 총 변제예정액 (선택)</label>
+          <input id="plan-declared" inputmode="numeric" placeholder="예: 38,212,452"
+            class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-right">
+        </div>
+      </div>
+
+      <h3 class="text-sm font-semibold text-slate-700 mt-5 mb-1">재산목록 (합계 = 청산가치)</h3>
+      <p class="text-xs text-slate-400 mb-2">재직 중이면 예상 퇴직금의 1/2도 재산에 들어갑니다.</p>
+      <table class="w-full text-sm"><tbody id="asset-rows"></tbody></table>
+      <button type="button" onclick="addRow('asset')" class="mt-2 text-sm text-blue-700 hover:underline">+ 재산 항목 추가</button>
+
+      <h3 class="text-sm font-semibold text-slate-700 mt-5 mb-1">채권자별 확정채권액 (선택)</h3>
+      <p class="text-xs text-slate-400 mb-2">넣으시면 안분율과 채권자별 월 배당액까지 계산합니다.</p>
+      <table class="w-full text-sm"><tbody id="claim-rows"></tbody></table>
+      <button type="button" onclick="addRow('claim')" class="mt-2 text-sm text-blue-700 hover:underline">+ 채권자 추가</button>
+
+      <button type="button" onclick="runPlan()" class="mt-5 w-full bg-blue-700 text-white py-3.5 rounded-xl font-bold text-base hover:bg-blue-800 transition-colors">검산하기</button>
+    </div>
+    <div id="plan-result" class="mt-4"></div>
+  </section>
+
+  <!-- ── 서류 간 대조 ── -->
+  <section id="tab-cross" class="tab-panel" style="display:none">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 md:p-6">
+      <h2 class="font-bold text-slate-800 mb-1">서류 간 대조</h2>
+      <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+        개인회생 서류는 서로 물려 있습니다 — 채권자목록의 채권액은 변제계획안의 확정채권액과 같아야 하고,
+        수입·지출에서 계산한 가용소득은 변제계획안의 월 변제액과 같아야 합니다.
+        <strong class="text-slate-700">서류를 하나씩 따로 보면 이 어긋남이 안 보이고, 그대로 내면 보정명령을 받습니다.</strong>
+        앞 탭에서 계산하신 결과를 여기서 한꺼번에 맞춰 봅니다.
+      </p>
+
+      <div id="cross-status" class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4"></div>
+
+      <button type="button" onclick="runCross()" class="w-full bg-blue-700 text-white py-3.5 rounded-xl font-bold text-base hover:bg-blue-800 transition-colors">대조하기</button>
+      <p class="text-[11px] text-slate-400 mt-2 text-center">이 대조는 브라우저 안에서만 계산합니다. 아무것도 전송하지 않습니다.</p>
+    </div>
+    <div id="cross-result" class="mt-4"></div>
+
+    <!-- 서술 ↔ 숫자 대조 (AI) — 코드로는 할 수 없는 부분 -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 md:p-6 mt-4">
+      <h2 class="font-bold text-slate-800 mb-1">진술서와 숫자 대조 <span class="text-xs font-normal text-purple-700">AI · 패키지 회원</span></h2>
+      <p class="text-xs text-slate-500 mb-3 leading-relaxed">
+        위 대조는 <strong>숫자끼리</strong> 맞춰 본 것입니다. 여기서는 <strong class="text-slate-700">진술서에 글로 쓰신 이야기가 목록의 숫자와 맞는지</strong>를 봅니다 —
+        "2022년에 처음 대출받았다"고 쓰셨는데 목록에 2020년 채권이 있는 경우처럼, 숫자 계산만으로는 잡히지 않는 어긋남입니다.
+        법원이 진술서를 읽으며 실제로 되묻는 지점이기도 합니다.
+      </p>
+
+      <textarea id="cross-text" rows="8" placeholder="진술서(개인회생) 또는 채무 발생 경위서 초안을 작성하신 그대로 붙여넣어 주세요.
+주민등록번호는 보내기 직전에 자동으로 가려집니다."
+        class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm resize-none leading-relaxed"></textarea>
+      <div class="flex items-center justify-between mt-2">
+        <span id="cross-char" class="text-xs text-slate-400">0 / 6000자</span>
+        <button type="button" onclick="document.getElementById('cross-text').value='';updateCrossChar();" class="text-xs text-slate-400 hover:text-slate-600">초기화</button>
+      </div>
+
+      <div id="sensitive-card" class="mt-3"></div>
+      <div id="aictx-card" class="mt-3"></div>
+
+      <details class="mt-3 bg-slate-50 rounded-xl px-4 py-3">
+        <summary class="text-xs text-slate-600 cursor-pointer font-medium">이 기능은 무엇을 전송하나요?</summary>
+        <p class="text-xs text-slate-500 mt-2 leading-relaxed">
+          위에 붙여넣으신 <strong>초안 본문</strong>, 앞 탭에서 계산된 <strong>숫자 요약</strong>(채권자 이름·금액과 총액, 수입·지출·가용소득, 재산 합계, 변제 횟수),
+          그리고 위 칸을 켜 두셨다면 <strong>절차 상황</strong>이 AI 검토 처리를 맡은 <strong>Anthropic PBC(미국)</strong>로 전송됩니다.
+          원금·이자 같은 세부 항목과 건강 상태·채무 발생 원인은 보내지 않습니다.
+          자세한 내용은 <a href="privacy.html" class="underline">개인정보처리방침</a>의 국외이전 항목을 확인해 주세요.
+          <strong class="text-slate-700">전송된 내용은 챔로드 서버에 저장하지 않습니다.</strong>
+        </p>
+      </details>
+
+      <button type="button" onclick="runAiCross()" id="ai-cross-btn"
+        class="mt-4 w-full bg-purple-700 text-white py-3.5 rounded-xl font-bold text-base hover:bg-purple-800 transition-colors">
+        진술서와 숫자 대조하기
+      </button>
+      <p class="text-[11px] text-slate-400 mt-2 text-center">패키지를 구매하신 회원이 이용할 수 있으며 서류검토 AI 회수가 1회 차감됩니다.</p>
+    </div>
+    <div id="ai-cross-result" class="mt-4"></div>
+  </section>
+
+  <div class="disclaimer-box mt-6">
+    <strong>⚠️ 법률대리 아님 고지</strong><br>
+    이 도구는 입력하신 숫자를 계산해 보여 줄 뿐이며, 법률상담·법률대리·사건 수임 또는 결과 보장을 제공하지 않습니다.
+    계산 결과는 인가·면책 여부를 뜻하지 않고, 최종 판단은 법원 결정에 따릅니다.
+  </div>
+</div>
+
+<div id="footer-placeholder"></div>
+<div id="toast"></div>
+
+<script src="js/main.js"></script>
+<script src="js/numcheck.js"></script>
+<script src="js/crosscheck.js"></script>
+<script src="js/aicontext.js"></script>
+<script>
+  initPage('numcheck');
+
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const $ = (id) => document.getElementById(id);
+
+  /* ── 탭 ── */
+  function showTab(name) {
+    document.querySelectorAll('.tab-panel').forEach(p => { p.style.display = 'none'; });
+    $('tab-' + name).style.display = 'block';
+    if (name === 'cross') renderCrossStatus();   // 앞 탭에서 계산한 게 늘었을 수 있다
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      const on = b.dataset.tab === name;
+      b.className = 'tab-btn whitespace-nowrap px-4 py-2.5 text-sm rounded-xl border transition-colors '
+        + (on ? 'border-blue-700 bg-blue-700 text-white font-medium' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50');
+    });
+  }
+
+  /* ── 입력 행 ──
+     행 정의를 표로 두고 한 함수로 그린다. 금액 칸은 입력하는 동안 천 단위 콤마를 붙인다. */
+  const ROW_KINDS = {
+    creditor: { body: 'creditor-rows', cols: [
+      { key: 'name',      type: 'text',  ph: '예: ○○은행',   cls: '' },
+      { key: 'principal', type: 'money', ph: '원금',         cls: 'text-right' },
+      { key: 'interest',  type: 'money', ph: '이자',         cls: 'text-right' },
+      { key: 'claim',     type: 'money', ph: '자동 계산',     cls: 'text-right' },
+    ]},
+    income:  { body: 'income-rows',  cols: [
+      { key: 'label',  type: 'text',  ph: '예: 근로소득', cls: '' },
+      { key: 'amount', type: 'money', ph: '금액',        cls: 'text-right' },
+    ]},
+    expense: { body: 'expense-rows', cols: [
+      { key: 'label',  type: 'text',  ph: '예: 주거비',   cls: '' },
+      { key: 'amount', type: 'money', ph: '금액',        cls: 'text-right' },
+    ]},
+    asset:   { body: 'asset-rows',   cols: [
+      { key: 'label',  type: 'text',  ph: '예: 임차보증금', cls: '' },
+      { key: 'amount', type: 'money', ph: '금액',          cls: 'text-right' },
+    ]},
+    claim:   { body: 'claim-rows',   cols: [
+      { key: 'name',   type: 'text',  ph: '예: ○○은행',   cls: '' },
+      { key: 'amount', type: 'money', ph: '확정채권액',    cls: 'text-right' },
+    ]},
+  };
+
+  function addRow(kind, values) {
+    const def = ROW_KINDS[kind];
+    const cell = (c) => {
+      const v = values ? values[c.key] : null;
+      if (v == null || v === '') return '';
+      return c.type === 'money' ? Number(v).toLocaleString('ko-KR') : String(v);
+    };
+    const tr = document.createElement('tr');
+    tr.dataset.kind = kind;
+    tr.innerHTML = def.cols.map(c => `
+      <td class="py-1 pr-2 ${c.key === def.cols[0].key ? '' : 'w-32'}">
+        <input data-key="${c.key}" inputmode="${c.type === 'money' ? 'numeric' : 'text'}"
+          ${c.type === 'money' ? 'oninput="commafy(this)"' : ''}
+          placeholder="${esc(c.ph)}" value="${esc(cell(c))}"
+          class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm ${c.cls}">
+      </td>`).join('')
+      + `<td class="py-1 w-8 align-middle">
+           <button type="button" onclick="this.closest('tr').remove()" aria-label="이 줄 삭제"
+             class="text-slate-300 hover:text-red-500 text-lg leading-none px-1">×</button>
+         </td>`;
+    $(def.body).appendChild(tr);
+  }
+
+  // 금액 칸에 천 단위 콤마 (커서는 끝으로 — 금액은 보통 끝에서 이어 치므로 충분하다)
+  function commafy(el) {
+    const digits = el.value.replace(/[^0-9]/g, '');
+    el.value = digits ? Number(digits).toLocaleString('ko-KR') : '';
+  }
+
+  function readRows(kind) {
+    const def = ROW_KINDS[kind];
+    return Array.from($(def.body).querySelectorAll('tr')).map(tr => {
+      const o = {};
+      tr.querySelectorAll('input[data-key]').forEach(i => { o[i.dataset.key] = i.value.trim(); });
+      return o;
+    });
+  }
+
+  function clearRows(kind) { $(ROW_KINDS[kind].body).innerHTML = ''; }
+
+  /* ── 결과 그리기 ──
+     level: ok(계산이 맞음) / diff(숫자가 어긋남) / ask(확인할 점).
+     '제출해도 된다' 같은 판정은 하지 않는다 — js/numcheck.js 상단 주석 참조. */
+  const STYLE = {
+    ok:   { icon: '✅', box: 'bg-green-50 border-green-200',  title: 'text-green-800',  body: 'text-green-700' },
+    diff: { icon: '⚠️', box: 'bg-red-50 border-red-200',      title: 'text-red-800',    body: 'text-red-700'   },
+    ask:  { icon: '❓', box: 'bg-amber-50 border-amber-200',  title: 'text-amber-900',  body: 'text-slate-700' },
+  };
+
+  function renderResult(containerId, result, extraHtml) {
+    const items = result.items || [];
+    const counts = { ok: 0, diff: 0, ask: 0 };
+    items.forEach(i => { if (counts[i.level] !== undefined) counts[i.level]++; });
+
+    let head = '';
+    if (counts.diff > 0) {
+      head = `<div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-3">
+        <p class="text-sm font-bold text-red-800">숫자가 어긋나는 곳이 ${counts.diff}군데 있습니다</p>
+        <p class="text-xs text-red-600 mt-0.5">아래 ⚠️ 항목의 금액을 서류와 대조해 주세요.</p></div>`;
+    } else if (counts.ok === 0) {
+      // 계산이 아예 돌지 않은 상태(입력 부족) — "어긋난 곳 없음"이라고 말하면 오해를 준다
+      head = `<div class="bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 mb-3">
+        <p class="text-sm font-bold text-slate-700">아직 계산할 수 없습니다</p>
+        <p class="text-xs text-slate-500 mt-0.5">아래 항목을 채우신 뒤 다시 눌러 주세요.</p></div>`;
+    } else {
+      head = `<div class="bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-3">
+        <p class="text-sm font-bold text-green-800">계산이 어긋나는 곳은 없습니다</p>
+        <p class="text-xs text-green-700 mt-0.5">숫자끼리 맞는다는 뜻이며, 서류가 완성되었다거나 인가된다는 뜻은 아닙니다${counts.ask ? ` — 확인하실 점 ${counts.ask}가지를 아래에 적었습니다` : ''}.</p></div>`;
+    }
+
+    const body = items.map(i => {
+      const s = STYLE[i.level] || STYLE.ask;
+      return `<div class="border rounded-xl p-3.5 mb-2 ${s.box}">
+        <p class="text-sm font-semibold ${s.title}">${s.icon} ${esc(i.title)}</p>
+        ${i.detail ? `<p class="text-sm mt-1 ${s.body}" style="white-space:pre-line">${esc(i.detail)}</p>` : ''}
+        ${i.statute ? `<p class="text-[11px] text-slate-400 mt-1.5">근거: ${esc(i.statute)}</p>` : ''}
+      </div>`;
+    }).join('');
+
+    $(containerId).innerHTML = `<div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 md:p-6">
+        ${head}${body}${extraHtml || ''}
+      </div>`;
+    $(containerId).scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  const won = (n) => NumCheck.formatWon(n);
+
+  /* ── 검산 실행 ── */
+  function runCreditor() {
+    const r = NumCheck.creditorList({
+      rows: readRows('creditor'),
+      declaredTotal: $('creditor-declared').value,
+    });
+
+    let table = '';
+    if (r.rows && r.rows.length) {
+      table = `<div class="mt-4 pt-4 border-t border-slate-100">
+        <h4 class="text-sm font-bold text-slate-800 mb-2">계산 결과 — 조정된 안분율</h4>
+        <div class="overflow-x-auto"><table class="w-full text-xs" style="min-width:420px">
+          <tr class="text-slate-500"><th class="text-left font-medium py-1">채권자</th><th class="text-right font-medium">원금</th><th class="text-right font-medium">이자</th><th class="text-right font-medium">채권액</th><th class="text-right font-medium">비율</th></tr>
+          ${r.rows.map(row => `<tr class="border-t border-slate-100">
+            <td class="py-1.5">${esc(row.name || '(이름 없음)')}</td>
+            <td class="text-right">${won(row.principal)}</td>
+            <td class="text-right">${won(row.interest)}</td>
+            <td class="text-right font-medium">${won(row.final)}</td>
+            <td class="text-right">${row.share.toFixed(2)}%</td></tr>`).join('')}
+          <tr class="border-t-2 border-slate-200 font-bold bg-slate-50">
+            <td class="py-1.5">합계</td>
+            <td class="text-right">${won(r.totals.principal)}</td>
+            <td class="text-right">${won(r.totals.interest)}</td>
+            <td class="text-right">${won(r.totals.claim)}</td>
+            <td class="text-right">100.00%</td></tr>
+        </table></div>
+        <button type="button" onclick="sendClaimsToPlan()" class="mt-3 text-sm text-blue-700 hover:underline">이 채권 목록을 변제계획안 검산으로 보내기 →</button>
+      </div>`;
+      LAST.claims = r.rows.map(row => ({ name: row.name, amount: row.final }));
+    }
+    LAST.creditor = r.totals ? r : null;
+    renderResult('creditor-result', r, table);
+  }
+
+  function runIncome() {
+    const r = NumCheck.incomeExpense({
+      incomes:  readRows('income'),
+      expenses: readRows('expense'),
+      dependents: $('income-dependents').value,
+      declaredDisposable: $('income-declared').value,
+    });
+    let extra = '';
+    LAST.income = r.totals ? r : null;
+    if (r.totals) {
+      LAST.disposable = r.totals.disposable;
+      extra = `<div class="mt-4 pt-4 border-t border-slate-100">
+        <button type="button" onclick="sendDisposableToPlan()" class="text-sm text-blue-700 hover:underline">가용소득 ${won(r.totals.disposable)}원을 변제계획안 검산으로 보내기 →</button>
+      </div>`;
+    }
+    renderResult('income-result', r, extra);
+  }
+
+  function runPlan() {
+    const r = NumCheck.rehabPlan({
+      disposable: $('plan-disposable').value,
+      months: $('plan-months').value,
+      assets: readRows('asset'),
+      claims: readRows('claim'),
+      declaredTotalRepay: $('plan-declared').value,
+    });
+    LAST.plan = r.totals ? r : null;
+
+    let table = '';
+    if (r.claims && r.claims.length) {
+      table = `<div class="mt-4 pt-4 border-t border-slate-100">
+        <h4 class="text-sm font-bold text-slate-800 mb-2">계산 결과 — 채권자별 안분</h4>
+        <div class="overflow-x-auto"><table class="w-full text-xs" style="min-width:440px">
+          <tr class="text-slate-500"><th class="text-left font-medium py-1">채권자</th><th class="text-right font-medium">확정채권액</th><th class="text-right font-medium">비율</th><th class="text-right font-medium">월 배당액</th><th class="text-right font-medium">${r.totals.months}회 합계</th></tr>
+          ${r.claims.map(c => `<tr class="border-t border-slate-100">
+            <td class="py-1.5">${esc(c.name || '(이름 없음)')}</td>
+            <td class="text-right">${won(c.amount)}</td>
+            <td class="text-right">${c.share.toFixed(2)}%</td>
+            <td class="text-right font-medium">${won(c.monthly)}</td>
+            <td class="text-right">${won(c.total)}</td></tr>`).join('')}
+          <tr class="border-t-2 border-slate-200 font-bold bg-slate-50">
+            <td class="py-1.5">합계</td>
+            <td class="text-right">${won(r.totals.totalClaim)}</td>
+            <td class="text-right">100.00%</td>
+            <td class="text-right">${won(r.totals.disposable)}</td>
+            <td class="text-right">${won(r.totals.totalRepay)}</td></tr>
+        </table></div>
+        <p class="text-[11px] text-slate-400 mt-2">비율은 법원 양식에 맞춰 소수 둘째 자리까지 쓰고, 반올림으로 생기는 차이는 합계가 정확히 100%·가용소득 전액이 되도록 배분했습니다.</p>
+      </div>`;
+    }
+    renderResult('plan-result', r, table);
+  }
+
+  /* ── 사건 파일 ──
+     앞 탭에서 [검산하기]를 누를 때마다 그 결과를 여기 모아 둔다. '서류 간 대조'는 이걸 읽는다.
+     ⚠️ 이 객체는 **메모리에만** 있다. localStorage·서버에 저장하지 않는다(새로고침하면 사라진다).
+        저장을 붙이려면 개인정보처리방침부터 고쳐야 한다 — js/numcheck.js 상단 주석 참조. */
+  const LAST = { claims: null, disposable: null, creditor: null, income: null, plan: null };
+
+  function sendClaimsToPlan() {
+    if (!LAST.claims) return;
+    clearRows('claim');
+    LAST.claims.forEach(c => addRow('claim', c));
+    showTab('plan');
+    showToast('채권 목록을 변제계획안 검산으로 옮겼습니다.', 'success');
+  }
+
+  function sendDisposableToPlan() {
+    if (LAST.disposable == null) return;
+    $('plan-disposable').value = Number(LAST.disposable).toLocaleString('ko-KR');
+    showTab('plan');
+    showToast('가용소득을 변제계획안 검산으로 옮겼습니다.', 'success');
+  }
+
+  /* ── 서류 간 대조 ── */
+
+  // 무료 진단을 하셨으면 그 값도 대조에 넣는다(진단은 개략치라 '확인 질문'으로만 쓴다).
+  function diagnosisFacts() {
+    const d = Storage.load('diagnosis_data');
+    if (!d) return null;
+    return {
+      totalDebt: d.totalDebt || 0,
+      creditorCount: d.creditorCount || 0,
+      dependents: d.dependents != null ? Number(d.dependents) : null,
+      totalAssets: d.totalAssets || 0,
+    };
+  }
+
+  function caseFile() {
+    return { creditor: LAST.creditor, income: LAST.income, plan: LAST.plan, diagnosis: diagnosisFacts() };
+  }
+
+  function renderCrossStatus() {
+    const rows = [
+      { key: 'creditor', label: '채권자목록', tab: 'creditor' },
+      { key: 'income',   label: '수입·지출',  tab: 'income' },
+      { key: 'plan',     label: '변제계획안', tab: 'plan' },
+    ];
+    $('cross-status').innerHTML = rows.map(r => {
+      const on = !!LAST[r.key];
+      return `<button type="button" onclick="showTab('${r.tab}')"
+        class="flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm text-left transition-colors ${
+          on ? 'border-green-200 bg-green-50 text-green-800' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}">
+        <span>${on ? '✅' : '⬜'}</span>
+        <span class="flex-1">${r.label}</span>
+        <span class="text-[11px] ${on ? 'text-green-600' : 'text-slate-400'}">${on ? '계산됨' : '아직'}</span>
+      </button>`;
+    }).join('');
+  }
+
+  function runCross() {
+    const r = CrossCheck.run(caseFile());
+    renderResult('cross-result', r);
+  }
+
+  /* ── 진술서(서술) ↔ 숫자 대조 — AI ──
+     코드로 잡을 수 있는 것은 위에서 이미 다 잡았다. 여기는 코드가 구조적으로 못 하는 것만 맡는다. */
+  function updateCrossChar() {
+    const el = $('cross-text');
+    if (el.value.length > 6000) el.value = el.value.slice(0, 6000);
+    $('cross-char').textContent = el.value.length + ' / 6000자';
+  }
+  $('cross-text').addEventListener('input', updateCrossChar);
+
+  async function runAiCross() {
+    const text = $('cross-text').value.trim();
+    if (text.length < 30) { showToast('대조할 내용을 좀 더 입력해 주세요 (최소 30자).', 'warn'); return; }
+
+    const figures = CrossCheck.summaryForAI(caseFile());
+    if (!Object.keys(figures).length) {
+      showToast('먼저 앞 탭에서 [검산하기]를 눌러 숫자를 계산해 주세요.', 'warn');
+      showTab('creditor');
+      return;
+    }
+
+    if (!Auth.isLoggedIn()) {
+      if (confirm('진술서 대조는 로그인 후 이용할 수 있습니다. 로그인 화면으로 이동할까요?')) {
+        location.href = 'login.html?next=' + encodeURIComponent(location.href);
+      }
+      return;
+    }
+    // 민감정보 별도 동의(개인정보 보호법 제23조)
+    const consent = sensitiveConsentPayload();
+    if (consent === false) {
+      showToast('민감정보 처리 동의에 체크해 주세요. 동의하시면 내용을 지우지 않고 그대로 넣으셔도 됩니다.', 'warn');
+      $('sensitive-card').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    // 주민등록번호는 동의로도 처리할 수 없다(제24조의2) → 경고가 아니라 여기서 지운다
+    const masked = maskIdNumbers(text);
+    if (masked !== text) {
+      $('cross-text').value = masked;
+      updateCrossChar();
+      showToast('주민등록번호로 보이는 숫자를 자동으로 가렸습니다. 이 정보는 전송·저장되지 않습니다.', 'info');
+    }
+
+    const btn = $('ai-cross-btn');
+    btn.disabled = true;
+    btn.textContent = 'AI가 대조 중입니다...';
+    try {
+      const res = await fetch(API_BASE + '/api/ai/crosscheck', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.getSession().token },
+        body: JSON.stringify({ docLabel: '진술서', text: masked, figures, context: AiContext.payload(), sensitiveConsent: consent }),
+      });
+      const j = await res.json();
+      if (!j.ok) {
+        if (res.status === 403) {
+          if (confirm((j.error || '이용 가능한 회수를 모두 사용했습니다.') + '\n\n요금제 안내를 볼까요?')) location.href = 'pricing.html';
+          return;
+        }
+        showToast(j.error || '대조에 실패했습니다.', 'warn');
+        return;
+      }
+      if (consent === true) {                    // 서버가 방금 동의를 기록했다 → 화면도 반영
+        Auth.markSensitiveConsent(true);
+        renderSensitiveConsent('sensitive-card');
+      }
+      renderAiCross(j.result, j.quota, j.usage);
+    } catch (e) {
+      showToast('서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.', 'warn');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '진술서와 숫자 대조하기';
+    }
+  }
+
+  function renderAiCross(result, quota, usage) {
+    const conflicts = (result && result.conflicts) || [];
+    const unexplained = (result && result.unexplained) || [];
+    let html = '';
+
+    if (conflicts.length) {
+      html += '<h4 class="font-bold text-slate-800 mb-2">🔍 진술서와 숫자가 어긋나 보이는 곳</h4>';
+      html += conflicts.map(c => `
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3.5 mb-2">
+          <p class="text-sm text-slate-800 mb-1">“${esc(c.excerpt)}”</p>
+          ${c.figure ? `<p class="text-xs text-slate-500 mb-1.5">대조한 숫자: ${esc(c.figure)}</p>` : ''}
+          <p class="text-sm text-slate-700">→ ${esc(c.question)}</p>
+        </div>`).join('');
+    }
+
+    if (unexplained.length) {
+      html += '<h4 class="font-bold text-slate-800 mb-2 mt-4">❓ 숫자에는 있는데 진술서가 설명하지 않은 것</h4>';
+      html += unexplained.map(u => `
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 mb-2">
+          ${u.figure ? `<p class="text-xs text-slate-500 mb-1">${esc(u.figure)}</p>` : ''}
+          <p class="text-sm text-slate-700">→ ${esc(u.question)}</p>
+        </div>`).join('');
+    }
+
+    // 지적이 없을 때 — "맞다"고 말하지 않는다(판정 금지). 사실만 진술한다.
+    if (!conflicts.length && !unexplained.length) {
+      html += `<div class="bg-slate-50 rounded-xl p-4">
+        <p class="text-slate-700 text-sm">이번 대조에서 진술서와 숫자가 어긋나 보이는 곳을 찾지 못했습니다.</p>
+        <p class="text-slate-500 text-xs mt-1">이는 서술과 숫자가 서로 어긋나 보이지 않는다는 뜻이며, 서류가 완성되었거나 인가된다는 뜻은 아닙니다.</p>
+      </div>`;
+    }
+
+    html += '<div class="border-t border-slate-100 mt-4 pt-3">';
+    if (quota && quota.type === 'package') {
+      const warn = quota.left <= 2;
+      html += `<p class="text-[11px] ${warn ? 'text-amber-600 font-medium' : 'text-slate-400'}">서류검토 AI 잔여 ${quota.left}회 / 총 ${quota.limit}회${warn ? ' — 곧 소진됩니다' : ''}</p>`;
+    }
+    if (usage) html += `<p class="text-[11px] text-slate-400 mt-0.5">오늘 이용: ${usage.used}/${usage.limit}회</p>`;
+    html += '</div>';
+
+    $('ai-cross-result').innerHTML = `<div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 md:p-6">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-purple-700 font-bold text-sm">🤖 진술서 대조 결과</span>
+          <span class="text-xs text-purple-400 ml-auto">참고용 안내 · 법률상담 아님</span>
+        </div>${html}</div>`;
+    $('ai-cross-result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ── 예시 숫자 ──
+     rehabilitation.html의 '실전 서류 작성예시'와 같은 값이다. 두 화면의 숫자가 갈리면 안 되므로
+     예시를 고칠 때는 양쪽을 함께 고칠 것. */
+  function loadSample(which) {
+    if (which === 'creditor') {
+      clearRows('creditor');
+      [['○○은행', 18000000, 542000, 18542000], ['△△카드', 12300000, 380000, 12680000],
+       ['□□캐피탈', 8000000, 214000, 8214000], ['◇◇저축은행', 7000000, 264000, 7264000]]
+        .forEach(([name, principal, interest, claim]) => addRow('creditor', { name, principal, interest, claim }));
+      $('creditor-declared').value = (46700000).toLocaleString('ko-KR');
+    }
+    if (which === 'income') {
+      clearRows('income'); clearRows('expense');
+      addRow('income', { label: '근로소득 (세후 월평균)', amount: 2600000 });
+      [['주거비(월세+관리비)', 500000], ['식비', 400000], ['교통비·통신비', 180000], ['의료비·기타', 220000]]
+        .forEach(([label, amount]) => addRow('expense', { label, amount }));
+      $('income-dependents').value = '0';
+      $('income-declared').value = (1061457).toLocaleString('ko-KR');
+    }
+    if (which === 'plan') {
+      clearRows('asset'); clearRows('claim');
+      $('plan-disposable').value = (1061457).toLocaleString('ko-KR');
+      $('plan-months').value = '36';
+      $('plan-declared').value = (38212452).toLocaleString('ko-KR');
+      [['현금', 50000], ['예금', 320000], ['보험 해약환급금', 890000],
+       ['임차보증금', 5000000], ['예상 퇴직금의 1/2', 4000000]]
+        .forEach(([label, amount]) => addRow('asset', { label, amount }));
+      [['○○은행', 18542000], ['△△카드', 12680000], ['□□캐피탈', 8214000], ['◇◇저축은행', 7264000]]
+        .forEach(([name, amount]) => addRow('claim', { name, amount }));
+    }
+    showToast('예시 숫자를 넣었습니다. [검산하기]를 눌러 보세요.', 'info');
+  }
+
+  /* ── 첫 화면 ── */
+  renderSensitiveConsent('sensitive-card');
+  AiContext.renderCard('aictx-card');
+  showTab(new URLSearchParams(location.search).get('tab') || 'creditor');
+  for (let i = 0; i < 3; i++) addRow('creditor');
+  addRow('income');
+  for (let i = 0; i < 3; i++) addRow('expense');
+  for (let i = 0; i < 3; i++) addRow('asset');
+  for (let i = 0; i < 3; i++) addRow('claim');
+</script>
+</body>
+</html>

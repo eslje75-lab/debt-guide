@@ -311,14 +311,9 @@ function levelLabel(l) {
   return '검토 가능성 낮음';
 }
 
-// ── 2026년 기준중위소득 (원 단위, 보건복지부 고시) ──
-const MEDIAN_INCOME_2026 = [0, 2564238, 4199292, 5359036, 6494738, 7556719, 8555952];
-// 인덱스: [미사용, 1인, 2인, 3인, 4인, 5인, 6인 이상]
-
-function getStandardLiving(householdSize) {
-  const idx = Math.min(Math.max(householdSize, 1), 6);
-  return Math.round(MEDIAN_INCOME_2026[idx] * 0.6); // 기준중위소득 60% = 법원 표준생계비
-}
+// ── 2026년 기준중위소득·표준생계비(getStandardLiving)는 js/main.js로 옮겼다 ──
+// 진단 외에 숫자 검산(js/numcheck.js)도 같은 기준을 써야 해서 모든 페이지가 읽는 곳에 둔 것이다.
+// 여기에 복사본을 다시 만들지 말 것 — 기준이 갈리면 화면마다 다른 금액이 나온다.
 
 // ── 개인회생 예상 변제금 계산 (2026 표준생계비 기준) ──
 function calcRepayment(d) {
