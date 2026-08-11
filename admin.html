@@ -417,15 +417,19 @@
         link: CONSOLE_LINKS.sms,
       });
     } else {
+      // 임계값은 '남은 문자 건수'로 잡는다 — 금액보다 직관적이고, 단가가 바뀌어도 뜻이 유지된다.
+      // 55건(약 1,000원) 미만 = 충전 필요 / 165건(약 3,000원) 미만 = 여유 적음.
+      // 유료 결제 1건당 인증문자 1통이므로, 남은 건수가 곧 받을 수 있는 결제 건수다.
       const bal = Number(j.sms.balance || 0);
-      const sends = Math.floor(bal / 18);            // SMS 1건 18원
-      const tone = bal < 2000 ? 'danger' : bal < 10000 ? 'warn' : 'ok';
+      const point = Number(j.sms.point || 0);
+      const sends = Math.floor((bal + point) / 18);   // SMS 1건 18원. 포인트도 발송에 쓰인다
+      const tone = sends < 55 ? 'danger' : sends < 165 ? 'warn' : 'ok';
       smsCard = opsCard({
         title: '솔라피 SMS 잔액', tone,
         badge: tone === 'danger' ? '충전 필요' : tone === 'warn' ? '여유 적음' : null,
         badgeClass: tone === 'danger' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700',
-        value: won(bal),
-        note: `문자 약 <strong>${sends.toLocaleString('ko-KR')}건</strong> 분량(SMS 18원 기준). 소진되면 <strong>결제 시 번호 인증이 중단</strong>됩니다.`,
+        value: won(bal) + (point ? ` <span class="text-sm font-normal text-slate-500">+ ${point.toLocaleString('ko-KR')}P</span>` : ''),
+        note: `문자 약 <strong>${sends.toLocaleString('ko-KR')}건</strong> 분량(SMS 18원 기준) — 유료 결제 1건당 인증문자 1통입니다. 소진되면 <strong>결제 시 번호 인증이 중단</strong>됩니다.`,
         link: CONSOLE_LINKS.sms,
       });
     }
