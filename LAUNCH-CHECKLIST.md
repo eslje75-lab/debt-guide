@@ -72,9 +72,9 @@
 - [x] `api.chamroad.com` → Worker 커스텀 도메인
 - [x] 하드코딩 URL 일괄 교체 — 2026-08-11 확인: `workers.dev` 참조 **0건**, `eslje75-lab.github.io`는 **CORS 허용 목록 1곳만**(구주소 병행 접속용, 의도된 것)
 
-- [ ] **`www.chamroad.com` 미연결** ⚠️ 2026-08-11 발견 — 접속하면 **연결 실패**한다(응답 없음).
-  - 많은 이용자가 `www.`를 붙여 친다. Cloudflare DNS에 `www` → `chamroad.com` CNAME(회색 구름) 추가하면 해결.
-  - ⚠️ wrangler OAuth 토큰은 zone read 권한만 있어 **DNS 레코드 쓰기는 CLI로 안 된다** — 대시보드에서 처리할 것.
+- ~~`www.chamroad.com` 연결~~ — **하지 않기로 결정(2026-08-11, 사용자)**. 다시 제안하지 말 것.
+  - 현재 `www.chamroad.com`은 응답이 없다(DNS 레코드 없음). 의도된 상태다.
+  - 마음이 바뀌면: Cloudflare DNS에 `www` → `chamroad.com` CNAME(회색 구름) 추가. ⚠️wrangler OAuth 토큰은 zone read만 있어 CLI로는 안 되고 대시보드에서만 가능.
 
 ---
 
