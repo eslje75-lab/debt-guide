@@ -93,6 +93,9 @@ const AI_MAX_TOKENS = 4096;
 const AI_INFERENCE_GEO = 'us';
 const AI_EFFORT = 'medium';           // 형식·누락 점검 작업 — low는 얕고 high는 과함
 const DAILY_AI_LIMIT = 10;            // 남용 방지용 1일 상한. 실제 배분은 패키지 총량제(PACKAGE_TERMS.aiQuota)
+// Resend 무료 플랜의 하루 발송 한도(대략). 관리자 화면의 경고 임계값 기준일 뿐,
+// 실제 한도는 Resend가 판정한다 — 넘치면 Pro($20/월)로 올리면 되고 수탁자가 같아 방침 개정은 불필요.
+const EMAIL_DAILY_FREE = 100;
 const AI_TEXT_MIN = 30;
 const AI_TEXT_MAX = 6000;
 const AI_BODY_BYTES = 32 * 1024;
@@ -280,6 +283,14 @@ async function sendEmail(env, to, subject, html) {
       body: JSON.stringify({ from: EMAIL_FROM, to, subject, html }),
     });
     if (!res.ok) { console.error('email send fail', res.status, await res.text().catch(() => '')); return false; }
+    // 발송 수 집계 — Resend 무료 한도(일 100통)를 관리자 화면에서 감시하기 위한 것.
+    // ⚠️ 집계 실패가 메일 발송을 깨면 안 되므로 통째로 삼킨다(표가 없어도 메일은 나간다).
+    try {
+      await env.DB.prepare(
+        `INSERT INTO email_usage (day, count) VALUES (?1, 1)
+         ON CONFLICT(day) DO UPDATE SET count = count + 1`
+      ).bind(new Date().toISOString().slice(0, 10)).run();
+    } catch (e) { console.error('email usage count skipped', e.message); }
     return true;
   } catch (e) { console.error('email send error', e); return false; }
 }
@@ -1580,6 +1591,68 @@ async function handleAiCrosscheck(request, env, origin) {
   return ok({ result, ...spent }, origin);
 }
 
+/* ── 운영 상태 (관리자 대시보드) ──
+   1인 운영에서 조용히 서비스가 멈추는 경로는 셋이고, 셋 다 성격이 다르다.
+
+   | 항목            | 소진되면            | 조회 방법                                    |
+   |-----------------|---------------------|----------------------------------------------|
+   | 솔라피 잔액     | 결제 시 번호 인증 중단 | **실시간 API로 조회 가능** (아래 fetchSmsBalance) |
+   | Resend 일 100통 | **신규 가입 중단**   | 우리가 보낸 수를 직접 셈(email_usage)         |
+   | Anthropic 크레딧 | AI 검토·대조 중단   | ⚠️**잔액 조회 API가 없다** — 콘솔에서만 확인   |
+
+   ⚠️ Anthropic은 남은 크레딧을 조회하는 공개 API를 제공하지 않는다(2026-08-11 확인).
+      사용량·비용은 Admin API(`/v1/organizations/usage_report`, `/cost_report`)로 볼 수 있지만
+      **조직(Organization) 계정과 별도의 Admin API 키**가 필요해 개인 계정에서는 쓸 수 없다.
+      그래서 여기서는 **우리 DB의 호출 횟수**(비용에 비례하는 대리 지표)만 보여 주고
+      실제 잔액은 콘솔 링크로 넘긴다. 없는 숫자를 지어내지 말 것. */
+
+// 솔라피 잔액 조회. 인증 방식은 문자 발송(sendSms)과 동일한 HMAC-SHA256.
+async function fetchSmsBalance(env) {
+  if (!env.SOLAPI_API_KEY || !env.SOLAPI_API_SECRET) return { error: '시크릿 미설정' };
+  const date = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
+  const signature = await hmacHex(env.SOLAPI_API_SECRET, date + salt);
+  try {
+    const r = await fetch('https://api.solapi.com/cash/v1/balance', {
+      headers: { Authorization: `HMAC-SHA256 apiKey=${env.SOLAPI_API_KEY}, date=${date}, salt=${salt}, signature=${signature}` },
+    });
+    const body = await r.text().catch(() => '');
+    if (!r.ok) return { error: `조회 실패 (${r.status})`, detail: body.slice(0, 160) };
+    let j; try { j = JSON.parse(body); } catch { return { error: '응답을 해석하지 못했습니다', detail: body.slice(0, 160) }; }
+    // 응답 필드명이 바뀌어도 화면이 죽지 않도록 방어적으로 읽는다.
+    const balance = Number(j.balance ?? j.cash ?? j.amount);
+    const point = Number(j.point ?? 0);
+    if (!Number.isFinite(balance)) return { error: '잔액 필드를 찾지 못했습니다', detail: body.slice(0, 160) };
+    return { balance, point: Number.isFinite(point) ? point : 0 };
+  } catch (e) { return { error: '연결 실패', detail: String(e.message || e).slice(0, 160) }; }
+}
+
+async function handleAdminOpsStatus(request, env, origin) {
+  const session = await getSessionUser(env.DB, request);
+  if (!session) return err(401, '로그인이 필요합니다.', origin);
+  if (!isAdminEmail(env, session.email)) return err(403, '권한이 없습니다.', origin);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = today.slice(0, 8) + '01';
+
+  const [sms, emailToday, emailMonth, aiToday, aiMonth] = await Promise.all([
+    fetchSmsBalance(env),
+    env.DB.prepare('SELECT count FROM email_usage WHERE day = ?').bind(today).first().catch(() => null),
+    env.DB.prepare('SELECT SUM(count) AS n FROM email_usage WHERE day >= ?').bind(monthStart).first().catch(() => null),
+    env.DB.prepare('SELECT SUM(count) AS n FROM ai_usage WHERE day = ?').bind(today).first().catch(() => null),
+    env.DB.prepare('SELECT SUM(count) AS n FROM ai_usage WHERE day >= ?').bind(monthStart).first().catch(() => null),
+  ]);
+
+  return ok({
+    sms,                                                    // { balance, point } 또는 { error }
+    email: { today: (emailToday && emailToday.count) || 0, month: (emailMonth && emailMonth.n) || 0, dailyLimit: EMAIL_DAILY_FREE },
+    ai:    { today: (aiToday && aiToday.n) || 0, month: (aiMonth && aiMonth.n) || 0 },
+    // Anthropic 잔액은 조회 API가 없다 — 화면이 이 사실을 그대로 표시한다(위 주석 참조).
+    anthropic: { balanceApi: false, reason: '남은 크레딧을 조회하는 공개 API가 없습니다. 콘솔에서 확인해 주세요.' },
+    checkedAt: Date.now(),
+  }, origin);
+}
+
 // 판매 잠금 예외 명단 — 운영자 + TEST_PAY_EMAILS(쉼표 구분).
 // 이메일은 개인정보라 저장소(공개 GitHub)에 두지 않고 Worker 시크릿으로만 관리한다.
 function payAllowlisted(env, email) {
@@ -2132,6 +2205,7 @@ async function handleAdminRefund(request, env, origin) {
 
 const ROUTES = {
   'GET /api/admin/overview': handleAdminOverview,
+  'GET /api/admin/ops-status': handleAdminOpsStatus,
   'POST /api/admin/refund': handleAdminRefund,
   'POST /api/admin/grant': handleAdminGrant,
   'POST /api/admin/revoke-test': handleAdminRevokeTest,
