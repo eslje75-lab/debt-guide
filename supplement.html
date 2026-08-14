@@ -333,7 +333,7 @@
     lib.querySelectorAll('.preview-lock').forEach(n => n.remove());
     if (isPreview()) {
       document.getElementById('doc-example-buttons').innerHTML = '';
-      lib.appendChild(previewLockCard('서식 예시는 보정 추가 대응 전용입니다'));
+      lib.appendChild(previewLockCard('서식 예시는 완주 패키지 또는 보정 추가 대응 전용입니다'));
       return;
     }
     document.getElementById('doc-example-buttons').innerHTML = DOC_EXAMPLES.map((d, i) => `
@@ -422,7 +422,7 @@
 
     document.getElementById('steps-container').innerHTML = html;
     // 미리보기(미구매): 첫 항목만 열어 두고 나머지를 잠근다 — main.js requirePackage 주석 참조
-    lockSection(document.getElementById('steps-container'), 1, '나머지 항목은 보정 추가 대응 전용입니다');
+    lockSection(document.getElementById('steps-container'), 1, '나머지 항목은 완주 패키지 또는 보정 추가 대응 전용입니다');
     const { total, done } = countProgress(saved);
     updateProgress(done, total);
   }

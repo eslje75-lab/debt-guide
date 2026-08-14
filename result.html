@@ -78,20 +78,34 @@
     return s;
   }
 
-  // ── 신청불가 사유 반환 (있으면 문자열, 없으면 null) ──
+  // ── 진행이 막히는 사유 반환 (있으면 {label, text}, 없으면 null) ──
+  // ⚠️ 법적 성질을 구분해서 쓴다. 중복 신청·법정 한도 초과는 실제로 '신청 불가'지만,
+  //    재신청 대기기간(제595조 제5호·제564조 제1항 제4호)은 신청 자격 제한이 아니라
+  //    법원의 '재량' 기각·불허가 사유다(제595조 "기각할 수 있다" / 제564조 제2항 재량면책).
+  //    이것을 '신청 불가'로 단정하면 잘못된 법률 안내가 된다.
   function getHardBlockReason(type, data) {
     const unsecured = data.unsecuredDebt    || 0;
     const secured   = data.securedDebt      || 0;
     const priors    = data.priorAdjustments || [];
     if (type === 'rehab') {
-      if (priors.includes('rehab-done-recent')) return '개인회생 면책 확정 후 5년 미경과 — 신청 기각 사유(채무자회생법 제595조 제5호)';
-      if (priors.includes('rehab-ongoing'))     return '현재 개인회생 진행 중 — 중복 신청 불가';
-      if (unsecured > 1_000_000_000) return `무담보 채무(${formatWon(unsecured)})가 법정 한도(10억) 초과`;
-      if (secured   > 1_500_000_000) return `담보 채무(${formatWon(secured)})가 법정 한도(15억) 초과`;
+      if (priors.includes('rehab-done-recent'))
+        return { label: '기각 가능', text: '개인회생 면책 확정 후 5년 미경과 — 법원이 개시신청을 기각할 수 있는 사유(채무자회생법 제595조 제5호). 신청 자체가 금지되는 것은 아니지만 기각 위험이 큽니다.' };
+      if (priors.includes('rehab-ongoing'))
+        return { label: '신청불가', text: '현재 개인회생 진행 중 — 중복 신청 불가' };
+      if (unsecured > 1_000_000_000)
+        return { label: '신청불가', text: `무담보 채무(${formatWon(unsecured)})가 법정 한도(10억) 초과` };
+      if (secured   > 1_500_000_000)
+        return { label: '신청불가', text: `담보 채무(${formatWon(secured)})가 법정 한도(15억) 초과` };
     }
     if (type === 'bankrupt') {
-      if (priors.includes('bankrupt-done-recent')) return '파산 면책 확정 후 7년 미경과 — 면책불허가 사유(채무자회생법 제564조 제1항 제4호)';
-      if (priors.includes('bankrupt-ongoing'))     return '현재 개인파산 진행 중 — 중복 신청 불가';
+      if (priors.includes('bankrupt-done-recent'))
+        return { label: '면책 위험', text: '파산 면책 확정 후 7년 미경과 — 면책불허가 사유(제564조 제1항 제4호 전단). 다만 법원은 파산에 이르게 된 경위 등을 고려해 재량으로 면책을 허가할 수 있습니다(같은 조 제2항).' };
+      if (priors.includes('bankrupt-ongoing'))
+        return { label: '신청불가', text: '현재 개인파산 진행 중 — 중복 신청 불가' };
+      // 제564조 제1항 제4호 후단 — 개인회생 면책(제624조)을 받은 뒤 5년이 지나지 않으면
+      // 파산 면책도 불허가 사유다. 이 사람에게 "파산이 유일한 방법"이라고 안내하면 안 된다.
+      if (priors.includes('rehab-done-recent'))
+        return { label: '면책 위험', text: '개인회생 면책 확정 후 5년 미경과 — 파산 면책도 불허가 사유에 해당합니다(제564조 제1항 제4호 후단). 면책 확정일을 먼저 확인하시고, 법원은 재량으로 면책을 허가할 수도 있으므로(같은 조 제2항) 전문가 상담을 권합니다.' };
     }
     return null;
   }
@@ -156,8 +170,10 @@
 
     if (type === 'bankrupt') {
       // 유리한 점
-      if (hardBlocked.rehab)
-        pros.push(`개인회생 신청 불가 — 채무 규모 초과 또는 재신청 대기기간으로 인해 법원 절차 중 파산이 유일한 선택`);
+      // 채무 규모 초과는 파산의 '유리한 점'이 맞지만, 재신청 대기기간은 아니다 —
+      // 개인회생 면책 후 5년 미경과는 파산 면책도 불허가 사유(제564조 1항 4호 후단)라 유리할 게 없다.
+      if (hardBlocked.rehab && !priors.includes('rehab-done-recent') && !priors.includes('rehab-ongoing'))
+        pros.push(`개인회생 법정 한도 초과 — 법원 절차 중에서는 파산·면책이 남은 선택`);
       if (!data.hasIncome || income === 0)
         pros.push('소득 없음 — 변제 불능 상태로 파산의 핵심 요건에 해당');
       else if (income < courtLiving)
@@ -175,7 +191,7 @@
       if (data.hasIncome && income > 0)
         cons.push(`소득(월 ${formatWon(income)})이 있어 법원이 변제 불능 여부를 엄격히 심사합니다 — 수입·지출 내역, 부채 증빙 서류를 충분히 준비해야 합니다`);
       if (priors.includes('rehab-done-recent'))
-        cons.push('이전 개인회생 면책 이력 있음 — 면책 후 채무가 재발생한 경위를 법원에 소명해야 하며, 심사가 더 엄격하게 진행될 수 있습니다');
+        cons.push('개인회생 면책 확정 후 5년 미경과 — <strong>파산 면책도 불허가 사유</strong>에 해당합니다(채무자회생법 제564조 제1항 제4호 후단). 면책 후 채무가 재발생한 경위도 법원에 소명해야 합니다');
       if (causes.includes('gambling'))
         cons.push('도박·사행성 채무 포함 — 면책불허가 사유(채무자회생법 제564조) 해당 가능, 파산선고를 받더라도 면책이 거부될 위험 있음');
       if (causes.includes('investment'))
@@ -189,7 +205,7 @@
       if (!causes.includes('gambling'))
         cons.push('낭비·사치성 소비, 허위 재산신고 등도 면책불허가 사유(채무자회생법 제564조)에 해당할 수 있습니다 — 채무 발생 경위를 정확히 정리하세요');
       if (priors.includes('bankrupt-done-recent'))
-        cons.push('파산 면책 확정 후 7년 미경과 — 면책불허가 사유에 해당합니다(채무자회생법 제564조 제1항 제4호)');
+        cons.push('파산 면책 확정 후 7년 미경과 — 면책불허가 사유에 해당합니다(채무자회생법 제564조 제1항 제4호 전단). 다만 법원은 파산에 이르게 된 경위 등을 고려해 재량으로 면책을 허가할 수 있습니다(같은 조 제2항)');
       if (priors.includes('bankrupt-denied'))
         cons.push('이전 면책불허가 결정 이력 있음 — 재신청 시 심사에서 불리하게 작용하며, 채무 발생 경위 소명이 특히 중요합니다');
       if (priors.includes('bankrupt-ongoing'))
@@ -206,7 +222,7 @@
     const icons = { rehab:'📋', bankrupt:'⚖️' };
     const blockReason = getHardBlockReason(type, data);
 
-    // 신청불가 카드
+    // 진행이 막히는 사유 카드
     if (score === 0 && blockReason) {
       return `
         <div class="bg-white rounded-2xl shadow-sm border border-red-100 p-5 flex flex-col">
@@ -215,11 +231,11 @@
               <span class="shrink-0">${icons[type]}</span><span>${title}</span>
             </div>
             <div class="shrink-0 ml-3 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 text-center">
-              <div class="text-sm font-extrabold text-red-600 leading-none">신청불가</div>
+              <div class="text-sm font-extrabold text-red-600 leading-none">${blockReason.label}</div>
             </div>
           </div>
           <div class="bg-red-50 border border-red-100 rounded-lg px-3 py-2.5 text-xs text-red-700 leading-relaxed">
-            <span class="font-semibold">사유:</span> ${blockReason}
+            <span class="font-semibold">사유:</span> ${blockReason.text}
           </div>
         </div>`;
     }
@@ -277,8 +293,8 @@
     // 두 절차 모두 신청불가
     if (best.score === 0 && hardBlocked.rehab && hardBlocked.bankrupt) {
       return `<div class="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
-        <p class="text-red-700 font-bold text-base mb-1">현재 신청 가능한 법원 절차가 없습니다</p>
-        <p class="text-slate-500 text-sm">채무조정 이력 또는 채무 규모로 인해 개인회생·개인파산 모두 신청이 어려운 상태입니다. 법률전문가 상담이 필요합니다.</p>
+        <p class="text-red-700 font-bold text-base mb-1">두 절차 모두 그대로 진행하기 어려운 상태입니다</p>
+        <p class="text-slate-500 text-sm">채무조정 이력 또는 채무 규모 때문입니다. 재신청 대기기간에 해당하는 경우 신청 자체가 금지되는 것은 아니지만, 법원이 기각하거나 면책을 불허가할 수 있는 사유에 해당합니다. 위 카드의 사유를 확인하시고 법률전문가 상담을 받아 보세요.</p>
       </div>`;
     }
 
@@ -337,8 +353,12 @@
       const priors    = data.priorAdjustments || [];
       if (unsecured > 1_000_000_000 || secured > 1_500_000_000)
         return `채무가 개인회생 법정 한도(무담보 10억·담보 15억)를 초과해 법원 절차 중 개인파산이 유일한 선택입니다.`;
-      if (priors.includes('rehab-done-recent') || priors.includes('rehab-ongoing'))
-        return `개인회생 신청이 불가한 상황으로, 법원을 통한 채무 해결은 개인파산·면책이 유일한 방법입니다.`;
+      // ⚠️ 개인회생 면책 후 5년 미경과자에게 "파산이 유일한 방법"이라 권하면 안 된다 —
+      //    바로 그 사람이 제564조 제1항 제4호 후단으로 파산 면책도 불허가 사유에 걸린다.
+      if (priors.includes('rehab-done-recent'))
+        return `개인회생은 재신청 대기기간에 걸려 있으나, 개인파산도 개인회생 면책 확정 후 5년이 지나지 않으면 면책불허가 사유에 해당합니다(제564조 제1항 제4호 후단). 면책 확정일을 먼저 확인하고 전문가 상담을 받아 보세요.`;
+      if (priors.includes('rehab-ongoing'))
+        return `개인회생이 진행 중이어서 중복 신청은 할 수 없습니다. 진행 중인 절차를 유지할지, 파산으로 전환할지부터 정리가 필요합니다.`;
       if (!data.hasIncome || income === 0)
         return '현재 소득이 없어 변제 자체가 불가능한 상태로, 파산·면책 절차가 가장 현실적인 해결책입니다.';
       return '소득이 생활비에 미달하거나 재산보다 채무가 현저히 많아 파산 절차 검토를 권장합니다.';
@@ -393,12 +413,27 @@
           <span class="shrink-0">⚠️</span>
           <p class="text-xs text-slate-600">소득이 표준생계비에 미치지 못해 월 변제액이 0원으로 계산됩니다. 이 경우 법원이 개인파산·면책 검토를 권고할 수 있습니다 — 아래 '예상 변제금 계산 근거'에서 자세히 확인하세요.</p>
         </div>` : '';
+      // 재직 중인 이용자에게는 퇴직금 경고를 따로 띄운다.
+      // ⚠️ 무료 진단은 예상 퇴직금을 묻지 않아 totalAssets가 0으로 잡히므로, 아래 '재산 > 변제총액'
+      //    경고가 4대보험 가입 직장인에게는 사실상 절대 뜨지 않는다. 그런데 퇴직금의 1/2이
+      //    청산가치에 산입되므로(제614조 제1항 제4호), 총 변제금이 적을수록 오히려 걸릴 확률이 높다.
+      const employed = data.hasIncome && /^employed/.test(data.incomeType || '');
       const liqNote = (data.totalAssets || 0) > total36 ? `
-        <p class="text-xs text-amber-600 mt-2 text-center">※ 보유 재산이 3년 변제총액보다 많아 실제 변제금이 늘거나 기간이 연장(최대 5년)될 수 있습니다 — 아래 계산 근거 참고.</p>` : '';
+        <p class="text-xs text-amber-600 mt-2 text-center">※ 보유 재산이 3년 변제총액보다 많아 실제 변제금이 늘거나 기간이 연장(최대 5년)될 수 있습니다 — 아래 계산 근거 참고.</p>`
+        : (employed && total36 > 0) ? `
+        <div class="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mt-3">
+          <span class="shrink-0">⚖️</span>
+          <p class="text-xs text-slate-600"><strong class="text-amber-800">재직 중이시면 예상 퇴직금의 1/2이 청산가치에 더해집니다.</strong>
+            그 금액이 위 <strong>예상 총 변제금(${formatWon(total36)})</strong>보다 크면 3년 계획으로는 청산가치 보장 원칙(채무자회생법 제614조 제1항 제4호)을 맞추지 못해,
+            월 변제액을 올리거나 변제기간을 연장(최대 5년)해야 합니다. 회사에서 <strong>퇴직금 예상액 증명서</strong>를 받아 확인해 보세요.</p>
+        </div>` : '';
       return `
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           ${cell('월 변제 가능 추정액', formatWon(monthly), '소득 − 적용 생계비')}
-          ${cell('예상 총 변제금', formatWon(total36), '36개월 기준')}
+          ${cell('예상 총 변제금', formatWon(total36),
+            (data.totalDebt > 0 && total36 >= 0)
+              ? `36개월 기준 · 총 변제율 약 ${(total36 / data.totalDebt * 100).toFixed(1)}%`
+              : '36개월 기준')}
           ${cell('면책 가능 채무 추정액', formatWon(exempt), '총 채무 − 총 변제금')}
         </div>
         <p class="text-xs text-slate-500 mt-2 text-center">※ 준비 방향을 잡기 위한 <strong>추정치</strong>입니다. 재직 중이라면 예상 퇴직금의 절반이 재산에 더해지고, 부양가족 수·법원이 인정하는 생계비 범위에 따라 실제 변제금은 달라집니다.</p>${zeroNote}${liqNote}`;
@@ -944,6 +979,11 @@
               요금제 보기 →
             </a>
           </div>
+          <p class="text-xs text-slate-500 mt-3 pt-3 border-t border-blue-100">
+            돈을 들이지 않고 먼저 해 보실 수도 있습니다 —
+            <a href="numcheck.html?proc=rehab&amp;tab=cost" class="text-blue-700 underline font-medium">숫자 검산기</a>에서
+            신청 비용을 계산해 보고, 서류를 쓰신 뒤에는 숫자가 서로 맞는지 대조해 보세요. <strong>무료입니다.</strong>
+          </p>
         </div>`;
     } else {
       return `
@@ -964,6 +1004,11 @@
               요금제 보기 →
             </a>
           </div>
+          <p class="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-200">
+            돈을 들이지 않고 먼저 해 보실 수도 있습니다 —
+            <a href="numcheck.html?proc=bankrupt&amp;tab=cost" class="text-blue-700 underline font-medium">숫자 검산기</a>에서
+            신청 비용을 계산해 보고, 서류를 쓰신 뒤에는 숫자가 서로 맞는지 대조해 보세요. <strong>무료입니다.</strong>
+          </p>
         </div>`;
     }
   }

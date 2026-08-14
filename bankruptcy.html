@@ -117,7 +117,7 @@
   <div id="court-finder" class="mb-6"></div>
 
   <!-- 숫자 검산기 — 무료 도구라 유료 잠금 바깥에 둔다 -->
-  <a href="numcheck.html?tab=creditor" class="block bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6 card-hover">
+  <a href="numcheck.html?tab=creditor&proc=bankrupt" class="block bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6 card-hover">
     <h3 class="font-bold text-slate-800 mb-0.5">🧮 숫자 검산기 <span class="text-xs font-normal text-blue-700">무료</span></h3>
     <p class="text-xs text-slate-500 leading-relaxed">
       채권자목록의 금액 합계, 재산목록 합계, 수입·지출의 부족분을 계산해 확인합니다.
@@ -207,6 +207,7 @@
         { id: 'b3-1', text: '전체 채권자 목록 작성 (개인 포함)', hint: '금융기관·사채·개인 간 채무 모두 포함', must: '필수',
           guide: '기억에만 의존하지 말고 무료 조회로 전체를 확인하세요.\n① 크레딧포유(한국신용정보원) — 대출·카드·보증·연체 통합조회\n② 어카운트인포 — 전 금융기관 계좌·대출 조회\n③ 온크레딧 — 캠코·국민행복기금으로 넘어간 오래된 채무 조회\n지인·가족 등 개인 간 채무도 반드시 포함하세요. 알면서 일부러 목록에 적지 않은 채권은 면책되지 않습니다(채무자회생법 제566조).',
           links: [
+            { label: '숫자 검산기 — 채권자목록 합계 확인', url: 'numcheck.html?proc=bankrupt&tab=creditor' },
             { label: '크레딧포유', url: 'https://www.credit4u.or.kr' },
             { label: '어카운트인포', url: 'https://www.payinfo.or.kr' },
             { label: '온크레딧', url: 'https://www.oncredit.or.kr' },
@@ -227,7 +228,8 @@
       items: [
         { id: 'b4-1', text: '보유 재산 전체 목록화 (빠짐없이)', hint: '예금·보험·차량·부동산·보증금 등', must: '필수',
           guide: '예금·보험 해약환급금·차량·부동산·임차보증금 등 모든 재산을 시가 기준으로 빠짐없이 신고합니다(소액이라도 전부). 각 재산 증빙 서류의 발급 방법은 서류 체크센터에 정리돼 있습니다. 파산 사건은 최근 1~2년 거래내역서도 요구되는 경우가 많으니, 큰 금액 출금이 있으면 사용처를 설명할 수 있게 준비하세요.',
-          links: [{ label: '재산 서류 발급 — 서류 체크센터', url: 'documents.html' }] },
+          links: [
+            { label: '숫자 검산기 — 재산 합계 계산', url: 'numcheck.html?proc=bankrupt&tab=plan' },{ label: '재산 서류 발급 — 서류 체크센터', url: 'documents.html' }] },
         { id: 'b4-2', text: '재산 처분 이력 확인 (2년 이내)', hint: '편파 변제·재산 은닉 해당 여부 확인', must: '필수',
           guide: '신청 전 2년 이내에 부동산·차량·보증금 등을 처분하거나 이전한 내역은 편파변제·재산은닉 여부의 판단 대상입니다. 처분 시기·상대방·금액·대금 사용처를 미리 표로 정리해 두면 심문·보정에 바로 대응할 수 있습니다.\n재산 은닉·허위 신고는 파산 취소 및 형사 처벌 사유입니다.' },
       ],
@@ -238,7 +240,8 @@
       items: [
         { id: 'b5-1', text: '최근 3개월 소득 현황 정리', hint: '없으면 없음으로 기재', must: '필수',
           guide: '소득이 없으면 "없음"으로 사실대로 적습니다. 일용직·아르바이트 수입, 구직급여·기초생활수급 등 공적 급여도 모두 수입으로 기재하세요. 무직 기간은 고용보험 피보험자격 이력(고용24)으로 증명할 수 있습니다.',
-          links: [{ label: '고용보험(고용24)', url: 'https://www.ei.go.kr' }] },
+          links: [
+            { label: '숫자 검산기 — 수입·지출 계산', url: 'numcheck.html?proc=bankrupt&tab=income' },{ label: '고용보험(고용24)', url: 'https://www.ei.go.kr' }] },
         { id: 'b5-2', text: '월 생활비 지출 내역 정리', hint: '주거·식비·의료비 등 실제 기준', must: '필수',
           guide: '법원 양식 "수입 및 지출에 관한 목록"에 맞춰 실제 지출을 항목별로 정리합니다. 수입보다 지출이 많다면 그 차액을 어떻게 메우고 있는지(가족 도움 등)도 설명할 수 있어야 합니다.',
           ex: { title: '수입·지출 목록 → 실전 예시로 확인', content: '완성된 형태의 예시는 페이지 상단 "실전 서류 작성예시 → 수입·지출에 관한 목록" 버튼에서 확인할 수 있습니다.' } },
@@ -275,6 +278,9 @@
     {
       title: '7단계 · 제출 전 최종 체크',
       items: [
+        { id: 'b7-0', text: '서류끼리 숫자가 맞는지 대조', hint: '금액이 어긋나면 보정 대상', must: '필수',
+          guide: '채권자목록의 채권액 합계, 재산목록의 합계, 수입·지출의 부족분이 서로 어긋나지 않는지 확인합니다. 특히 진술서에 적은 서술(예: "2022년에 처음 대출받았다")과 채권자목록의 발생일이 맞는지도 함께 보세요.\n숫자 검산기의 「서류 간 대조」에 앞 단계에서 계산한 값을 넣으면 한 번에 맞춰 볼 수 있습니다.',
+          links: [{ label: '숫자 검산기 — 서류 간 대조', url: 'numcheck.html?proc=bankrupt&tab=cross' }] },
         { id: 'b7-1', text: '서류 전체 서명·날인 확인', hint: '서명 누락 시 반려', must: '필수',
           guide: '신청서·진술서·목록마다 서명(날인) 칸이 있습니다. 제출 전 한 장씩 넘기며 빈 칸이 없는지 확인하세요.' },
         { id: 'b7-2', text: '첨부서류 목록 대조', hint: '목록 작성 후 하나씩 확인', must: '필수',
@@ -299,8 +305,10 @@
           guide: '보정명령은 흔한 절차입니다. 자주 나오는 보정: 통장 거래내역 중 큰 출금의 사용처 소명, 재산 처분 경위, 부채증명서 보완 등. 기한(통상 1~2주) 안에 어려우면 미리 법원에 연장을 문의하세요.' },
         { id: 'b8-4', text: '채무자 심문기일 출석 (지정된 경우)', hint: '기일이 지정되면 반드시 출석 — 불출석 시 기각될 수 있음', must: '필수',
           guide: '심문기일이 지정되면 반드시 출석해야 합니다. 판사가 진술서를 바탕으로 채무 경위·재산 관계를 질문하므로, 제출한 진술서 사본을 다시 읽고 날짜·금액을 설명할 수 있게 준비하세요. 솔직한 답변이 가장 중요합니다.' },
-        { id: 'b8-5', text: '면책 결정 후 이의신청 기간 확인', hint: '채권자 이의신청 기간 경과 후 면책 확정', must: '필수',
-          guide: '면책결정 후 채권자 이의신청 기간이 지나면 면책이 확정됩니다. 면책결정문은 이후 신용정보 정리·금융거래에 필요할 수 있으니 원본을 잘 보관하세요.' },
+        { id: 'b8-5', text: '이의신청 기간 대응 및 면책 확정 시점 확인', hint: '이의신청은 면책결정 전 단계 — 확정은 그 뒤 14일', must: '필수',
+          guide: '검사·파산관재인·채권자는 <strong>심문기일부터 30일</strong>(심문기일을 정하지 않은 경우에는 법원이 정하는 날) 이내에 면책에 관한 이의를 신청할 수 있습니다(제562조 제1항). <strong>이의신청은 면책결정이 나기 전 단계</strong>입니다. 통지를 받으면 기한부터 확인하고, 이의 사유(재산 은닉, 낭비·도박, 신용거래로 재산 취득 등 제564조 제1항 각 호)에 대해 사실과 자료로 답할 준비를 하세요. 이의가 있더라도 법원은 파산에 이르게 된 경위 등을 고려해 <strong>재량으로 면책을 허가할 수 있습니다</strong>(제564조 제2항). 면책결정이 나면 그 주문이 공고되고(제564조 제3항), 공고가 있은 날부터 <strong>14일</strong> 이내에 즉시항고가 없으면 확정됩니다(제564조 제4항, 제13조 제2항). 면책결정문 원본은 잘 보관하세요.' },
+        { id: 'b8-6', text: '면책 확정 후 남아 있는 압류 해제 신청', hint: '면책이 확정돼도 압류는 자동으로 풀리지 않는다', must: '필수',
+          guide: '<strong>면책이 확정되어도 통장·급여에 걸린 압류가 저절로 해제되지는 않습니다.</strong> 서울회생법원 안내에 따르면, 회생법원에서 <strong>면책결정 정본 · 채권자목록 · 면책결정 확정증명원</strong>을 발급받아 <strong>압류를 진행한 집행법원</strong>에 해제(집행취소)를 신청해야 합니다. 압류가 여러 건이면 각각 신청해야 하니 어느 법원에서 무엇이 걸려 있는지부터 확인하세요. 추심 연락이 계속 오면 같은 서류를 제시하면 됩니다.' },
       ],
       example: { title: '파산 접수 후 절차 안내', content: '[파산 접수 후 주요 절차]\n\n① 접수 → 사건번호 부여\n② 파산관재인 선임 (소액파산 제외 가능)\n③ 채무자 심문기일 출석 → 법원 질의응답\n④ 파산선고 결정\n⑤ 파산채권자 신고기간\n⑥ 재산환가(처분) 절차\n⑦ 배당\n⑧ 면책 신청 심리\n⑨ 면책결정 (또는 불허가)\n⑩ 면책 확정\n\n[심문기일 준비 팁]\n- 채무 발생 경위를 간결하게 말할 수 있도록 준비\n- 질문에 솔직하게 답변\n- 추가 서류 요청 시 기한 내 제출' }
     },
@@ -605,7 +613,12 @@
 
   function renderSteps() {
     const saved = Storage.load('bankrupt_checks') || {};
-    if (activeStep === null) activeStep = firstIncompleteStep(saved);
+    // ⚠️ 미리보기(미구매)에서는 반드시 1단계로 고정한다. firstIncompleteStep을 쓰면
+    //    1단계를 체크하고 새로고침하는 것만으로 2단계가 열려 유료 콘텐츠가 전부 노출된다
+    //    (lockSection은 steps-container의 자식이 1개라 아무것도 지우지 못한다).
+    //    이 미리보기 범위가 전상법 시행령 제21조의2 제1호를 충족시키는 조치이므로,
+    //    범위가 이용자 조작으로 넓어지면 환불 제한의 근거도 함께 무너진다.
+    if (activeStep === null) activeStep = isPreview() ? 0 : firstIncompleteStep(saved);
     renderRoadmap(saved);
 
     const step = BANKRUPT_STEPS[activeStep];
@@ -658,6 +671,7 @@
   }
 
   function toggleCheck(id) {
+    if (isPreview()) return;   // 미리보기에서는 진행 상태를 저장하지 않는다(활성 단계가 넘어가는 것을 막는다)
     const saved = Storage.load('bankrupt_checks') || {};
     const el = document.getElementById(id);
     if (el.checked) saved[id] = true; else delete saved[id];
@@ -672,6 +686,7 @@
 
   // '해당없음' 토글 — 체크 또는 해당없음이면 처리 완료로 진행률에 반영
   function toggleNA(id) {
+    if (isPreview()) return;   // 위와 같은 이유
     const saved = Storage.load('bankrupt_checks') || {};
     const isNA = saved[id] === 'na';
     if (isNA) { delete saved[id]; } else { saved[id] = 'na'; }

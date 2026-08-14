@@ -543,3 +543,14 @@ h1, h2, h3, h4 {
 }
 .wd-dot--now  { background: #2563eb; box-shadow: 0 0 0 4px rgba(37,99,235,.16); }
 .wd-dot--wait { background: #fff; border: 2px solid #cbd5e1; }
+
+/* ── 미리보기(미구매) 상태 ─────────────────────────────────────────────
+   js/main.js enterPreview()가 body에 .preview-mode를 붙인다.
+   진행센터의 체크박스는 미리보기에서 동작하지 않으므로(각 페이지 toggleCheck의 isPreview 가드),
+   눌러도 되는 것처럼 보이지 않게 한다. 이 표시가 없으면 이용자가 체크한 줄 알고 넘어간다. */
+.preview-mode .step-check,
+.preview-mode input[type="checkbox"]:not([data-preview-ok]) {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.preview-mode .preview-lock { opacity: 1; }

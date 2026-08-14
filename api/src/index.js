@@ -436,7 +436,10 @@ function passwordError(pw) {
 
 // 가입 시 받는 동의의 버전. 약관·방침을 개정하면 이 값을 함께 올려,
 // 어느 판본에 동의했는지 계정별로 남긴다(재동의가 필요한 회원을 가려낼 근거).
-const CONSENT_VERSION = 'terms-2026-08-10/privacy-2026-08-11';
+// 약관·방침의 시행일과 반드시 일치시킬 것(terms.html·privacy.html 상단).
+// ⚠️ 유료 판매 개시 전까지는 준비 과정의 문구 정비를 개별 개정 이력으로 남기지 않기로 했다(2026-08-13, 사용자).
+//    정식 개시 시점에 두 문서의 시행일을 새로 정하고 이 값도 함께 올린 뒤, 그때부터 부칙에 이력을 기록한다.
+const CONSENT_VERSION = 'terms-2026-08-13/privacy-2026-08-13';
 
 function validateSignup(body) {
   const name = (body.name || '').trim();
@@ -925,8 +928,15 @@ async function handleGetData(request, env, origin) {
   const activeKeys = ents.map(e => e.package);
   const known = new Set(Object.keys(PACKAGE_TERMS));
   const owned = Array.isArray(data.plan_packages) ? data.plan_packages : [];
-  // PACKAGE_TERMS에 없는 레거시 키는 만료 개념이 없으므로 그대로 통과시킨다
-  data.plan_packages = owned.filter(k => !known.has(k) || activeKeys.includes(k));
+  // PACKAGE_TERMS에 없는 레거시 키는 만료 개념이 없으므로 그대로 통과시킨다.
+  // ⚠️ **유효한 이용권(activeKeys)은 user_data에 무엇이 남아 있든 항상 합집합으로 넣는다.**
+  //    마이페이지의 '저장된 데이터 삭제'가 user_data의 plan_* 키까지 지워 버리면
+  //    정상 구매자가 유료 콘텐츠에서 잠기는데(결제는 살아 있는데 화면만 닫힌다),
+  //    entitlements가 진짜 원본이므로 여기서 되살린다.
+  data.plan_packages = [...new Set([
+    ...owned.filter(k => !known.has(k) || activeKeys.includes(k)),
+    ...activeKeys,
+  ])];
   // 이미 제공이 개시된 패키지 목록 — 프론트가 '열면 환불 제외' 사전 고지를
   // 다시 띄울지 판단하는 데 쓴다(이미 개시된 뒤라면 물을 이유가 없다).
   try {
@@ -988,6 +998,9 @@ async function handleSyncData(request, env, origin) {
   }
   for (const k of del) {
     if (typeof k !== 'string' || !k) continue;
+    // put 루프와 같은 이유로 이용권 키는 클라이언트가 지울 수 없다 —
+    // 지우게 두면 '저장된 데이터 삭제'가 결제한 접근권까지 없앤다.
+    if (PLAN_KEYS.has(k)) continue;
     stmts.push(env.DB.prepare('DELETE FROM user_data WHERE user_id = ? AND key = ?')
       .bind(session.id, k));
   }
@@ -1881,6 +1894,14 @@ async function handleWithdraw(request, env, origin) {
   if (order.status !== 'paid') return err(400, '완료된 결제만 청약철회할 수 있습니다.', origin);
 
   const now = Date.now();
+  // 이미 접수돼 처리를 기다리는 신청이 있으면 새로 만들지 않는다 —
+  // 화면의 중복 방지(canWithdraw)는 클라이언트라 PG 실패 후 재요청 등으로 뚫릴 수 있고,
+  // 그때마다 pending 행과 운영자 메일이 중복된다.
+  const pending = await env.DB.prepare(
+    "SELECT id FROM withdrawal_requests WHERE payment_id = ? AND user_id = ? AND status = 'pending'"
+  ).bind(paymentId, session.id).first();
+  if (pending) return ok({ status: 'already_requested', message: '이미 접수된 청약철회 신청이 있습니다. 처리 결과를 기다려 주세요.' }, origin);
+
   // 신청 접수 기록(서식 요건 충족 + 운영자 검토 근거)
   await env.DB.prepare(
     'INSERT INTO withdrawal_requests (payment_id, user_id, reason, status, created_at) VALUES (?,?,?,?,?)'

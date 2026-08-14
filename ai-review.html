@@ -432,7 +432,10 @@
     box.style.display = nc ? 'block' : 'none';
     if (nc) {
       document.getElementById('numcheck-hint-text').textContent = nc.what + ' AI 검토는 숫자를 계산하지 않습니다.';
-      document.getElementById('numcheck-hint-link').href = 'numcheck.html?tab=' + nc.tab;
+      // 파산 서류(bk-*·bankrupt-*)면 절차를 함께 넘긴다 — 안 넘기면 파산 이용자가
+      // '변제계획안' 제목 화면에 떨어진다(2026-08-14 여정 감사).
+      const proc = /^(bk-|bankrupt-)/.test(t) ? 'bankrupt' : 'rehab';
+      document.getElementById('numcheck-hint-link').href = `numcheck.html?tab=${nc.tab}&proc=${proc}`;
     }
   }
 

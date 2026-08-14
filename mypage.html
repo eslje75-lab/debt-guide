@@ -401,7 +401,16 @@
     if (!Array.isArray(ents)) return;
     ents.forEach(e => {
       const el = document.querySelector(`[data-exp="${e.package}"]`);
-      if (el && e.expiresAt) el.textContent = `이용기간 만료 ${histDate(e.expiresAt)}`;
+      if (!el) return;
+      const parts = [];
+      if (e.expiresAt) parts.push(`이용기간 만료 ${histDate(e.expiresAt)}`);
+      // AI 검토·서류 간 대조는 회수 한정 상품이다. 잔여를 여기서 못 보면
+      // 이용자가 1회를 소진해야만 남은 횟수를 알게 된다(서버는 이미 내려주고 있다).
+      if (e.aiQuota != null) {
+        const left = Math.max(0, Number(e.aiLeft != null ? e.aiLeft : e.aiQuota - (e.aiUsed || 0)));
+        parts.push(`AI 검토 잔여 ${left}회 / ${e.aiQuota}회`);
+      }
+      if (parts.length) el.textContent = parts.join(' · ');
     });
   }
 
@@ -757,10 +766,14 @@
   }
 
   function confirmReset() {
-    if (confirm('저장된 모든 데이터를 삭제합니다.\n\n· 진단결과, 절차 진행률, 서류 체크 상태, AI 검토 기록\n· 구매한 패키지 이용권 정보\n\n로그인 상태라면 서버에 저장된 데이터도 함께 삭제되며, 되돌릴 수 없습니다.\n(결제하신 패키지는 이용권 정보가 사라져도 결제 기록은 남으니, 복구가 필요하면 eslje75@gmail.com으로 문의해주세요.)\n\n계속하시겠습니까?')) {
+    if (confirm('저장된 모든 데이터를 삭제합니다.\n\n· 진단결과, 절차 진행률, 서류 체크 상태, AI 검토 기록\n\n로그인 상태라면 서버에 저장된 데이터도 함께 삭제되며, 되돌릴 수 없습니다.\n\n결제하신 패키지의 이용권은 삭제되지 않습니다 — 다시 로그인하면 이용기간·잔여 회수가 그대로 복원됩니다.\n\n계속하시겠습니까?')) {
+      // ⚠️ 캐시 키까지 전부 지운다(로그아웃 시 지우는 _PLAN_CACHE와 같은 범위로 맞출 것 —
+      //    적게 지우면 만료일·잔여 회수 같은 유령 데이터가 화면에 남는다).
+      //    이용권 자체는 서버 entitlements가 원본이라 여기서 지워도 재로그인 시 복원된다.
       ['diagnosis_data','diagnosis_scores','diagnosis_levels','diagnosis_repay','diagnosis_date',
        'rehab_checks','bankrupt_checks','docs_checks','ai_records','ai_reviewed','plan','plan_type',
-       'plan_package','plan_package_name','plan_packages','maintain_checks','supplement_checks_rehab','supplement_checks_bankrupt','profile'].forEach(k => Storage.remove(k));
+       'plan_package','plan_package_name','plan_packages','plan_expires_at','entitlements','content_access',
+       'maintain_checks','supplement_checks_rehab','supplement_checks_bankrupt','profile'].forEach(k => Storage.remove(k));
       DataSync.clearServer();   // 로그인 상태면 서버 데이터도 전체 삭제
       showToast('모든 데이터가 초기화되었습니다.', 'info');
       setTimeout(() => renderPage(), 500);

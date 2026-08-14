@@ -284,7 +284,11 @@ function calcScores(d) {
 
   // ── 이전 채무조정 이력 반영 (복수 선택, 각 조건 독립 적용) ──
   const priors = d.priorAdjustments;
-  if (priors.includes('rehab-done-recent'))    rehab    -= 60;  // 개인회생 면책 5년 미경과 → 기각 사유(제595조 제5호)
+  // 개인회생 면책 5년 미경과 → 회생은 기각 사유(제595조 제5호),
+  // ⚠️ 파산도 면책불허가 사유다(제564조 제1항 제4호 **후단** — "제624조에 의하여 면책을 받은
+  //    경우에는 면책확정일부터 5년"). 이 감점을 빼면 그 이용자에게 "파산이 적합"이 나온다.
+  //    다만 -60(=완전 차단)은 쓰지 말 것 — 제564조 제2항 재량면책 여지가 있어 전단 7년과 동급이 아니다.
+  if (priors.includes('rehab-done-recent'))    { rehab -= 60; bankrupt -= 40; }
   if (priors.includes('bankrupt-done-recent')) { bankrupt -= 60; rehab -= 15; } // 파산 면책 7년 미경과 → 면책불허가 사유(제564조 1항 4호), 면책 후 5년 이내면 개인회생도 기각 사유(제595조 제5호)
   if (priors.includes('rehab-ongoing'))    { rehab -= 40; bankrupt -= 30; }
   if (priors.includes('bankrupt-ongoing')) { bankrupt -= 40; rehab -= 30; }

@@ -162,10 +162,26 @@ const CrossCheck = (function () {
     const missing = [];
     if (!cred) missing.push('채권자목록');
     if (!inc)  missing.push('수입·지출');
-    if (!plan) missing.push('변제계획안');
+    // ⚠️ 변제계획안은 개인회생 서류다. 파산 이용자에게 이걸 만들라고 안내하면
+    //    존재하지 않는 서류를 요구하는 막다른 안내가 된다.
+    if (!plan && file.procedure !== 'bankrupt') missing.push('변제계획안');
     if (missing.length) {
       items.push(ask(`${missing.join('·')}은(는) 아직 계산하지 않으셨습니다`,
         '그 탭에서 [검산하기]를 누르시면 여기서 함께 대조합니다. 서류를 많이 넣을수록 어긋난 곳이 더 잘 보입니다.'));
+    }
+
+    // 대조할 조합이 하나도 없을 때 빈 화면을 내보내지 않는다.
+    // (파산 이용자는 변제계획안을 만들지 않으므로 회생 기준 조합이 대부분 성립하지 않는다)
+    // head:'info' — 실패가 아니라 '여기까지'라는 뜻이다. 화면이 회색 실패 배너를 얹지 않게 한다.
+    let head = null;
+    if (!items.length) head = 'info';
+    if (!items.length) {
+      items.push(ask('지금 넣으신 서류끼리는 맞춰 볼 숫자가 없습니다',
+        file.procedure === 'bankrupt'
+          ? '개인파산은 변제계획안을 작성하지 않아 회생만큼 서류가 맞물리지 않습니다. '
+            + '무료 진단을 먼저 해 두시면 진단에서 답하신 총 채무·채권자 수와 채권자목록을 대조해 드립니다. '
+            + '각 탭의 [검산하기]로 서류 안의 합계가 맞는지는 지금도 확인하실 수 있습니다.'
+          : '각 탭에서 [검산하기]를 눌러 값을 채우시면 여기서 서로 대조합니다.'));
     }
 
     if (!items.some(i => i.level === 'diff') && pairs > 0) {
@@ -173,7 +189,7 @@ const CrossCheck = (function () {
         '아래 항목에서 서로 어긋나는 숫자는 나오지 않았습니다. 다만 이것은 숫자가 서로 맞는다는 뜻일 뿐, 서류가 완성되었다는 뜻은 아닙니다.'));
     }
 
-    return { items, pairs };
+    return { items, pairs, head };
   }
 
   /* AI 서술 대조에 보낼 '숫자 요약'을 만든다.

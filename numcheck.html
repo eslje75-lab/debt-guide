@@ -55,22 +55,97 @@
     </div>
   </div>
 
+  <!-- 진행센터에서 왔다면 돌아갈 길을 만들어 준다(브라우저 뒤로가기 말고) -->
+  <a id="back-link" href="#" class="hidden items-center gap-1.5 text-sm text-blue-700 hover:underline mb-4"></a>
+
+  <!-- 언제 쓰는 도구인지 — 순서를 먼저 보여 준다 -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
+    <h3 class="font-bold text-slate-800 text-base mb-1">🗺️ 언제 쓰는 건가요?</h3>
+    <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+      비용은 <strong>시작하기 전에</strong>, 나머지는 <strong>서류를 하나씩 쓸 때마다</strong> 확인하시면 됩니다. 마지막 대조는 법원에 내기 직전에 한 번. 지금 해당하지 않는 탭은 건너뛰셔도 괜찮아요.
+    </p>
+    <ol class="space-y-2.5">
+      <li class="flex gap-3 items-start">
+        <span class="shrink-0 w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs flex items-center justify-center font-bold">0</span>
+        <p class="text-sm text-slate-600 leading-relaxed"><strong class="text-slate-800">비용부터 알아보기</strong> — 신청에 돈이 얼마나 드는지 먼저 봅니다.
+          <button type="button" onclick="showTab('cost')" class="text-blue-700 underline">💵 법원 비용</button> 탭에 채권자 수만 넣으면 됩니다.</p>
+      </li>
+      <li class="flex gap-3 items-start">
+        <span class="shrink-0 w-6 h-6 rounded-full bg-blue-700 text-white text-xs flex items-center justify-center font-bold">1</span>
+        <p class="text-sm text-slate-600 leading-relaxed"><strong class="text-slate-800">채권자목록을 다 썼을 때</strong> <span class="text-slate-400">(진행센터 2단계)</span> —
+          <button type="button" onclick="showTab('creditor')" class="text-blue-700 underline">📋 채권자목록</button> 탭.
+          합계가 맞는지, 빠진 채권자가 없는지 봅니다. <span class="text-slate-400">조회 결과를 붙여넣어 한 번에 채울 수도 있어요.</span></p>
+      </li>
+      <li class="flex gap-3 items-start" id="guide-step2">
+        <span class="shrink-0 w-6 h-6 rounded-full bg-blue-700 text-white text-xs flex items-center justify-center font-bold">2</span>
+        <p class="text-sm text-slate-600 leading-relaxed"><strong class="text-slate-800">재산목록을 다 썼을 때</strong> <span class="text-slate-400">(진행센터 4단계)</span> —
+          <button type="button" onclick="showTab('plan')" class="text-blue-700 underline">📄 변제계획안</button> 탭의 <strong>재산목록</strong> 칸.
+          재산 합계(청산가치)를 계산합니다.</p>
+      </li>
+      <li class="flex gap-3 items-start">
+        <span class="shrink-0 w-6 h-6 rounded-full bg-blue-700 text-white text-xs flex items-center justify-center font-bold">3</span>
+        <p class="text-sm text-slate-600 leading-relaxed"><strong class="text-slate-800">수입·지출 목록을 다 썼을 때</strong> <span class="text-slate-400">(진행센터 5단계)</span> —
+          <button type="button" onclick="showTab('income')" class="text-blue-700 underline">💰 수입·지출</button> 탭.
+          매달 갚을 수 있는 돈(가용소득)이 얼마인지 계산합니다.</p>
+      </li>
+      <li class="flex gap-3 items-start" id="guide-step3">
+        <span class="shrink-0 w-6 h-6 rounded-full bg-blue-700 text-white text-xs flex items-center justify-center font-bold">4</span>
+        <p class="text-sm text-slate-600 leading-relaxed"><strong class="text-slate-800">변제계획안을 다 썼을 때</strong> <span class="text-slate-400">(진행센터 6단계)</span> —
+          <button type="button" onclick="showTab('plan')" class="text-blue-700 underline">📄 변제계획안</button> 탭.
+          매달 갚는 돈이 재산 가치보다 적지 않은지 확인합니다. <span class="text-slate-400">개인회생에서만 씁니다.</span></p>
+      </li>
+      <li class="flex gap-3 items-start">
+        <span class="shrink-0 w-6 h-6 rounded-full bg-slate-800 text-white text-xs flex items-center justify-center font-bold">5</span>
+        <p class="text-sm text-slate-600 leading-relaxed"><strong class="text-slate-800">내기 직전에 한 번 더</strong> <span class="text-slate-400">(진행센터 7단계)</span> —
+          <button type="button" onclick="showTab('cross')" class="text-blue-700 underline">🔗 서류 간 대조</button> 탭.
+          <strong>서류끼리 숫자가 어긋나지 않는지</strong> 봅니다. 보정을 가장 많이 부르는 지점이라 꼭 한 번 돌려 보세요.</p>
+      </li>
+    </ol>
+    <p class="text-[11px] text-slate-400 mt-3 leading-relaxed">
+      ※ 이 도구는 <strong>숫자가 서로 맞는지</strong>만 봅니다. 서류를 대신 써 드리거나 인가·면책 여부를 판단하지 않습니다.
+    </p>
+  </div>
+
   <!-- 탭 -->
   <div class="flex gap-2 mb-4 overflow-x-auto">
     <button type="button" data-tab="creditor" onclick="showTab('creditor')" class="tab-btn whitespace-nowrap px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-600">📋 채권자목록</button>
     <button type="button" data-tab="income"   onclick="showTab('income')"   class="tab-btn whitespace-nowrap px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-600">💰 수입·지출</button>
     <button type="button" data-tab="plan"     onclick="showTab('plan')"     class="tab-btn whitespace-nowrap px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-600">📄 변제계획안</button>
     <button type="button" data-tab="cross"    onclick="showTab('cross')"    class="tab-btn whitespace-nowrap px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-600">🔗 서류 간 대조</button>
+    <button type="button" data-tab="cost"     onclick="showTab('cost')"     class="tab-btn whitespace-nowrap px-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-white text-slate-600">💵 법원 비용</button>
   </div>
 
   <!-- ── 채권자목록 ── -->
   <section id="tab-creditor" class="tab-panel">
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 md:p-6">
       <div class="flex items-start justify-between flex-wrap gap-2 mb-1">
-        <h2 class="font-bold text-slate-800">개인회생채권자목록</h2>
+        <h2 class="font-bold text-slate-800" id="creditor-title">채권자목록</h2>
         <button type="button" onclick="loadSample('creditor')" class="text-xs text-blue-700 hover:underline">예시 숫자 넣어 보기</button>
       </div>
       <p class="text-xs text-slate-400 mb-4">부채증명서의 금액을 그대로 옮겨 적으세요. 합계 칸은 비워 두면 원금+이자로 계산합니다.</p>
+
+      <!-- 조회 결과 붙여넣기 — 손으로 옮겨 적다가 빠뜨리는 것을 줄인다 -->
+      <details class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-4">
+        <summary class="text-sm font-semibold text-blue-900 cursor-pointer">📋 채권자를 하나씩 적기 번거로우세요? 조회 결과를 붙여넣으세요</summary>
+        <p class="text-xs text-blue-900 mt-2 leading-relaxed">
+          <strong>크레딧포유·어카운트인포</strong> 등에서 내 채무를 조회한 화면을 <strong>복사해서 아래에 붙여넣기</strong> 하시면,
+          채권자와 금액을 알아서 줄마다 나눠 넣어 드립니다. 엑셀에서 복사한 표도 됩니다.
+        </p>
+        <ul class="text-xs text-blue-800 mt-2 space-y-1 leading-relaxed">
+          <li>• <strong>여기 넣은 내용은 서버에 저장되지 않습니다.</strong> 계산은 이 브라우저 안에서 이루어집니다.
+            <span class="text-blue-700">다만 나중에 <strong>[서류 간 대조]</strong>를 실행하시면 채권자명과 금액이 AI 처리업체(미국)로 전송됩니다 — 그 화면에서 무엇이 전송되는지 미리 확인하고 실행하지 않으실 수 있습니다.</span></li>
+          <li>• <strong>본인 채무 조회 화면만 붙여넣어 주세요.</strong> 보증인·공동명의자처럼 <strong>다른 사람의 이름</strong>이 들어 있으면 지운 뒤 넣어 주세요.</li>
+          <li>• [채우기]를 누르면 주민등록번호로 보이는 숫자를 <strong>자동으로 가립니다.</strong></li>
+          <li>• 넣은 금액은 <strong>조회 잔액</strong>입니다. 법원에 내는 금액은 <strong>부채증명서</strong>(금융회사에서 떼는 빚 확인 서류) 기준이라 다를 수 있어요 — 그건 아래에서 다시 확인해 드립니다.</li>
+        </ul>
+        <textarea id="paste-box" rows="5" oninput="maskPasteBox()" placeholder="예)&#10;① ○○은행 | 신용대출 | 조회 잔액 18,540,000원&#10;② △△카드 | 카드론 | 조회 잔액 12,680,000원"
+          class="w-full border border-blue-200 rounded-xl px-3 py-2.5 text-sm mt-3 resize-none leading-relaxed bg-white"></textarea>
+        <div class="flex flex-wrap gap-2 mt-2">
+          <button type="button" onclick="applyPaste()" class="bg-blue-700 text-white px-4 py-2 text-xs rounded-lg hover:bg-blue-800 transition-colors">붙여넣은 내용으로 채우기</button>
+          <button type="button" onclick="document.getElementById('paste-box').value='';document.getElementById('paste-report').innerHTML='';" class="border border-slate-300 px-4 py-2 text-xs text-slate-600 rounded-lg hover:bg-white transition-colors">지우기</button>
+        </div>
+        <div id="paste-report" class="mt-3"></div>
+      </details>
 
       <div class="overflow-x-auto -mx-1 px-1">
         <table class="w-full text-sm" style="min-width:520px">
@@ -184,7 +259,7 @@
       <p class="text-xs text-slate-500 mb-4 leading-relaxed">
         개인회생 서류는 서로 물려 있습니다 — 채권자목록의 채권액은 변제계획안의 확정채권액과 같아야 하고,
         수입·지출에서 계산한 가용소득은 변제계획안의 월 변제액과 같아야 합니다.
-        <strong class="text-slate-700">서류를 하나씩 따로 보면 이 어긋남이 안 보이고, 그대로 내면 보정명령을 받습니다.</strong>
+        <strong class="text-slate-700">서류를 하나씩 따로 보면 이 어긋남이 안 보이고, 그대로 내면 보정권고·보정명령을 받습니다.</strong>
         앞 탭에서 계산하신 결과를 여기서 한꺼번에 맞춰 봅니다.
       </p>
 
@@ -235,9 +310,44 @@
     <div id="ai-cross-result" class="mt-4"></div>
   </section>
 
+  <!-- ── 법원 비용 ── -->
+  <section id="tab-cost" class="tab-panel" style="display:none">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 md:p-6">
+      <h2 class="font-bold text-slate-800 mb-1">법원에 내는 비용</h2>
+      <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+        인지대와 송달료는 <strong>채권자 수에 따라 정해진 산식</strong>이 있습니다. 채권자 수만 넣으시면 총액을 계산해 드립니다.
+        <strong class="text-slate-700">변호사·법무사 수임료는 포함되지 않은, 법원에 직접 내는 금액입니다.</strong>
+      </p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">어느 절차인가요?</label>
+          <select id="cost-proc" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm">
+            <option value="rehab">개인회생</option>
+            <option value="bankrupt">개인파산·면책</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">채권자 수 (명)</label>
+          <input id="cost-creditors" inputmode="numeric" placeholder="예: 5"
+            class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-right">
+          <p class="text-[11px] text-slate-400 mt-1">부채증명서를 받은 금융회사의 수입니다.</p>
+        </div>
+      </div>
+
+      <label id="cost-elec-wrap" class="flex items-center gap-2 mt-4 text-sm text-slate-600 cursor-pointer">
+        <input type="checkbox" id="cost-electronic" checked class="w-4 h-4 accent-blue-600">
+        <span>전자소송으로 접수 (인지대 10분의 9)</span>
+      </label>
+
+      <button type="button" onclick="runCost()" class="mt-5 w-full bg-blue-700 text-white py-3.5 rounded-xl font-bold text-base hover:bg-blue-800 transition-colors">계산하기</button>
+    </div>
+    <div id="cost-result" class="mt-4"></div>
+  </section>
+
   <div class="disclaimer-box mt-6">
     <strong>⚠️ 법률대리 아님 고지</strong><br>
-    이 도구는 입력하신 숫자를 계산해 보여 줄 뿐이며, 법률상담·법률대리·사건 수임 또는 결과 보장을 제공하지 않습니다.
+    이 도구는 이용자가 입력하거나 붙여넣은 내용을 정리·계산해 보여 줄 뿐이며, 법률상담·법률대리·사건 수임 또는 결과 보장을 제공하지 않습니다.
     계산 결과는 인가·면책 여부를 뜻하지 않고, 최종 판단은 법원 결정에 따릅니다.
   </div>
 </div>
@@ -257,6 +367,8 @@
 
   /* ── 탭 ── */
   function showTab(name) {
+    // 주소에 엉뚱한 ?tab= 값이 오면 패널을 모두 숨긴 뒤 예외가 나 화면이 백지가 된다.
+    if (!$('tab-' + name)) name = 'creditor';
     document.querySelectorAll('.tab-panel').forEach(p => { p.style.display = 'none'; });
     $('tab-' + name).style.display = 'block';
     if (name === 'cross') renderCrossStatus();   // 앞 탭에서 계산한 게 늘었을 수 있다
@@ -303,6 +415,7 @@
     };
     const tr = document.createElement('tr');
     tr.dataset.kind = kind;
+    if (values && values.lookup != null && values.lookup !== '') tr.dataset.lookup = String(values.lookup);
     tr.innerHTML = def.cols.map(c => `
       <td class="py-1 pr-2 ${c.key === def.cols[0].key ? '' : 'w-32'}">
         <input data-key="${c.key}" inputmode="${c.type === 'money' ? 'numeric' : 'text'}"
@@ -328,6 +441,8 @@
     return Array.from($(def.body).querySelectorAll('tr')).map(tr => {
       const o = {};
       tr.querySelectorAll('input[data-key]').forEach(i => { o[i.dataset.key] = i.value.trim(); });
+      // 붙여넣기로 채운 행에만 붙는 값(조회 잔액). 화면에 칸을 늘리지 않으려고 tr에 얹어 둔다.
+      if (tr.dataset.lookup) o.lookup = tr.dataset.lookup;
       return o;
     });
   }
@@ -353,6 +468,12 @@
       head = `<div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-3">
         <p class="text-sm font-bold text-red-800">숫자가 어긋나는 곳이 ${counts.diff}군데 있습니다</p>
         <p class="text-xs text-red-600 mt-0.5">아래 ⚠️ 항목의 금액을 서류와 대조해 주세요.</p></div>`;
+    } else if (result.head === 'info') {
+      // 더 채울 것이 없는데도 "채우신 뒤 다시 눌러 주세요"라고 하면 막다른 화면이 된다
+      // (파산 이용자의 서류 간 대조가 그랬다 — 2026-08-14 여정 감사 P1-1)
+      head = `<div class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-3">
+        <p class="text-sm font-bold text-blue-800">지금 확인할 수 있는 것은 여기까지입니다</p>
+        <p class="text-xs text-blue-700 mt-0.5">아래 설명을 읽어 보시고, 해당하는 서류가 더 있으면 그 탭에서 계산한 뒤 다시 눌러 주세요.</p></div>`;
     } else if (counts.ok === 0) {
       // 계산이 아예 돌지 않은 상태(입력 부족) — "어긋난 곳 없음"이라고 말하면 오해를 준다
       head = `<div class="bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 mb-3">
@@ -386,6 +507,7 @@
     const r = NumCheck.creditorList({
       rows: readRows('creditor'),
       declaredTotal: $('creditor-declared').value,
+      procedure: procedure(),   // 안내 문구가 절차에 맞게 갈린다
     });
 
     let table = '';
@@ -407,7 +529,7 @@
             <td class="text-right">${won(r.totals.claim)}</td>
             <td class="text-right">100.00%</td></tr>
         </table></div>
-        <button type="button" onclick="sendClaimsToPlan()" class="mt-3 text-sm text-blue-700 hover:underline">이 채권 목록을 변제계획안 검산으로 보내기 →</button>
+        <button type="button" onclick="sendClaimsToPlan()" class="mt-3 text-sm text-blue-700 hover:underline">이 채권 목록을 ${procedure() === 'bankrupt' ? '재산목록' : '변제계획안'} 검산으로 보내기 →</button>
       </div>`;
       LAST.claims = r.rows.map(row => ({ name: row.name, amount: row.final }));
     }
@@ -421,13 +543,14 @@
       expenses: readRows('expense'),
       dependents: $('income-dependents').value,
       declaredDisposable: $('income-declared').value,
+      procedure: procedure(),
     });
     let extra = '';
     LAST.income = r.totals ? r : null;
     if (r.totals) {
       LAST.disposable = r.totals.disposable;
       extra = `<div class="mt-4 pt-4 border-t border-slate-100">
-        <button type="button" onclick="sendDisposableToPlan()" class="text-sm text-blue-700 hover:underline">가용소득 ${won(r.totals.disposable)}원을 변제계획안 검산으로 보내기 →</button>
+        <button type="button" onclick="sendDisposableToPlan()" class="text-sm text-blue-700 hover:underline">가용소득 ${won(r.totals.disposable)}원을 ${procedure() === 'bankrupt' ? '재산목록' : '변제계획안'} 검산으로 보내기 →</button>
       </div>`;
     }
     renderResult('income-result', r, extra);
@@ -440,6 +563,7 @@
       assets: readRows('asset'),
       claims: readRows('claim'),
       declaredTotalRepay: $('plan-declared').value,
+      procedure: procedure(),   // 파산이면 재산 합계만 계산해 돌려준다
     });
     LAST.plan = r.totals ? r : null;
 
@@ -465,7 +589,7 @@
         <p class="text-[11px] text-slate-400 mt-2">비율은 법원 양식에 맞춰 소수 둘째 자리까지 쓰고, 반올림으로 생기는 차이는 합계가 정확히 100%·가용소득 전액이 되도록 배분했습니다.</p>
       </div>`;
     }
-    renderResult('plan-result', r, table);
+    renderResult('plan-result', r, table + nextStepHtml('plan'));
   }
 
   /* ── 사건 파일 ──
@@ -503,16 +627,34 @@
     };
   }
 
+  // 이용자가 어느 절차를 준비 중인지 — 파산이면 '변제계획안'을 만들지 않으므로
+  // 그 서류를 만들라고 안내하면 안 된다(존재하지 않는 서류를 요구하는 막다른 안내가 된다).
+  // 판단 순서: 주소의 ?proc= → 구매한 패키지 → 맞춤 준비 진단(profile). 알 수 없으면 null.
+  function procedure() {
+    const q = new URLSearchParams(location.search).get('proc');
+    if (q === 'bankrupt' || q === 'rehab') return q;
+    const pkgs = Storage.load('plan_packages') || [];
+    const one  = Storage.load('plan_package');
+    const all  = [].concat(pkgs, one ? [one] : []);
+    if (all.some(p => /bankrupt/.test(p))) return 'bankrupt';
+    if (all.some(p => /rehab|maintain/.test(p))) return 'rehab';
+    const prof = Storage.load('profile');
+    if (prof && (prof.type === 'bankrupt' || prof.type === 'rehab')) return prof.type;
+    return null;
+  }
+
   function caseFile() {
-    return { creditor: LAST.creditor, income: LAST.income, plan: LAST.plan, diagnosis: diagnosisFacts() };
+    return { creditor: LAST.creditor, income: LAST.income, plan: LAST.plan,
+             diagnosis: diagnosisFacts(), procedure: procedure() };
   }
 
   function renderCrossStatus() {
     const rows = [
       { key: 'creditor', label: '채권자목록', tab: 'creditor' },
       { key: 'income',   label: '수입·지출',  tab: 'income' },
-      { key: 'plan',     label: '변제계획안', tab: 'plan' },
     ];
+    // 변제계획안은 개인회생 서류 — 파산 이용자에게는 상태칸에도 띄우지 않는다
+    if (procedure() !== 'bankrupt') rows.push({ key: 'plan', label: '변제계획안', tab: 'plan' });
     $('cross-status').innerHTML = rows.map(r => {
       const on = !!LAST[r.key];
       return `<button type="button" onclick="showTab('${r.tab}')"
@@ -527,7 +669,131 @@
 
   function runCross() {
     const r = CrossCheck.run(caseFile());
-    renderResult('cross-result', r);
+    renderResult('cross-result', r, nextStepHtml('cross'));
+  }
+
+  /* ── 조회 결과 붙여넣기 ──
+     이용자가 이미 본 조회 화면을 옮겨 담는 것뿐이다. 우리가 금융회사에 접속하지 않는다
+     (그건 신용정보법상 마이데이터 허가 사업이다 — js/numcheck.js parsePastedRows 주석 참조).
+     ⚠️ 추측한 곳과 못 읽은 줄을 반드시 화면에 보여 준다. 조용히 사라지면 채권자 누락이 되고,
+        누락된 채권은 면책에서 빠질 수 있다.
+        ⚠️효과가 절차마다 다르다 — 회생은 제625조 제2항 제1호(악의 불요), 파산은 제566조 제7호(악의 필요·단서 있음).
+        아래 missWarn이 절차별로 갈리는 이유다. */
+  // 주민등록번호는 **입력되는 순간** 가린다 — 고지가 "자동으로 가립니다"인데
+  // 버튼을 눌러야 가려지면 고지와 동작이 어긋난다(정규식 원본은 js/main.js 하나뿐).
+  function maskPasteBox() {
+    const el = $('paste-box');
+    if (!el || typeof maskIdNumbers !== 'function') return;
+    const masked = maskIdNumbers(el.value);
+    if (masked !== el.value) {
+      const pos = el.selectionStart;
+      el.value = masked;
+      try { el.setSelectionRange(pos, pos); } catch (e) { /* 무시 */ }
+      showToast('주민등록번호로 보이는 숫자를 가렸습니다.', 'info');
+    }
+  }
+
+  function applyPaste() {
+    maskPasteBox();
+    const masked = $('paste-box').value || '';
+    if (!masked.trim()) { showToast('붙여넣을 내용이 없습니다.', 'warn'); return; }
+
+    const r = NumCheck.parsePastedRows(masked);
+    if (!r.rows.length) {
+      $('paste-report').innerHTML = `<div class="bg-white border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+        읽을 수 있는 채권자 줄을 찾지 못했습니다. <strong>「채권자 이름 … 금액」</strong> 형태가 한 줄에 하나씩 들어가 있어야 합니다.
+        어려우시면 아래 표에 직접 입력하셔도 됩니다.</div>`;
+      return;
+    }
+
+    // 이미 채워 둔 내용이 있으면 말없이 지우지 않는다 — 손으로 입력한 것을 날리면
+    // 이용자는 무엇이 사라졌는지도 모른다.
+    const num = (v) => parseInt(String(v || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    const filled = readRows('creditor')
+      .filter(x => (x.name || '').trim() || num(x.principal) || num(x.interest) || num(x.claim));
+    if (filled.length && !confirm(`이미 입력하신 채권자 ${filled.length}건이 있습니다.\n\n붙여넣은 내용으로 바꾸면 지금 입력하신 것은 지워집니다.\n계속하시겠습니까?`)) return;
+
+    clearRows('creditor');
+    r.rows.forEach(row => addRow('creditor', { name: row.name, claim: row.amount, lookup: row.amount }));
+    if (r.declaredTotal != null) $('creditor-declared').value = Number(r.declaredTotal).toLocaleString('ko-KR');
+
+    const guessed = r.rows.filter(x => x.note);
+    const parts = [];
+    parts.push(`<div class="bg-white border border-blue-200 rounded-lg p-3 text-xs leading-relaxed">
+      <p class="font-semibold text-blue-900">채권자 ${r.rows.length}건을 넣었습니다.${r.declaredTotal != null ? ' 합계 칸도 함께 채웠습니다.' : ''}</p>
+      <p class="text-slate-600 mt-1"><strong>넣은 금액은 조회 잔액입니다.</strong> 부채증명서를 받으시면 원금과 이자를 나누어 다시 적어 주세요.
+      금액이 달라지면 아래 [검산하기]에서 알려 드립니다.</p>
+      <p class="text-red-700 mt-2"><strong>조회 화면에 나오지 않는 빚은 직접 넣으셔야 합니다.</strong>
+      지인에게 빌린 돈, 내가 보증 선 빚, 대신 갚아 준 사람이 돌려달라고 할 수 있는 돈(구상권), 밀린 통신비·관리비 등은
+      크레딧포유·어카운트인포에 나오지 않습니다. <span class="text-slate-600">면책 다툼은 대부분 여기서 생깁니다.</span></p></div>`);
+
+    if (guessed.length) {
+      parts.push(`<div class="bg-white border border-amber-200 rounded-lg p-3 text-xs mt-2 leading-relaxed">
+        <p class="font-semibold text-amber-800">${guessed.length}건은 추측해서 넣었습니다 — 맞는지 봐 주세요</p>
+        <ul class="mt-1 space-y-0.5 text-slate-600">
+          ${guessed.map(x => `<li>· ${esc(x.name || '(이름 없음)')} ${Number(x.amount).toLocaleString('ko-KR')}원 — ${esc(x.note)}</li>`).join('')}
+        </ul></div>`);
+    }
+    if (r.skipped.length) {
+      // ⚠️ 누락의 효과는 절차마다 다르다. 개인회생은 기재하지 않은 것만으로 면책에서 빠지고(제625조 제2항 제1호),
+      //    개인파산은 '악의로' 기재하지 않은 경우다(제566조 제7호). 파산 이용자에게 회생 기준을 그대로
+      //    들이대면 과장이 된다. 절차를 모를 때는 둘을 함께 알린다.
+      const proc = procedure();
+      const missWarn = proc === 'bankrupt'
+        ? '<strong>일부러 빠뜨린 채권은 면책을 받지 못합니다</strong>(채무자회생법 제566조 제7호. 다만 그 채권자가 파산선고 사실을 이미 알고 있었다면 면책됩니다 — 같은 호 단서). 실수로 빠진 경우까지 곧바로 면책이 안 되는 것은 아니지만, 빠진 채권자는 절차에 참여하지 못해 나중에 다툼이 생깁니다.'
+        : proc === 'rehab'
+        ? '<strong>목록에서 빠진 채권은 면책을 받지 못합니다</strong>(채무자회생법 제625조 제2항 제1호). 개인회생은 일부러 빠뜨린 것이 아니어도 그렇습니다.'
+        : '<strong>목록에서 빠진 채권은 면책을 받지 못할 수 있습니다.</strong> 개인회생은 빠뜨린 것만으로도 면책에서 제외되고(제625조 제2항 제1호), 개인파산은 일부러 빠뜨린 경우가 그렇습니다(제566조 제7호).';
+      parts.push(`<div class="bg-white border border-red-200 rounded-lg p-3 text-xs mt-2 leading-relaxed">
+        <p class="font-semibold text-red-700">읽지 못한 ${r.skipped.length}줄이 있습니다 — 채권자라면 직접 넣어 주세요</p>
+        <p class="text-slate-600 mt-0.5">${missWarn} 아래 목록과 조회 화면을 한 번 대조해 보세요.</p>
+        <ul class="mt-1 space-y-0.5 text-slate-500">
+          ${r.skipped.slice(0, 10).map(x => `<li>· ${esc(x.line.slice(0, 60))} — ${esc(x.why)}</li>`).join('')}
+          ${r.skipped.length > 10 ? `<li>· … 외 ${r.skipped.length - 10}줄</li>` : ''}
+        </ul></div>`);
+    }
+    $('paste-report').innerHTML = parts.join('');
+    showToast(`채권자 ${r.rows.length}건을 넣었습니다.`, 'success');
+  }
+
+
+  // 결과 화면마다 '이제 뭘 하면 되는지'를 붙인다 — 막다른 화면 방지(2026-08-14 여정 감사 P1-6)
+  function nextStepHtml(kind) {
+    const proc = procedure();
+    const bank = proc === 'bankrupt';
+    const center = bank ? 'bankruptcy.html' : 'rehabilitation.html';
+    const centerName = bank ? '개인파산 진행센터' : '개인회생 진행센터';
+    const btn = (label, onclick) =>
+      `<button type="button" onclick="${onclick}" class="inline-block bg-blue-700 text-white px-4 py-2.5 text-sm rounded-xl hover:bg-blue-800 transition-colors">${label}</button>`;
+    const link = (label, href) =>
+      `<a href="${href}" class="inline-block border border-slate-300 px-4 py-2.5 text-sm text-slate-700 rounded-xl hover:bg-slate-50 transition-colors">${label}</a>`;
+
+    let inner = '';
+    if (kind === 'cost') inner = btn('다음: 채권자목록 검산하기 →', "showTab('creditor')");
+    else if (kind === 'plan' && !bank) inner = btn('다음: 서류 간 대조하기 →', "showTab('cross')");
+    else if (kind === 'plan' && bank) inner = btn('다음: 서류 간 대조하기 →', "showTab('cross')");
+    else if (kind === 'cross') inner = link(`${centerName}로 돌아가 남은 단계 확인하기 →`, center);
+    if (!inner) return '';
+    return `<div class="mt-4 pt-4 border-t border-slate-100">${inner}</div>`;
+  }
+
+  /* ── 법원 비용 ── */
+  function runCost() {
+    const proc = $('cost-proc').value;
+    // 파산 인지의 전자소송 감액 여부는 확인되지 않아 적용하지 않는다(js/numcheck.js 주석 참조)
+    const electronic = proc === 'rehab' ? $('cost-electronic').checked : false;
+    const r = NumCheck.courtCost({
+      procedure: proc,
+      creditorCount: NumCheck.parseWon($('cost-creditors').value),
+      electronic,
+    });
+    renderResult('cost-result', r, nextStepHtml('cost'));
+  }
+
+  // 파산은 인지가 2,000원 고정이라 전자소송 감액 선택지를 보여줄 이유가 없다
+  function syncCostForm() {
+    const isRehab = $('cost-proc').value === 'rehab';
+    $('cost-elec-wrap').style.display = isRehab ? '' : 'none';
   }
 
   /* ── 진술서(서술) ↔ 숫자 대조 — AI ──
@@ -686,6 +952,56 @@
   /* ── 첫 화면 ── */
   renderSensitiveConsent('sensitive-card');
   AiContext.renderCard('aictx-card');
+  // 파산 이용자에게는 개인회생 전용 서류(변제계획안)를 아예 보여주지 않는다.
+  (function applyProcedure() {
+    const proc = procedure();
+    if (proc === 'rehab') {
+      const t = document.getElementById('creditor-title');
+      if (t) t.textContent = '개인회생채권자목록';
+    }
+    // 진행센터로 돌아가는 링크 — 절차를 아는 경우에만 띄운다
+    const back = document.getElementById('back-link');
+    if (back && (proc === 'rehab' || proc === 'bankrupt')) {
+      back.href = proc === 'bankrupt' ? 'bankruptcy.html' : 'rehabilitation.html';
+      back.textContent = proc === 'bankrupt' ? '← 개인파산 진행센터로 돌아가기' : '← 개인회생 진행센터로 돌아가기';
+      back.classList.remove('hidden');
+      back.classList.add('inline-flex');
+    }
+
+    // 비용 탭의 절차 선택도 알고 있는 값으로 맞춰 둔다
+    const costSel = document.getElementById('cost-proc');
+    if (costSel) {
+      if (proc) costSel.value = proc;
+      costSel.addEventListener('change', syncCostForm);
+    }
+    syncCostForm();
+    if (proc !== 'bankrupt') return;
+    // 파산은 변제계획안을 쓰지 않는다 → 그 단계를 통째로 감추고, 재산 단계 문구를 파산 기준으로.
+    const step3 = document.getElementById('guide-step3');
+    if (step3) step3.style.display = 'none';
+    const step2 = document.getElementById('guide-step2');
+    if (step2) {
+      const p = step2.querySelector('p');
+      if (p) p.innerHTML = '<strong class="text-slate-800">재산목록을 다 썼을 때</strong> <span class="text-slate-400">(진행센터 4단계)</span> — '
+        + '<button type="button" onclick="showTab(\'plan\')" class="text-blue-700 underline">📄 재산목록</button> 탭. '
+        + '재산 합계를 계산합니다. <span class="text-slate-400">이 금액은 파산관재인 선임 여부와 면책 판단에 쓰입니다.</span>';
+    }
+    // 탭을 감추지는 않는다 — 이 탭 안에 파산에도 필요한 '재산목록(청산가치)'이 들어 있다.
+    // 대신 변제계획안이 개인회생 전용임을 분명히 해 파산 이용자가 만들려 하지 않게 한다.
+    const tab = document.querySelector('.tab-btn[data-tab="plan"]');
+    if (tab) tab.textContent = '📄 재산목록';
+    // 탭 라벨만 바꾸고 패널 제목·버튼 문구를 두면, 파산 이용자가 '재산목록' 탭을 열었는데
+    // 제목은 '변제계획안'인 화면을 본다(2026-08-14 여정 감사 P1-2).
+    const planTitle = document.querySelector('#tab-plan h2');
+    if (planTitle) planTitle.textContent = '재산목록 (청산가치)';
+    const panel = document.getElementById('tab-plan');
+    if (panel) {
+      const note = document.createElement('div');
+      note.className = 'bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 mb-4';
+      note.innerHTML = '<strong>개인파산을 준비 중이시군요.</strong> 이 탭의 <strong>재산목록(청산가치)</strong>은 파산에도 필요합니다 — 재산 합계는 면책 여부와 파산관재인 선임 판단에 쓰입니다. 다만 <strong>변제계획안은 개인회생 전용 서류</strong>라 파산에서는 작성하지 않으니, 아래 변제계획 관련 칸은 비워 두셔도 됩니다.';
+      panel.insertBefore(note, panel.firstChild);
+    }
+  })();
   showTab(new URLSearchParams(location.search).get('tab') || 'creditor');
   for (let i = 0; i < 3; i++) addRow('creditor');
   addRow('income');
