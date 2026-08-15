@@ -12,3 +12,14 @@ api/.dev.vars
 
 api/.wrangler/
 api/node_modules/
+
+# 🔴 D1 백업 덤프. 절대 커밋하지 말 것 — 회원 이메일·비밀번호 해시·전화번호·
+#    민감정보 동의 기록·결제 내역이 평문으로 들어 있다. 저장소에 들어오면 그 자체가 유출이다.
+#    백업은 저장소 **바깥**(예: ../_chamroad-backups)에 두는 것이 원칙이고,
+#    아래 규칙은 실수로 저장소 안에 만들었을 때를 막는 2차 방어선이다. 상세는 BACKUP.md.
+*.sql.gz
+*.dump
+backup/
+backups/
+*-backup-*.sql
+d1-*.sql

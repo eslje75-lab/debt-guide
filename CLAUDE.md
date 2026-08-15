@@ -55,6 +55,10 @@ Cloudflare에 올린 시크릿은 이름만 조회되고 값은 다시 읽을 �
 `api/migrations/*.sql`을 사람이 확인하고 `wrangler d1 execute chamroad --remote --command "..."`로 적용한다.
 (원격은 `--file`이 인증오류를 내므로 `--command`를 쓸 것.)
 
+🔴 **마이그레이션을 적용하기 전에 반드시 백업한다** — `powershell -ExecutionPolicy Bypass -File tools\backup-d1.ps1`.
+스키마 변경은 Time Travel로도 되돌리기가 가장 까다롭고, 무료 플랜의 복구 창은 **7일뿐**이다.
+백업·복구 절차 전체는 **[BACKUP.md](BACKUP.md)**. ⚠️덤프에는 회원 개인정보가 들어 있으므로 **저장소 안에 두지 말 것.**
+
 ⚠️ **약관·개인정보처리방침 변경은 즉시 반영하면 안 된다.** 시행 7일 전 공지(이용자에게 불리한 변경은 30일 전)가
 법정 의무다. 문서의 시행일·변경이력을 함께 갱신하고, 서버 `CONSENT_VERSION`도 올릴 것.
 
