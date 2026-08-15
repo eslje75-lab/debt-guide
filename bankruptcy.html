@@ -60,7 +60,7 @@
     <h3 class="font-bold text-amber-800 mb-2 text-sm">⚠ 면책불허가 사유 — 반드시 확인하세요</h3>
     <ul class="text-xs text-amber-700 space-y-1 leading-relaxed">
       <li>• 도박·낭비·사치로 채무가 발생한 경우</li>
-      <li>• 파산 전 2년 이내 채무 과다 부담 또는 허위 재산 감소 행위</li>
+      <li>• 파산선고 전 1년 이내에 파산 원인이 있음을 속이고 신용거래로 재산을 취득한 행위(제564조 제1항 제2호)</li>
       <li>• 특정 채권자에 대한 편파 변제</li>
       <li>• 파산 신청 직전 신규 대출 또는 카드 사용</li>
       <li>• 재산·수입 허위 진술 또는 은닉</li>
@@ -78,13 +78,19 @@
     <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden">
       <div id="bankrupt-bar" class="progress-bar h-full bg-slate-600 rounded-full" style="width:0%"></div>
     </div>
-    <p class="text-xs text-slate-400 mt-2">아래 <strong>단계 지도</strong>에서 단계를 누르면 그 단계의 할 일이 표시됩니다. 항목의 <strong>자세히</strong>에서 방법을, 해당 없는 항목은 <strong>해당없음</strong>으로 넘기세요.</p>
   </div>
 
-  <!-- 진행 단계 지도 (로드맵) -->
+  <!-- 진행 단계 지도 (로드맵)
+       ※ 사용법 설명문은 걷어냈다 — 버튼이 화면에 이미 보인다. 색만 범례로 남긴다.
+          (rehabilitation.html과 같은 정리) -->
   <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
-    <h3 class="font-bold text-slate-800 mb-0.5 text-sm">🗺️ 진행 단계 지도</h3>
-    <p class="text-xs text-slate-400 mb-3">신청 준비부터 면책까지 전체 흐름입니다. <strong class="text-slate-700">진한 단계</strong>가 지금 할 단계, <strong class="text-green-700">초록 단계</strong>는 다 끝낸 단계입니다. 눌러서 이동하세요.</p>
+    <div class="flex items-center justify-between gap-2 mb-3 flex-wrap">
+      <h3 class="font-bold text-slate-800 text-sm">🗺️ 진행 단계 지도</h3>
+      <span class="text-xs text-slate-400 flex items-center gap-3">
+        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-700 inline-block"></span>지금 할 단계</span>
+        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-600 inline-block"></span>완료</span>
+      </span>
+    </div>
     <div id="roadmap" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2"></div>
   </div>
 
@@ -93,8 +99,7 @@
 
   <!-- 서류·AI 검토 바로가기 -->
   <div class="bg-slate-100 border border-slate-200 rounded-2xl p-5 mt-6 mb-6">
-    <h3 class="font-bold text-slate-800 mb-0.5 text-sm">📌 서류 준비 · 작성 지원 도구</h3>
-    <p class="text-xs text-slate-500 mb-3">체크리스트는 <strong>전체 진행 순서</strong>를 안내합니다. 서류를 <strong>어디서 어떻게 발급</strong>받는지는 <strong>서류 체크센터</strong>에서 확인·체크하세요.</p>
+    <h3 class="font-bold text-slate-800 mb-3 text-sm">📌 서류 준비 · 작성 지원 도구</h3>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <a href="documents.html" class="flex items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 hover:border-slate-400 transition-colors card-hover">
         <span class="text-2xl">📁</span>
@@ -120,8 +125,15 @@
   <a href="numcheck.html?tab=creditor&proc=bankrupt" class="block bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6 card-hover">
     <h3 class="font-bold text-slate-800 mb-0.5">🧮 숫자 검산기 <span class="text-xs font-normal text-blue-700">무료</span></h3>
     <p class="text-xs text-slate-500 leading-relaxed">
-      채권자목록의 금액 합계, 재산목록 합계, 수입·지출의 부족분을 계산해 확인합니다.
-      <strong class="text-slate-700">목록에 적은 합계와 실제 합계가 어긋나면</strong> 보정 대상이 되니 제출 전에 한 번 돌려 보세요. →
+      <strong class="text-slate-700">목록에 적은 합계와 실제 합계가 어긋나면</strong> 보정 대상이 됩니다. 제출 전에 한 번 돌려 보세요. →
+    </p>
+  </a>
+
+  <!-- 파산선고 이후 구간 안내 — 무료 정보 페이지라 유료 잠금 바깥에 둔다 -->
+  <a href="bankruptcy-after.html" class="block bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6 card-hover">
+    <h3 class="font-bold text-slate-800 mb-0.5">⚖️ 파산 선고 이후 <span class="text-xs font-normal text-blue-700">무료</span></h3>
+    <p class="text-xs text-slate-500 leading-relaxed">
+      <strong class="text-slate-700">면책은 결정된 날이 아니라 확정된 날에 효력이 생깁니다.</strong> 이의신청·확정·복권까지의 기준일을 조문으로 정리했습니다. →
     </p>
   </a>
 
@@ -129,8 +141,7 @@
   <div id="example-library" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
     <h3 class="font-bold text-slate-800 mb-0.5">실전 서류 작성예시</h3>
     <p class="text-xs text-slate-500 mb-3">
-      가상 인물 <strong class="text-slate-700">박○수 님(52세 · 전 음식점 운영 · 배우자와 2인 가구 · 채무 8,740만원 · 현재 무직)</strong>의 사례로,
-      파산·면책 신청 시 법원에 실제 제출되는 서류가 어떤 모습인지 보여드립니다.
+      가상 인물 <strong class="text-slate-700">박○수 님</strong>(52세 · 전 음식점 운영 · 2인 가구 · 채무 8,740만원 · 현재 무직)의 사례로 실제 제출 서류를 보여드립니다.
     </p>
     <div id="doc-example-buttons" class="flex flex-wrap gap-2"></div>
     <p class="text-[11px] text-slate-400 mt-3 leading-relaxed">
@@ -305,10 +316,10 @@
           guide: '보정명령은 흔한 절차입니다. 자주 나오는 보정: 통장 거래내역 중 큰 출금의 사용처 소명, 재산 처분 경위, 부채증명서 보완 등. 기한(통상 1~2주) 안에 어려우면 미리 법원에 연장을 문의하세요.' },
         { id: 'b8-4', text: '채무자 심문기일 출석 (지정된 경우)', hint: '기일이 지정되면 반드시 출석 — 불출석 시 기각될 수 있음', must: '필수',
           guide: '심문기일이 지정되면 반드시 출석해야 합니다. 판사가 진술서를 바탕으로 채무 경위·재산 관계를 질문하므로, 제출한 진술서 사본을 다시 읽고 날짜·금액을 설명할 수 있게 준비하세요. 솔직한 답변이 가장 중요합니다.' },
-        { id: 'b8-5', text: '이의신청 기간 대응 및 면책 확정 시점 확인', hint: '이의신청은 면책결정 전 단계 — 확정은 그 뒤 14일', must: '필수',
+        { id: 'b8-5', text: '이의신청 기간 대응 및 면책 확정 시점 확인', hint: '이의신청은 면책결정 전 단계 — 확정은 공고일부터 14일(결정문 받은 날이 아니다)', must: '필수',
           guide: '검사·파산관재인·채권자는 <strong>심문기일부터 30일</strong>(심문기일을 정하지 않은 경우에는 법원이 정하는 날) 이내에 면책에 관한 이의를 신청할 수 있습니다(제562조 제1항). <strong>이의신청은 면책결정이 나기 전 단계</strong>입니다. 통지를 받으면 기한부터 확인하고, 이의 사유(재산 은닉, 낭비·도박, 신용거래로 재산 취득 등 제564조 제1항 각 호)에 대해 사실과 자료로 답할 준비를 하세요. 이의가 있더라도 법원은 파산에 이르게 된 경위 등을 고려해 <strong>재량으로 면책을 허가할 수 있습니다</strong>(제564조 제2항). 면책결정이 나면 그 주문이 공고되고(제564조 제3항), 공고가 있은 날부터 <strong>14일</strong> 이내에 즉시항고가 없으면 확정됩니다(제564조 제4항, 제13조 제2항). 면책결정문 원본은 잘 보관하세요.' },
         { id: 'b8-6', text: '면책 확정 후 남아 있는 압류 해제 신청', hint: '면책이 확정돼도 압류는 자동으로 풀리지 않는다', must: '필수',
-          guide: '<strong>면책이 확정되어도 통장·급여에 걸린 압류가 저절로 해제되지는 않습니다.</strong> 서울회생법원 안내에 따르면, 회생법원에서 <strong>면책결정 정본 · 채권자목록 · 면책결정 확정증명원</strong>을 발급받아 <strong>압류를 진행한 집행법원</strong>에 해제(집행취소)를 신청해야 합니다. 압류가 여러 건이면 각각 신청해야 하니 어느 법원에서 무엇이 걸려 있는지부터 확인하세요. 추심 연락이 계속 오면 같은 서류를 제시하면 됩니다.' },
+          guide: '<strong>면책이 확정되어도 통장·급여에 걸린 압류가 저절로 해제되지는 않습니다.</strong> 법률효과와 외관 정리를 나눠 보세요 — 파산선고 전에 이미 걸려 있던 강제집행·가압류·가처분은 <strong>면책결정 확정으로 효력을 잃지만</strong>(제557조 제2항), 이미 걸린 압류명령·압류등기가 자동으로 지워지지는 않아 통장·급여가 계속 묶여 있을 수 있습니다. <strong>비면책채권</strong>(세금·양육비 등)에 기한 집행과 <strong>파산선고 뒤 새로 얻은 재산</strong>에 걸린 압류는 이 실효 대상이 아닙니다.\n서울회생법원 안내에 따르면 <strong>압류를 한 집행법원에 먼저 문의한 뒤</strong>, 회생법원에서 <strong>면책결정 정본 · 채권자목록 · 면책결정 확정증명원 등</strong>을 발급받아 집행법원에 해제(집행취소)를 신청해야 합니다. <strong>요구 서류는 집행법원에 따라 다를 수 있으니 문의가 먼저입니다.</strong> 압류가 여러 건이면 각각 신청해야 하니 어느 법원에서 무엇이 걸려 있는지부터 확인하세요. 추심 연락이 계속 오면 같은 서류를 제시하면 됩니다.\n확정증명원은 <strong>항고장이 제출되지 않고 공고일부터 14일이 지나 사건이 확정된 뒤</strong>에 발급받을 수 있습니다. 자세한 안내는 [파산 선고 이후] 페이지에 정리돼 있습니다.' },
       ],
       example: { title: '파산 접수 후 절차 안내', content: '[파산 접수 후 주요 절차]\n\n① 접수 → 사건번호 부여\n② 파산관재인 선임 (소액파산 제외 가능)\n③ 채무자 심문기일 출석 → 법원 질의응답\n④ 파산선고 결정\n⑤ 파산채권자 신고기간\n⑥ 재산환가(처분) 절차\n⑦ 배당\n⑧ 면책 신청 심리\n⑨ 면책결정 (또는 불허가)\n⑩ 면책 확정\n\n[심문기일 준비 팁]\n- 채무 발생 경위를 간결하게 말할 수 있도록 준비\n- 질문에 솔직하게 답변\n- 추가 서류 요청 시 기한 내 제출' }
     },

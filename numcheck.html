@@ -34,33 +34,27 @@
 
 <div class="max-w-4xl mx-auto px-4 py-8">
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-      <h3 class="font-bold text-slate-800 text-base mb-2">🧮 이 도구가 하는 것</h3>
-      <ul class="text-sm text-slate-600 space-y-1 leading-relaxed">
-        <li>• 합계가 맞는지 (원금+이자, 세로 합계)</li>
-        <li>• 안분율의 합이 정확히 100%가 되는지</li>
-        <li>• 수입−생계비로 계산한 가용소득</li>
-        <li>• 가용소득 × 변제 횟수가 청산가치 이상인지</li>
-        <li>• <strong class="text-slate-700">서류끼리 숫자가 서로 맞는지</strong> — 채권자목록 ↔ 변제계획안 ↔ 수입·지출</li>
-      </ul>
-    </div>
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-      <h3 class="font-bold text-slate-800 text-base mb-2">🔒 알아 두실 것</h3>
-      <ul class="text-sm text-slate-600 space-y-1 leading-relaxed">
-        <li>• <strong class="text-slate-700">AI가 아니라 코드로 계산합니다</strong> — 같은 입력이면 언제나 같은 답이 나옵니다.</li>
-        <li>• <strong class="text-slate-700">입력하신 숫자는 저장되지 않습니다.</strong> 서버로 보내지 않고, 화면을 새로고침하면 지워집니다.</li>
-        <li>• 인가 여부나 결과를 예측하지 않습니다. 계산 결과와 관련 조문만 알려 드립니다.</li>
-      </ul>
-    </div>
+  <!-- 도구 성격 고지 — 카드 2장이던 것을 한 줄로 줄였다.
+       "이 도구가 하는 것" 5줄은 탭 5개와 1:1로 겹치고 각 탭 안에 같은 설명이 또 있어 뺐다.
+       남긴 셋은 중복이 아니다: 저장 안 함(개인정보), 코드 계산(AI 아님), 판단 안 함(변호사법). -->
+  <div class="flex flex-wrap gap-2 mb-6 text-xs">
+    <span class="inline-flex items-center gap-1.5 bg-white border border-slate-200 rounded-full px-3.5 py-2 text-slate-500">🔒 <strong class="text-slate-700 font-semibold">저장·전송 없음</strong> — 이 브라우저 안에서만 계산</span>
+    <span class="inline-flex items-center gap-1.5 bg-white border border-slate-200 rounded-full px-3.5 py-2 text-slate-500">🧮 <strong class="text-slate-700 font-semibold">AI 아닌 코드 계산</strong> — 같은 입력이면 같은 답</span>
+    <span class="inline-flex items-center gap-1.5 bg-white border border-slate-200 rounded-full px-3.5 py-2 text-slate-500">⚖️ <strong class="text-slate-700 font-semibold">서류 대필·인가 여부 판단은 하지 않습니다</strong></span>
   </div>
 
   <!-- 진행센터에서 왔다면 돌아갈 길을 만들어 준다(브라우저 뒤로가기 말고) -->
   <a id="back-link" href="#" class="hidden items-center gap-1.5 text-sm text-blue-700 hover:underline mb-4"></a>
 
-  <!-- 언제 쓰는 도구인지 — 순서를 먼저 보여 준다 -->
-  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
-    <h3 class="font-bold text-slate-800 text-base mb-1">🗺️ 언제 쓰는 건가요?</h3>
+  <!-- 언제 쓰는 도구인지 — 접어 둔다. 탭 이름만 보고 바로 쓰는 사람은 펼칠 필요가 없고,
+       순서를 알고 싶은 사람만 열면 된다. 안쪽 내용·id(guide-step2/3)는 그대로라 applyProcedure()도 그대로 동작한다. -->
+  <details id="when-to-use" class="fold bg-white rounded-2xl shadow-sm border border-slate-100 mb-6">
+    <summary class="px-5 py-4 flex items-center justify-between gap-2 hover:bg-slate-50 rounded-2xl transition-colors">
+      <span class="font-bold text-slate-800 text-sm">🗺️ 언제 쓰는 건가요? — 서류 쓰는 순서대로 안내</span>
+      <span class="fold-shut text-xs text-slate-400 shrink-0">펼치기 ▼</span>
+      <span class="fold-open text-xs text-slate-400 shrink-0">접기 ▲</span>
+    </summary>
+    <div class="px-5 pb-5">
     <p class="text-xs text-slate-500 mb-4 leading-relaxed">
       비용은 <strong>시작하기 전에</strong>, 나머지는 <strong>서류를 하나씩 쓸 때마다</strong> 확인하시면 됩니다. 마지막 대조는 법원에 내기 직전에 한 번. 지금 해당하지 않는 탭은 건너뛰셔도 괜찮아요.
     </p>
@@ -101,10 +95,8 @@
           <strong>서류끼리 숫자가 어긋나지 않는지</strong> 봅니다. 보정을 가장 많이 부르는 지점이라 꼭 한 번 돌려 보세요.</p>
       </li>
     </ol>
-    <p class="text-[11px] text-slate-400 mt-3 leading-relaxed">
-      ※ 이 도구는 <strong>숫자가 서로 맞는지</strong>만 봅니다. 서류를 대신 써 드리거나 인가·면책 여부를 판단하지 않습니다.
-    </p>
-  </div>
+    </div>
+  </details>
 
   <!-- 탭 -->
   <div class="flex gap-2 mb-4 overflow-x-auto">
@@ -283,7 +275,7 @@
 주민등록번호는 보내기 직전에 자동으로 가려집니다."
         class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm resize-none leading-relaxed"></textarea>
       <div class="flex items-center justify-between mt-2">
-        <span id="cross-char" class="text-xs text-slate-400">0 / 6000자</span>
+        <span id="cross-char" class="text-xs text-slate-400">0 / 20,000자</span>
         <button type="button" onclick="document.getElementById('cross-text').value='';updateCrossChar();" class="text-xs text-slate-400 hover:text-slate-600">초기화</button>
       </div>
 
@@ -798,16 +790,27 @@
 
   /* ── 진술서(서술) ↔ 숫자 대조 — AI ──
      코드로 잡을 수 있는 것은 위에서 이미 다 잡았다. 여기는 코드가 구조적으로 못 하는 것만 맡는다. */
+  // 서버 AI_TEXT_MAX와 같은 값이어야 한다(api/src/index.js). 대조도 검토와 같은 상한을 쓴다.
+  const CROSS_TEXT_MAX = 20000;
+
+  // ⚠️ 예전에는 상한을 넘으면 slice()로 잘라냈다. 이용자가 붙여넣은 진술서 뒷부분이 말없이
+  //    사라진 채 대조가 돌아가, 정작 어긋난 대목이 잘려 나갔는지도 알 수 없었다. 자르지 말 것.
   function updateCrossChar() {
     const el = $('cross-text');
-    if (el.value.length > 6000) el.value = el.value.slice(0, 6000);
-    $('cross-char').textContent = el.value.length + ' / 6000자';
+    const l = el.value.length;
+    const c = $('cross-char');
+    c.textContent = l.toLocaleString() + ' / ' + CROSS_TEXT_MAX.toLocaleString() + '자';
+    c.className = l > CROSS_TEXT_MAX ? 'text-xs text-red-600 font-semibold' : 'text-xs text-slate-400';
   }
   $('cross-text').addEventListener('input', updateCrossChar);
 
   async function runAiCross() {
     const text = $('cross-text').value.trim();
     if (text.length < 30) { showToast('대조할 내용을 좀 더 입력해 주세요 (최소 30자).', 'warn'); return; }
+    if (text.length > CROSS_TEXT_MAX) {
+      showToast(`입력이 ${(text.length - CROSS_TEXT_MAX).toLocaleString()}자 깁니다. 서류를 나누어 대조해 주세요 (최대 ${CROSS_TEXT_MAX.toLocaleString()}자).`, 'warn');
+      return;
+    }
 
     const figures = CrossCheck.summaryForAI(caseFile());
     if (!Object.keys(figures).length) {
@@ -1001,6 +1004,14 @@
       note.innerHTML = '<strong>개인파산을 준비 중이시군요.</strong> 이 탭의 <strong>재산목록(청산가치)</strong>은 파산에도 필요합니다 — 재산 합계는 면책 여부와 파산관재인 선임 판단에 쓰입니다. 다만 <strong>변제계획안은 개인회생 전용 서류</strong>라 파산에서는 작성하지 않으니, 아래 변제계획 관련 칸은 비워 두셔도 됩니다.';
       panel.insertBefore(note, panel.firstChild);
     }
+  })();
+  // ?tab= 없이 들어온 사람 = 어느 탭을 쓸지 정하지 못한 채 '숫자 검산기' 링크를 누른 사람이다
+  // (서류센터·푸터·회생 진행센터·AI 검토가 그렇게 보낸다). 그 사람에게는 순서 안내를 펼쳐 준다.
+  // 반대로 ?tab=cross처럼 목적지를 갖고 온 사람에게는 접어 둔 채로 바로 입력칸을 보여 준다.
+  (function orientNewcomer() {
+    const wanted = new URLSearchParams(location.search).get('tab');
+    const guide = document.getElementById('when-to-use');
+    if (guide && !wanted) guide.open = true;
   })();
   showTab(new URLSearchParams(location.search).get('tab') || 'creditor');
   for (let i = 0; i < 3; i++) addRow('creditor');

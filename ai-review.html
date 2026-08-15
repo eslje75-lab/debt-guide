@@ -105,7 +105,7 @@
 ..."
       class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm resize-none leading-relaxed"></textarea>
     <div class="flex items-center justify-between mt-2">
-      <span id="char-count" class="text-xs text-slate-400">0 / 5000자</span>
+      <span id="char-count" class="text-xs text-slate-400">0 / 20,000자</span>
       <button onclick="clearInput()" class="text-xs text-slate-400 hover:text-slate-600">초기화</button>
     </div>
   </div>
@@ -167,16 +167,27 @@
 <script>
   initPage('ai-review');
 
+  // 서버 AI_TEXT_MAX와 같은 값이어야 한다. 다르면 화면이 허용한 길이를 서버가 413으로 되돌려보낸다.
+  const TEXT_MAX = 20000;
+
   const textarea = document.getElementById('doc-input');
-  textarea.addEventListener('input', () => {
+  const charCount = document.getElementById('char-count');
+
+  // ⚠️ 예전에는 상한을 넘으면 substring()으로 잘라냈다. 이용자가 붙여넣은 진술서 뒷부분이
+  //    말없이 사라지고, 그 잘린 원고로 검토 회수까지 차감됐다. 자르지 말 것 —
+  //    넘으면 알려만 주고, 무엇을 지울지는 이용자가 정한다.
+  function updateCount() {
     const l = textarea.value.length;
-    document.getElementById('char-count').textContent = l + ' / 5000자';
-    if (l > 5000) textarea.value = textarea.value.substring(0, 5000);
-  });
+    charCount.textContent = l.toLocaleString() + ' / ' + TEXT_MAX.toLocaleString() + '자';
+    charCount.className = l > TEXT_MAX
+      ? 'text-xs text-red-600 font-semibold'
+      : 'text-xs text-slate-400';
+  }
+  textarea.addEventListener('input', updateCount);
 
   function clearInput() {
     textarea.value = '';
-    document.getElementById('char-count').textContent = '0 / 5000자';
+    updateCount();
     document.getElementById('review-result').style.display = 'none';
   }
 
@@ -452,6 +463,12 @@
     const text = textarea.value.trim();
     if (text.length < 30) {
       showToast('검토할 내용을 좀 더 입력해 주세요 (최소 30자 이상).', 'warn');
+      return;
+    }
+    // 서버도 413으로 막지만, 여기서 먼저 잡아야 이용자가 무엇을 줄여야 하는지 알 수 있다.
+    // (회수 차감은 서버에서 길이 검사 뒤에 일어나므로 어느 쪽이든 회수는 타지 않는다.)
+    if (text.length > TEXT_MAX) {
+      showToast(`입력이 ${(text.length - TEXT_MAX).toLocaleString()}자 깁니다. 서류를 나누어 검토해 주세요 (최대 ${TEXT_MAX.toLocaleString()}자).`, 'warn');
       return;
     }
     // 로그인 게이트 — 실제 AI 검토는 계정 필요

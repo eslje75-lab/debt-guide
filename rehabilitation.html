@@ -58,13 +58,20 @@
     <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden">
       <div id="rehab-bar" class="progress-bar h-full bg-blue-600 rounded-full" style="width:0%"></div>
     </div>
-    <p class="text-xs text-slate-400 mt-2">아래 <strong>단계 지도</strong>에서 단계를 누르면 그 단계의 할 일이 표시됩니다. 항목의 <strong>자세히</strong>에서 방법을, 해당 없는 항목은 <strong>해당없음</strong>으로 넘기세요.</p>
   </div>
 
-  <!-- 진행 단계 지도 (로드맵) -->
+  <!-- 진행 단계 지도 (로드맵)
+       ※ 사용법 설명문("눌러서 이동하세요", "자세히에서 방법을…")은 걷어냈다 —
+          누를 수 있는 버튼과 '자세히'·'해당없음' 버튼이 화면에 이미 보인다.
+          색만은 학습이 필요하므로 범례로 남긴다. -->
   <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
-    <h3 class="font-bold text-slate-800 mb-0.5 text-sm">🗺️ 진행 단계 지도</h3>
-    <p class="text-xs text-slate-400 mb-3">신청 준비부터 면책까지 전체 흐름입니다. <strong class="text-blue-700">파란 단계</strong>가 지금 할 단계, <strong class="text-green-700">초록 단계</strong>는 다 끝낸 단계입니다. 눌러서 이동하세요.</p>
+    <div class="flex items-center justify-between gap-2 mb-3 flex-wrap">
+      <h3 class="font-bold text-slate-800 text-sm">🗺️ 진행 단계 지도</h3>
+      <span class="text-xs text-slate-400 flex items-center gap-3">
+        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-700 inline-block"></span>지금 할 단계</span>
+        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-600 inline-block"></span>완료</span>
+      </span>
+    </div>
     <div id="roadmap" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2"></div>
   </div>
 
@@ -73,8 +80,7 @@
 
   <!-- 서류·AI 검토 바로가기 -->
   <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5 mt-6 mb-6">
-    <h3 class="font-bold text-slate-800 mb-0.5 text-sm">📌 서류 준비 · 작성 지원 도구</h3>
-    <p class="text-xs text-slate-500 mb-3">체크리스트는 <strong>전체 진행 순서</strong>를 안내합니다. 서류를 <strong>어디서 어떻게 발급</strong>받는지는 <strong>서류 체크센터</strong>에서 확인·체크하세요.</p>
+    <h3 class="font-bold text-slate-800 mb-3 text-sm">📌 서류 준비 · 작성 지원 도구</h3>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <a href="documents.html" class="flex items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 hover:border-blue-300 transition-colors card-hover">
         <span class="text-2xl">📁</span>
@@ -100,10 +106,8 @@
   <a href="numcheck.html?proc=rehab" class="block bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6 card-hover">
     <h3 class="font-bold text-slate-800 mb-0.5">🧮 숫자 검산기 · 서류 간 대조 <span class="text-xs font-normal text-blue-700">무료</span></h3>
     <p class="text-xs text-slate-500 leading-relaxed">
-      채권자목록의 합계와 안분율(100%), 수입−생계비로 계산한 월 가용소득,
-      <strong class="text-slate-700">가용소득 × 변제횟수가 청산가치 이상인지</strong>를 계산합니다.
-      나아가 <strong class="text-slate-700">채권자목록 ↔ 변제계획안 ↔ 수입·지출의 숫자가 서로 맞는지</strong>까지 한꺼번에 대조합니다 —
-      서류를 하나씩 따로 보면 안 보이는 어긋남이고, 보정권고가 가장 많이 나오는 지점입니다. →
+      <strong class="text-slate-700">채권자목록 ↔ 변제계획안 ↔ 수입·지출의 숫자가 서로 맞는지</strong> 대조합니다.
+      보정권고가 가장 많이 나오는 지점입니다. →
     </p>
   </a>
 
@@ -111,8 +115,7 @@
   <div id="example-library" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
     <h3 class="font-bold text-slate-800 mb-0.5">실전 서류 작성예시</h3>
     <p class="text-xs text-slate-500 mb-3">
-      가상 인물 <strong class="text-slate-700">김○민 님(38세 회사원 · 1인 가구 · 월 실수령 260만원 · 채무 4,670만원)</strong>의 사례로,
-      법원에 실제 제출되는 핵심 서류가 어떤 모습인지 처음부터 끝까지 보여드립니다.
+      가상 인물 <strong class="text-slate-700">김○민 님</strong>(38세 회사원 · 1인 가구 · 월 260만원 · 채무 4,670만원)의 사례로 실제 제출 서류를 보여드립니다.
     </p>
     <div id="doc-example-buttons" class="flex flex-wrap gap-2"></div>
     <p class="text-[11px] text-slate-400 mt-3 leading-relaxed">

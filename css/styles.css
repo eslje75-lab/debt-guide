@@ -473,6 +473,9 @@ button.roadmap-step {
   flex-direction: column;
   gap: 6px;
   min-height: 104px;
+  /* <button>의 브라우저 기본 커서는 화살표다. "눌러서 이동하세요" 안내문을 걷어낸 이상
+     (2026-08-14 텍스트 감축) 눌러지는 것임을 커서가 대신 말해 줘야 한다. */
+  cursor: pointer;
 }
 .roadmap-head { display: flex; align-items: center; gap: 6px; }
 .roadmap-num {
@@ -554,3 +557,18 @@ h1, h2, h3, h4 {
   cursor: not-allowed;
 }
 .preview-mode .preview-lock { opacity: 1; }
+
+/* ── 접이식 안내 (details.fold) ────────────────────────────────────────
+   "이 도구가 뭔지"·"언제 쓰는 건지" 같은 서문을 첫 화면에서 걷어내되
+   내용은 그대로 남기기 위한 것 — 삭제가 아니라 위치 이동이다.
+   Tailwind의 group-open: 변형에 기대지 않고 CSS로 직접 처리한다(CDN 버전 편차 회피). */
+/* 탭 버튼과 '링크처럼 보이는 버튼'도 같은 이유로 커서를 맞춘다.
+   numcheck의 순서 안내 안에 있는 "📋 채권자목록 탭" 같은 버튼이 여기 해당한다. */
+.tab-btn,
+button.underline { cursor: pointer; }
+
+details.fold > summary { list-style: none; cursor: pointer; }
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary .fold-open { display: none; }
+details.fold[open] > summary .fold-open { display: inline; }
+details.fold[open] > summary .fold-shut { display: none; }

@@ -97,8 +97,16 @@ const DAILY_AI_LIMIT = 10;            // 남용 방지용 1일 상한. 실제 �
 // 실제 한도는 Resend가 판정한다 — 넘치면 Pro($20/월)로 올리면 되고 수탁자가 같아 방침 개정은 불필요.
 const EMAIL_DAILY_FREE = 100;
 const AI_TEXT_MIN = 30;
-const AI_TEXT_MAX = 6000;
-const AI_BODY_BYTES = 32 * 1024;
+// 실제 법원 서류 기준으로 잡은 값. A4 한 장이 한글 1,600~1,800자이므로 20,000자면 약 11~12장 —
+// 진술서·경위서·보정서 어느 것도 한 건이 이 분량을 넘지 않는다. 6,000자(3~4장)였을 때는
+// 채무 발생 경위를 상세히 쓴 진술서가 잘렸다.
+// 모델 한계와는 무관하다(claude-sonnet-5 컨텍스트 1M 토큰). 이 상한의 목적은 비용·남용 방지뿐이고,
+// 회수가 패키지당 8~12회로 묶여 있어(PACKAGE_TERMS.aiQuota) 상한을 올려도 총액이 튀지 않는다.
+const AI_TEXT_MAX = 20000;
+// 한글은 UTF-8 3바이트 → 20,000자 = 60KB. 여기에 checklist·context·JSON 이스케이프가 더 붙으므로
+// AI_TEXT_MAX × 3바이트의 두 배로 잡는다. 이 값이 모자라면 readJson이 null을 반환해
+// "입력이 너무 깁니다"(413) 대신 "잘못된 요청입니다"(400)가 나가 원인을 알 수 없게 된다.
+const AI_BODY_BYTES = 128 * 1024;
 
 // 결제(Phase 4, 포트원 PortOne V2). 금액은 이 표가 소스 오브 트루스 — 클라이언트 금액 신뢰 안 함.
 const PACKAGES = {
@@ -399,7 +407,7 @@ async function sendOrderConfirmation(env, toEmail, toName, order, paidAt) {
   const body = `
     <p>${escHtml(toName)}님, 결제가 완료되었습니다. 아래는 「전자상거래 등에서의 소비자보호에 관한 법률」 제13조에 따른 계약 내용입니다.</p>
     <table style="width:100%;border-collapse:collapse;font-size:13px;margin:12px 0;border-top:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb">
-      ${row('판매자', `${escHtml(b.name)} · 대표 ${escHtml(b.ceo)}`)}
+      ${row('판매자 · 제작자', `${escHtml(b.name)} · 대표 ${escHtml(b.ceo)}<br><span style="color:#6b7280">콘텐츠의 제작자와 공급자도 같습니다.</span>`)}
       ${row('사업자등록번호', escHtml(b.regNo))}
       ${row('통신판매업', escHtml(b.mailOrderNo))}
       ${row('주소 / 연락처', `${escHtml(b.address)}<br>${escHtml(b.tel)} · ${escHtml(b.email)}`)}
@@ -407,6 +415,10 @@ async function sendOrderConfirmation(env, toEmail, toName, order, paidAt) {
       ${row('결제 금액', `${won}원`)}
       ${row('결제수단 / 일시', `신용카드 등 · ${fmtDate(paidAt)}`)}
       ${row('공급 방법 / 시기', '온라인 디지털 콘텐츠 · 결제 즉시 이용 개시')}
+      ${row('제공 방식', '웹 브라우저에서 열람하는 방식 · 다운로드·설치 파일이나 실물 매체(CD 등) 없음 · 배송 없음')}
+      ${row('이용 환경', '인터넷에 연결된 PC·태블릿·스마트폰과 최신 웹 브라우저(자바스크립트 켜짐)<br>따로 설치하실 프로그램은 없습니다.')}
+      ${row('이용조건', '결제한 회원 본인의 계정으로 이용 · 계정 공유·양도 불가')}
+      ${row('추가 비용', '없음 (접속에 드는 데이터·통신 요금은 가입하신 통신사 요금제에 따릅니다)')}
       ${row('주문번호', escHtml(order.payment_id))}
     </table>
     <p style="font-size:13px;color:#374151;line-height:1.8"><strong>청약철회 안내</strong><br>
@@ -414,6 +426,18 @@ async function sendOrderConfirmation(env, toEmail, toName, order, paidAt) {
       · 방법: 마이페이지 &gt; 결제 내역의 <strong>[청약철회 신청]</strong> 또는 ${escHtml(b.email)}로 신청.<br>
       · 효과: 아직 <strong>이용을 시작하지 않은 부분</strong>은 전액 환불됩니다. 이미 제공이 개시된 디지털 콘텐츠는 「전자상거래법」 제17조 제2항 제5호에 따라 청약철회가 제한될 수 있습니다(미리보기·체험 제공 및 사전 고지 완료).<br>
       · 환불 지연 시 지연배상금은 연 15%(시행령 제21조의3)입니다.</p>
+    <p style="font-size:13px;color:#374151;line-height:1.8"><strong>청약철회 신청서(서식)</strong><br>
+      <span style="color:#6b7280">버튼으로 신청하시면 아래 내용이 자동으로 채워집니다. 메일로 신청하실 경우 이 부분을 복사해 채워 보내주세요.</span></p>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin:0 0 12px;border:1px solid #e5e7eb">
+      ${row('주문번호', escHtml(order.payment_id))}
+      ${row('결제 이메일', escHtml(toEmail))}
+      ${row('신청인', escHtml(toName))}
+      ${row('철회 대상', `${escHtml(pkg.name || order.package)} (전부 / 아직 이용하지 않은 부분 중 선택해 적어주세요)`)}
+      ${row('신청일', '(작성하신 날짜)')}
+      ${row('신청 문구', '위 계약에 대하여 청약을 철회합니다.')}
+    </table>
+    <p style="font-size:13px;color:#374151;line-height:1.8"><strong>미성년자 계약</strong><br>
+      미성년자가 법정대리인의 동의 없이 결제한 경우에는, <strong>미성년자 본인 또는 법정대리인이 그 계약을 취소</strong>할 수 있습니다.</p>
     <p style="font-size:13px;color:#6b7280">약관: ${SITE_URL}/terms.html · 개인정보처리방침: ${SITE_URL}/privacy.html<br>
       분쟁이 있으면 소비자상담센터(국번없이 1372)·한국소비자원·전자거래분쟁조정위원회를 통해 도움받으실 수 있습니다.</p>`;
   return sendEmail(env, toEmail, '[챔로드] 결제 확인 및 계약 내용 안내', emailShell('결제 완료 · 계약 내용', body));

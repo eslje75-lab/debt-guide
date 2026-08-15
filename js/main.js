@@ -183,6 +183,7 @@ function renderFooter() {
               <li><a href="numcheck.html" class="footer-link">숫자 검산기 (무료)</a></li>
               <li><a href="pricing.html" class="footer-link">챔로드 셀프진행</a></li>
               <li><a href="discharge.html" class="footer-link">개인회생 면책신청 안내</a></li>
+              <li><a href="bankruptcy-after.html" class="footer-link">파산 선고 이후 안내</a></li>
               <li><a href="resources.html" class="footer-link">FAQ</a></li>
             </ul>
           </div>
@@ -940,6 +941,8 @@ const GLOSSARY = {
   '보정':       '법원이 서류의 빠진 곳·틀린 곳을 고쳐 다시 내라고 요구하는 것입니다.',
   '즉시항고':   '법원 결정에 불복해 다시 판단해 달라는 것. 기간이 짧으니 바로 확인하세요.',
   '동시폐지':   '나눠 줄 재산도 절차비용 낼 돈도 없어 파산선고와 동시에 절차를 끝내는 것입니다.',
+  // '복권'은 일상어(로또)와 글자가 같아 뜻이 어긋나 읽히는 말이라 태깅 대상이다(GLOSSARY 기준 1).
+  '복권':       '파산선고로 제한된 자격이 다시 회복되는 것. 면책결정이 확정되면 신청 없이 됩니다(당연복권).',
   // 사람·기관
   '회생위원':   '법원이 선임해 개인회생 사건의 서류 검토와 변제금 관리를 맡는 사람입니다.',
   '파산관재인': '법원이 선임해 파산자의 재산을 조사·처분하고 채권자에게 나눠 주는 사람입니다.',
