@@ -435,14 +435,22 @@
     }
 
     // ② Resend — 잔액 개념이 없어 '오늘 보낸 수 / 일 한도'로 본다.
+    // 🔴 실제로 먼저 걸리는 선은 일 한도(100)가 아니라 '가입 메일 차단선'(signupCap, 기본 60)이다.
+    //    재설정·주문확인 메일 몫을 남기려고 가입만 먼저 끊기 때문 — 그 사실을 화면이 말해 주지 않으면
+    //    운영자는 "67/100인데 왜 가입이 안 되지"에서 멈춘다.
     const et = j.email.today, lim = j.email.dailyLimit;
-    const etTone = et >= lim ? 'danger' : et >= lim * 0.7 ? 'warn' : 'ok';
+    const cap = j.email.signupCap || 0;
+    const signupBlocked = cap > 0 && et >= cap;
+    const etTone = (et >= lim || signupBlocked) ? 'danger' : et >= lim * 0.7 ? 'warn' : 'ok';
     const emailCard = opsCard({
       title: '이메일 발송 (오늘)', tone: etTone,
-      badge: etTone === 'danger' ? '한도 도달' : etTone === 'warn' ? '한도 근접' : null,
+      badge: et >= lim ? '한도 도달' : signupBlocked ? '가입 메일 차단 중' : etTone === 'warn' ? '한도 근접' : null,
       badgeClass: etTone === 'danger' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700',
       value: `${et} / ${lim}통`,
-      note: `이번 달 누적 ${j.email.month}통. <strong>가입이 인증메일에 의존</strong>하므로 한도가 차면 신규 가입이 막힙니다(넘치면 Pro 전환).`,
+      note: `이번 달 누적 ${j.email.month}통.`
+        + (cap ? ` <strong>${cap}통을 넘으면 가입 인증메일만 자동으로 끊깁니다</strong> — 비밀번호 재설정·주문확인 메일 몫을 남기기 위한 것입니다.` : '')
+        + (signupBlocked ? ' <strong class="text-red-700">지금 신규 가입이 막혀 있습니다.</strong>' : '')
+        + ` <strong>가입이 인증메일에 의존</strong>하므로 한도가 차면 신규 가입이 막힙니다(넘치면 Pro 전환).`,
       link: CONSOLE_LINKS.email,
     });
 

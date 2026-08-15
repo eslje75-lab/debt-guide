@@ -96,6 +96,19 @@ const DAILY_AI_LIMIT = 10;            // 남용 방지용 1일 상한. 실제 �
 // Resend 무료 플랜의 하루 발송 한도(대략). 관리자 화면의 경고 임계값 기준일 뿐,
 // 실제 한도는 Resend가 판정한다 — 넘치면 Pro($20/월)로 올리면 되고 수탁자가 같아 방침 개정은 불필요.
 const EMAIL_DAILY_FREE = 100;
+// 🔴 가입 인증메일 차단선. 하루 총 발송량이 이 값을 넘으면 **가입 메일만** 끊는다.
+//
+// 왜 필요한가: send-signup-code는 이메일 주소별로만 제한(60초 쿨다운·시간당 5회)하므로,
+// 서로 다른 주소 200개를 넣으면 200통이 나간다. 유일한 방벽인 Turnstile은 시크릿 미설정·
+// 네트워크 오류 시 **통과(fail-open)** 설계라, 캡차가 흔들리면 하루 한도가 통째로 탄다.
+// 그러면 **기존 회원의 비밀번호 재설정 메일**과 **결제 주문확인 메일**(전자상거래법 제13조②의
+// 계약내용 서면 — 법정 의무다)까지 함께 멈춘다. 남이 만든 트래픽 때문에 우리 의무가 깨지는 구조다.
+//
+// 그래서 100통 중 40통을 재설정·주문확인 몫으로 남긴다. 신규 가입은 미뤄져도 되지만
+// 이미 돈을 낸 사람의 서면 교부와 로그인 복구는 미뤄지면 안 된다는 판단이다.
+// ⚠️ IP를 저장하지 않는다 — 이 방식은 '하루 몇 통 나갔나'만 보므로 개인정보가 늘지 않는다.
+//    IP 기준 차단이 필요하면 애플리케이션이 아니라 Cloudflare 인프라 레벨에서 건다 — 절차는 OPERATIONS-COST.md 0절.
+const SIGNUP_EMAIL_DAILY_CAP = 60;
 const AI_TEXT_MIN = 30;
 // 실제 법원 서류 기준으로 잡은 값. A4 한 장이 한글 1,600~1,800자이므로 20,000자면 약 11~12장 —
 // 진술서·경위서·보정서 어느 것도 한 건이 이 분량을 넘지 않는다. 6,000자(3~4장)였을 때는
@@ -314,6 +327,15 @@ async function createEmailToken(db, userId, purpose, ttlMs) {
   return token;
 }
 
+// 오늘 나간 메일 수. 조회 실패 시 0을 돌려준다(집계가 안 된다고 가입을 막지는 않는다 — fail-open).
+async function todayEmailCount(env) {
+  try {
+    const row = await env.DB.prepare('SELECT count FROM email_usage WHERE day = ?')
+      .bind(new Date().toISOString().slice(0, 10)).first();
+    return (row && row.count) || 0;
+  } catch (e) { console.error('email usage read skipped', e.message); return 0; }
+}
+
 // 같은 사용자·목적의 토큰을 최근 EMAIL_COOLDOWN_MS 내 발급했으면 true(재발송 억제).
 async function recentlySent(db, userId, purpose, now) {
   const row = await db.prepare(
@@ -502,6 +524,11 @@ async function handleSendSignupCode(request, env, origin) {
   // 코드가 오지 않는 이유를 모른 채 기다리게 하는 편이 더 나쁘다(Turnstile 뒤라 자동 열거는 어렵다).
   const exists = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
   if (exists) return err(409, '이미 가입된 이메일입니다.', origin);
+
+  // 하루 총 발송량이 차단선을 넘으면 가입 메일만 끊는다(재설정·주문확인 몫을 남긴다).
+  // 주소별 제한만으로는 서로 다른 주소를 쓰는 대량 요청을 못 막는다 — SIGNUP_EMAIL_DAILY_CAP 주석 참조.
+  if (await todayEmailCount(env) >= SIGNUP_EMAIL_DAILY_CAP)
+    return err(429, `오늘 가입 인증 메일 발송이 많아 잠시 제한되었습니다. 내일 다시 시도해주시거나 ${BUSINESS_INFO.email}로 문의해주세요.`, origin);
 
   const now = Date.now();
   const prev = await env.DB.prepare('SELECT * FROM email_otp WHERE email = ?').bind(email).first();
@@ -1682,7 +1709,10 @@ async function handleAdminOpsStatus(request, env, origin) {
 
   return ok({
     sms,                                                    // { balance, point } 또는 { error }
-    email: { today: (emailToday && emailToday.count) || 0, month: (emailMonth && emailMonth.n) || 0, dailyLimit: EMAIL_DAILY_FREE },
+    // signupCap: 이 수를 넘으면 **가입 인증메일만** 끊긴다(재설정·주문확인 몫을 남기기 위해).
+    // 화면이 "67/100"만 보여 주면 운영자는 이미 가입이 막힌 줄 모른다 — 그래서 임계값을 함께 내려보낸다.
+    email: { today: (emailToday && emailToday.count) || 0, month: (emailMonth && emailMonth.n) || 0,
+             dailyLimit: EMAIL_DAILY_FREE, signupCap: SIGNUP_EMAIL_DAILY_CAP },
     ai:    { today: (aiToday && aiToday.n) || 0, month: (aiMonth && aiMonth.n) || 0 },
     // Anthropic 잔액은 조회 API가 없다 — 화면이 이 사실을 그대로 표시한다(위 주석 참조).
     anthropic: { balanceApi: false, reason: '남은 크레딧을 조회하는 공개 API가 없습니다. 콘솔에서 확인해 주세요.' },
