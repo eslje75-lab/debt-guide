@@ -96,27 +96,40 @@
 
 **설정 위치**: Cloudflare 대시보드 → `chamroad.com` → **Security rules** → **Create rule** → **Rate limiting rules**
 
-**만들 규칙**
+**만들 규칙** — **Edit expression**에 아래를 그대로 붙여넣는 것이 가장 안전하다(항목을 하나씩 고르다 군더더기가 섞이기 쉽다).
+
+```
+(http.request.uri.path eq "/api/auth/send-signup-code") or (http.request.uri.path eq "/api/auth/request-reset")
+```
+
 - **Rule name**: `auth-mail-burst`
-- **If incoming requests match**: `URI Path` **equals** `/api/auth/send-signup-code`
-  **Or** `URI Path` **equals** `/api/auth/find-account`
-  (이 둘이 **메일을 쏘는 비로그인 엔드포인트**다. 로그인은 코드에 이메일별 실패 잠금이 이미 있어 후순위)
 - **With the same characteristics**: `IP`
 - **When rate exceeds**: **5** requests per **10 seconds**
 - **Then take action**: `Block`, **Duration** 10 seconds
 
+🔴**경로를 정확히 쓸 것.** 이 둘이 **메일을 쏘는 비로그인 엔드포인트**다.
+⚠️**`/api/auth/find-account`는 API 경로가 아니다** — 그건 화면 파일 이름(`find-account.html`)이고, 실제 API는 **`/api/auth/request-reset`**이다(2026-08-15에 이 실수를 실제로 했고, 연타 테스트에서 404가 떠서 발견했다).
+`/api/auth/resend-verification`도 메일을 보내지만 **로그인이 필요해** 노출이 낮다 — 조건을 더 넣고 싶으면 이것을 세 번째로.
+로그인(`/api/auth/login`)은 코드에 이메일별 실패 잠금이 이미 있어 후순위다.
+
 **임계값 근거**: 우리 코드가 이미 **같은 주소 60초 쿨다운**을 걸고 있어 정상 이용자는 10초에 5회를 만들 수 없다. 실수로 연타해도 걸리지 않는 선이다.
 
-**⚠️만든 뒤 반드시 검증할 것.** `api.chamroad.com`은 **Worker 커스텀 도메인**인데, 커스텀 도메인 트래픽에 zone의 rate limiting이 적용되는지 **공식 문서에서 명시를 찾지 못했다**(2026-08-15). 그러니 가정하지 말고 확인한다.
+**✅검증 완료 (2026-08-15) — Worker 커스텀 도메인에도 rate limiting이 적용된다.**
+공식 문서에서 명시를 찾지 못해 미확인으로 뒀던 항목인데, 실제로 걸어 보고 확인했다.
+`api.chamroad.com`에 **동시 12건**을 쏘자 **6건이 429로 차단**됐다(소요 563ms). 가정이 아니라 실측이다.
 
-```powershell
-# 같은 경로로 8번 연타 → 뒤쪽이 429/403으로 막히면 규칙이 걸린 것이다
-1..8 | ForEach-Object {
-  curl.exe -s -o NUL -w "%{http_code}`n" -X POST "https://api.chamroad.com/api/auth/find-account" `
-    -H "Content-Type: application/json" --data "{}"
-}
+재확인이 필요하면(규칙을 고친 뒤 등) 아래로 돌린다. 빈 본문 `{}`이라 **메일이 나가지 않고 계정 존재도 노출되지 않는다** — 서버 검증에서 400으로 끊기지만 rate limiting은 그 앞 단계에서 요청 수를 세므로 카운트에는 들어간다.
+
+```javascript
+// node <파일>.js  — 동시 12건 발사 후 상태코드 집계
+const U = 'https://api.chamroad.com/api/auth/send-signup-code';
+Promise.all(Array.from({length:12}, () =>
+  fetch(U, {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
+    .then(r => r.status).catch(() => 'ERR')
+)).then(s => console.log(s.join(' ')));
 ```
-그리고 대시보드 **Security → Events**에서 차단 기록이 보이는지 본다. **안 걸리면** 커스텀 도메인에 적용되지 않는다는 뜻이므로, 그 사실을 여기 적어 두고 애플리케이션 층 방어(아래)에 의존한다.
+429가 섞여 나오면 걸린 것이다. 대시보드 **Security → Events**에도 기록이 남는다.
+⚠️**404가 나오면 경로가 틀린 것이다** — 라우트 목록은 `api/src/index.js`의 `ROUTES`에서 확인할 것.
 
 **기대치를 정확히**: 무료 플랜의 10초 창은 **단순 연타 스크립트**를 끊을 뿐, 여러 IP로 천천히 도는 요청은 못 막는다.
 🔴**실질적인 방어선은 위 「하루 60통 넘으면 가입 메일 차단」(`SIGNUP_EMAIL_DAILY_CAP`)이고, WAF 규칙은 과속방지턱이다.** 순서를 거꾸로 이해하지 말 것.
