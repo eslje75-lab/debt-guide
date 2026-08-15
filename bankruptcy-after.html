@@ -168,6 +168,45 @@
     </p>
   </div>
 
+  <!-- 취하·중도 이탈. 사이트 전체에 0건이던 경로다. 파산 선고 후에는 '취하'가 아니라 제538조가 그 자리를 대신한다. -->
+  <details class="fold bg-white rounded-2xl shadow-sm border border-slate-100">
+    <summary class="px-5 py-4 flex items-center justify-between gap-2 hover:bg-slate-50 rounded-2xl">
+      <span class="font-bold text-slate-800 text-sm">마음이 바뀌었습니다 — 신청을 되돌릴 수 있나요?</span>
+      <span class="fold-shut text-xs text-slate-400 shrink-0">펼치기 ▼</span>
+      <span class="fold-open text-xs text-slate-400 shrink-0">접기 ▲</span>
+    </summary>
+    <div class="px-5 pb-5">
+      <p class="text-sm text-slate-600 leading-relaxed">
+        <strong>파산선고를 이미 받았다면 「취하」라는 길은 사실상 닫혀 있습니다.</strong> 법이 마련해 둔 되돌리기는
+        <strong>제538조의 「동의에 의한 파산폐지」</strong> 하나인데, 요건이 무겁습니다.
+      </p>
+      <ul class="list-disc pl-5 mt-2 space-y-1 text-[13px] text-slate-600">
+        <li>채권신고기간 안에 신고한 <strong>파산채권자 전원의 동의</strong>를 얻은 때(제1항 제1호), 또는</li>
+        <li>동의하지 않은 채권자에 대하여 <strong>다른 파산채권자의 동의를 얻어 파산재단으로부터 담보를 제공</strong>한 때(같은 항 제2호)</li>
+      </ul>
+      <p class="text-[13px] text-slate-600 leading-relaxed mt-2">
+        <strong>채권자 전원의 동의</strong>가 전제라 현실적으로는 드문 경로입니다. 이 재판에는 즉시항고를 할 수 있습니다(같은 조 제3항).
+      </p>
+      <p class="text-xs text-slate-500 bg-slate-50 rounded-lg p-3 mt-3 leading-relaxed">
+        ⚠️ <strong>파산선고 전의 취하</strong>에 관해서는 파산 쪽에 이를 정한 명문 규정을 <strong>확인하지 못했습니다.</strong>
+        (아래 개인회생의 제594조, 회생절차의 제48조에 해당하는 조문을 파산에서는 찾지 못했습니다.)
+        선고 전에 그만두려 한다면 <strong>사건이 있는 법원에 먼저 문의하세요.</strong>
+      </p>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3">
+        <p class="text-[13px] text-slate-700 leading-relaxed">
+          🔴 <strong>개인회생은 규정이 분명하고, 함정이 하나 있습니다.</strong> 제594조는
+          “채무자는 개인회생절차의 <strong>개시결정이 있기 전</strong>에는 신청을 취하할 수 있다.
+          다만, 채무자가 <strong>제592조의 보전처분, 제593조의 중지명령을 받은 후에는 법원의 허가를 받아야</strong> 신청을 취하할 수 있다”고 정합니다.
+          <strong>추심이 멈춘 것을 보고 “이제 됐다”며 임의로 그만두면 안 됩니다</strong> — 그 멈춤이 바로 보전처분·중지명령이고,
+          그 뒤로는 <strong>법원의 허가</strong>가 있어야 취하가 됩니다.
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2 mt-3">
+        <a href="resources.html?q=withdraw" class="text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">취하에 관한 FAQ</a>
+      </div>
+    </div>
+  </details>
+
   <!-- 기간이 붙은 절차 — 법이 직접 정한 기간만 적는다(실무 소요기간과 섞지 않는다) -->
   <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
     <h2 class="font-bold text-slate-800 mb-3">법이 정한 기간</h2>
@@ -445,8 +484,35 @@
       그래도 <strong>처음부터 빠짐없이 적는 것이 유일하게 안전한 길</strong>입니다 — 나중에 다투는 부담을 스스로 지지 않으려면요.
       자세한 항목은 아래 안내에 정리되어 있습니다.
     </p>
+    <!-- 연대보증 — 회생 쪽(제625조 제3항)은 discharge.html에 있는데 파산 제567조가 없었다.
+         하필 면책 확정이 채권자가 보증인에게 청구를 옮기는 시점이라, 이 페이지에 없는 것이 문제였다.
+         ⚠️"보증인도 같이 신청해야 하나"는 개별 사정에 따른 판단이므로 답하지 않는다(변호사법 제109조). 사실만 적는다. -->
+    <div class="border-2 border-amber-300 bg-amber-50 rounded-xl p-4 mt-4">
+      <p class="font-semibold text-amber-900 text-sm mb-1">🤝 보증을 선 사람에게는 그대로 남습니다</p>
+      <div class="bg-white rounded-lg p-3 mt-2">
+        <p class="text-xs text-slate-500 mb-1">채무자 회생 및 파산에 관한 법률 제567조 (보증인 등에 대한 효과)</p>
+        <p class="text-[13px] text-slate-700 leading-relaxed">
+          “면책은 파산채권자가 채무자의 <strong>보증인 그 밖에 채무자와 더불어 채무를 부담하는 자</strong>에 대하여 가지는 권리와
+          파산채권자를 위하여 제공한 <strong>담보에 영향을 미치지 아니한다</strong>.”
+        </p>
+      </div>
+      <p class="text-[13px] text-slate-700 leading-relaxed mt-2">
+        면책은 <strong>신청한 본인에게만</strong> 미칩니다. 부모·배우자·지인이 보증을 섰다면 <strong>그 사람의 갚을 의무는 그대로 남고</strong>,
+        내 채무를 위해 제공된 담보도 그대로입니다. 🔴<strong>오히려 면책이 확정되면 채권자는 받을 곳이 보증인뿐이 되므로, 그때부터 보증인에게 청구가 갑니다.</strong>
+        보증인이 그 사실을 모르고 있으면 관계가 크게 상합니다 — <strong>미리 알리세요.</strong>
+      </p>
+      <p class="text-[13px] text-slate-700 leading-relaxed mt-2">
+        보증인이 대신 갚으면 그 사람은 나에게 <strong>돌려달라고 할 권리(구상권)</strong>를 갖게 됩니다. 그것도 <strong>내 채무</strong>이므로
+        신청 단계의 <strong>채권자목록에 빠뜨리지 않도록</strong> 주의하세요(위 제566조 제7호와 이어집니다).
+      </p>
+      <p class="text-xs text-slate-500 leading-relaxed mt-2">
+        ※ 보증인이 함께 신청하는 것이 나은지는 <strong>그 사람의 재산·소득 사정에 따라 달라지는 판단</strong>이라 이 안내에서 정해 드리지 않습니다.
+        본 서비스는 법률상담·법률대리를 제공하지 않습니다.
+      </p>
+    </div>
     <div class="flex flex-wrap gap-2 mt-3">
       <a href="bankruptcy.html" class="text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">개인파산 절차 안내</a>
+      <a href="resources.html?q=guarantor" class="text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">보증인 영향 — FAQ</a>
       <a href="resources.html?q=discharge-denied" class="text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">면책불허가가 되면 — FAQ</a>
       <a href="resources.html?q=credit-recovery" class="text-xs text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">신용은 언제 회복되나 — FAQ</a>
     </div>
