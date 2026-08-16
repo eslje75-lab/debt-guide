@@ -274,6 +274,23 @@ Tailwind의 `group-open:`은 CDN 버전에 따라 없을 수 있어 쓰지 않�
 </html>
 ```
 
+### 유료 본문은 서버에 있다 (2026-08-16) — 콘텐츠를 고치기 전에 읽을 것
+
+회생·파산 완주 패키지의 **2단계 이후 본문**은 정적 HTML이 아니라 **`api/src/content/`** 에 있다.
+
+| | 어디에 | 누가 볼 수 있나 |
+|---|---|---|
+| 1단계(미리보기) | `rehabilitation.html` / `bankruptcy.html` 안 `*_FREE` | 누구나 |
+| 2단계~8단계 본문 · 서식 예시 | `api/src/content/rehab-steps.js` · `bankrupt-steps.js` | `GET /api/content/steps?type=` 가 이용권 확인 후 |
+
+- **왜**: 종전에는 8단계 전문이 정적 파일에 평문으로 있어 `curl https://chamroad.com/rehabilitation.html` 한 번이면 149,000원짜리 내용이 통째로 읽혔다. 잠금이 클라이언트 렌더 분기뿐이었기 때문이다. `pricing.html`이 "가이드·예시 **열람**"을 판매 항목으로 적고 있으므로 매출과 직결된다.
+- 🔴**콘텐츠를 고치면 화면이 아니라 Worker가 배포돼야 반영된다**(`api/**` 변경 → GitHub Actions 자동 배포). 고치고 나서 화면만 새로고침하면 안 바뀐 것처럼 보인다.
+- 🔴**항목을 추가·삭제하면 HTML의 `*_SKELETON`(단계 제목 + 항목 id)도 함께 고칠 것.** 로드맵과 진행률이 그 뼈대를 쓰기 때문에, 어긋나면 구매 전 화면의 진행률 총계가 틀린다.
+- **1단계를 유료로 옮기지 말 것.** 그 미리보기 범위가 「전자상거래법 시행령」 제21조의2 제1호의 '일부 이용 허용'에 해당해 **환불 제한의 근거**다. 경계를 바꾸려면 약관·`pricing.html`의 환불 문구를 함께 봐야 한다.
+- 판정은 `activeEntitlements`(기간이 살아 있는 이용권)로 한다 — 환불 시 `revokePackage`가 entitlements를 지우므로 **환불 즉시 본문도 닫힌다**.
+- 서버가 못 내려주면 **캐시하지 않고** 오류 안내 + [다시 시도] 버튼을 그린다(`contentStateCard`). 유료 본문을 브라우저에 남기면 서버 게이팅의 의미가 줄고 환불 후에도 남는다.
+- ⚠️ `maintenance.html`·`supplement.html`은 **아직 정적이다**(페이지 전체가 유료라 구조가 다르다). 같은 이관이 필요하다.
+
 ### 요금제·결제
 
 `pricing.html` — 회생 완주 패키지 149,000원 / 변제기간 관리 패키지 29,000원 / 파산 완주 패키지 49,000원 / 보정 추가 대응 19,000원·회. 결제 기능 미구현(mock 모달만 존재). 구매 시 `plan='premium'`과 함께 `plan_package`(rehab-full / maintain / correction-rehab / bankrupt-full / correction-bankrupt)·`plan_package_name`이 저장되고 패키지별 전용 페이지로 이동 — 완주 패키지는 `rehabilitation.html`/`bankruptcy.html`, 변제기간 관리는 `maintenance.html`, 보정 추가 대응은 `supplement.html?type=rehab|bankrupt`.

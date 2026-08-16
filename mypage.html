@@ -198,7 +198,10 @@
   // 이 페이지는 이용자가 입력한 값(이름·서류 초안 미리보기)을 innerHTML로 그린다.
   // 자기 브라우저에서만 렌더되는 값이라 교차 사용자 공격은 아니지만,
   // 세션 토큰이 localStorage에 있으므로 HTML 해석 자체를 차단한다.
-  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  // 작은따옴표까지 이스케이프한다(심층방어). ⚠️ 인라인 onclick 안에서는 &#39;가 다시 '로 디코드되므로
+  // 이스케이프만으로는 못 막는다 — 이용자 문자열을 버튼에 실어야 하면 admin.html처럼 data-*를 쓸 것.
+  // 여기 onclick에 들어가는 payment_id는 서버가 만든 값('chamroad-'+UUID)이라 현재는 공격면이 없다.
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 
   // 서류 '준비 완료' 개수 — 실제 체크(true)만 카운트('해당없음' 처리는 제외)
   function calcChecks(key) {

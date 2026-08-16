@@ -22,6 +22,11 @@
  *     이름+이메일만으로 재설정하는 방식은 계정 탈취 경로라 쓰지 않는다.
  */
 
+// 유료 본문(회생·파산 완주 패키지의 2단계 이후). 정적 HTML에 두면 결제 없이 읽히므로 여기로 옮겼다.
+// 콘텐츠를 고치면 화면이 아니라 Worker가 배포돼야 반영된다 — 자세한 것은 handleContentSteps 주석.
+import * as REHAB_CONTENT from './content/rehab-steps.js';
+import * as BANKRUPT_CONTENT from './content/bankrupt-steps.js';
+
 // 로그인 무차별 대입 방어 — 윈도우 내 실패 한도 초과 시 잠금.
 const LOGIN_MAX_FAILS = 5;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;   // 실패 누적 윈도우 15분
@@ -71,7 +76,11 @@ const OTP_TTL_MS = 3 * 60 * 1000;       // 인증코드 유효 3분(화면 카�
 const SIGNUP_VERIFIED_TTL_MS = 30 * 60 * 1000;   // 이메일 인증 후 가입 완료까지 허용 시간
 const OTP_COOLDOWN_MS = 60 * 1000;      // 재발송 쿨다운 60초
 const OTP_WINDOW_MS = 60 * 60 * 1000;   // 발송횟수 제한 윈도우 1시간
-const OTP_MAX_SENDS = 5;                // 윈도우 내 최대 발송
+const OTP_MAX_SENDS = 5;                // 윈도우 내 최대 발송(계정당)
+// 수신번호 기준 한도 — 위 셋은 전부 '계정당'이라 계정을 여러 개 만들면 같은 번호로 계속 보낼 수 있었다
+// (2026-08-16 보안감사). 피해자 쪽에 상한을 두는 것이 목적이고, 정상 이용자는 하루 10통에 닿지 않는다.
+const PHONE_WINDOW_MS = 24 * 60 * 60 * 1000;
+const PHONE_MAX_PER_NUMBER = 10;
 const OTP_MAX_ATTEMPTS = 5;             // 코드 검증 최대 시도
 
 // 사용자 데이터 동기화(Phase 2) 한도
@@ -248,10 +257,17 @@ function json(data, status, origin) {
 const ok = (data, origin) => json({ ok: true, ...data }, 200, origin);
 const err = (status, message, origin) => json({ ok: false, error: message }, status, origin);
 
+/* 본문 크기 상한은 **실제로 읽은 바이트**로 판단한다.
+   종전에는 `Content-Length` 헤더만 봤는데, 그 헤더는 클라이언트가 주는 값이고 HTTP/2에는 필수도 아니라
+   생략하면 `len=0`이 되어 검사를 그냥 통과했다(2026-08-16 보안감사). 상한을 두고도 안 걸리는 상태였다.
+   ⚠️ text()로 먼저 받으므로 판단 전에 본문이 메모리에 올라온다 — Cloudflare 자체 본문 상한과
+      Worker CPU 제한이 그 바깥 울타리다. 여기서 막는 것은 '상한을 넘긴 본문의 파싱·저장'이다. */
 async function readJson(request, maxBytes = MAX_BODY_BYTES) {
-  const len = parseInt(request.headers.get('Content-Length') || '0', 10);
-  if (len > maxBytes) return null;
-  try { return await request.json(); } catch { return null; }
+  let text;
+  try { text = await request.text(); } catch { return null; }
+  // 한글은 UTF-8에서 3바이트다 — 글자 수가 아니라 바이트로 재야 상한이 의도대로 걸린다.
+  if (new TextEncoder().encode(text).length > maxBytes) return null;
+  try { return JSON.parse(text); } catch { return null; }
 }
 
 /* ── 세션 ── */
@@ -303,7 +319,17 @@ async function sendEmail(env, to, subject, html) {
       },
       body: JSON.stringify({ from: EMAIL_FROM, to, subject, html }),
     });
-    if (!res.ok) { console.error('email send fail', res.status, await res.text().catch(() => '')); return false; }
+    if (!res.ok) {
+      // ⚠️ 응답 본문을 그대로 남기지 말 것 — Resend의 오류 메시지에는 **수신 주소가 들어올 수 있다**.
+      //    Worker는 observability가 켜져 있어 그 로그가 그대로 보관된다(2026-08-16 보안감사).
+      //    원인 파악에 필요한 것은 상태코드와 오류 유형이지 누구에게 보내려 했는지가 아니다.
+      //    `message`는 쓰지 않는다 — Resend는 "Invalid `to` field: ..." 처럼 주소를 문장에 넣는다.
+      //    `name`은 'validation_error' 같은 오류 유형 코드뿐이라 안전하다.
+      let kind = '';
+      try { const j = await res.json(); kind = String(j.name || '').slice(0, 40); } catch (e) {}
+      console.error('email send fail', res.status, kind);
+      return false;
+    }
     // 발송 수 집계 — Resend 무료 한도(일 100통)를 관리자 화면에서 감시하기 위한 것.
     // ⚠️ 집계 실패가 메일 발송을 깨면 안 되므로 통째로 삼킨다(표가 없어도 메일은 나간다).
     try {
@@ -405,7 +431,14 @@ async function sendSms(env, to, text) {
       },
       body: JSON.stringify({ message: { to, from: env.SMS_SENDER, text } }),
     });
-    if (!r.ok) { console.error('sms send fail', r.status, (await r.text().catch(() => '')).slice(0, 200)); return false; }
+    // 메일과 같은 이유로 응답 본문을 그대로 남기지 않는다 — 솔라피 오류 응답에는 수신번호가 들어온다.
+    // 오류 코드(errorCode)만 남기면 원인 파악에는 충분하다.
+    if (!r.ok) {
+      let kind = '';
+      try { const j = await r.json(); kind = String(j.errorCode || j.status || '').slice(0, 40); } catch (e) {}
+      console.error('sms send fail', r.status, kind);
+      return false;
+    }
     return true;
   } catch (e) { console.error('sms send error', e); return false; }
 }
@@ -625,24 +658,48 @@ async function handleSignup(request, env, origin) {
 // Turnstile 토큰 검증. 시크릿 미설정이면 통과시킨다(기능 도입 전/설정 전에도 가입은 되어야 함).
 // 토큰은 1회용이라 실패 시 프론트에서 위젯을 reset해야 재시도가 된다.
 // 네트워크 오류로 Cloudflare에 못 물어본 경우도 통과시킨다 — 캡차 장애가 가입 전면 중단이 되면 안 된다.
+/* 캡차 검증. **통과시키는 실패(fail-open)를 최대한 좁힌다.**
+
+   원래는 오류가 나면 무조건 true였다. 그래서 siteverify가 잠깐 흔들리는 동안 캡차가 통째로 열리고,
+   그때 `send-signup-code`의 409 응답으로 회원 이메일을 자동 열거할 수 있었다(2026-08-16 보안감사).
+   회생·파산 서비스의 회원 명단은 "누가 도산 절차를 준비 중인가"라는 신호라 그 자체로 민감하다.
+
+   그래서 이렇게 바꿨다:
+   ① 3초 타임아웃을 걸고 **한 번 재시도**한다. 순간적인 흔들림은 여기서 대부분 흡수된다.
+   ② 두 번 다 실패해야 통과시킨다. 실제 장애일 때 가입이 전면 중단되는 것은 여전히 막는다
+      — 이 서비스는 1인 운영이라 한밤중 장애를 사람이 즉시 알아채지 못한다.
+   ③ 통과시킬 때는 `TURNSTILE_FAIL_OPEN`으로 로그를 남긴다. 무슨 일이 있었는지 사후에 셀 수 있어야 한다.
+   ⚠️ 시크릿 미설정도 통과다(로컬 개발용). 운영에서 빠지면 캡차가 통째로 무효이므로
+      운영 대시보드(handleAdminOpsStatus)가 설정 여부를 보여 준다. */
+const TURNSTILE_TIMEOUT_MS = 3000;
+
 async function verifyTurnstile(env, token, ip) {
   if (!env.TURNSTILE_SECRET) return true;
   if (!token || typeof token !== 'string') return false;
-  try {
-    const form = new URLSearchParams({ secret: env.TURNSTILE_SECRET, response: token });
-    if (ip) form.set('remoteip', ip);
-    const r = await fetch(TURNSTILE_VERIFY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: form.toString(),
-    });
-    const j = await r.json();
-    if (!j.success) console.error('turnstile rejected', JSON.stringify(j['error-codes'] || []));
-    return j.success === true;
-  } catch (e) {
-    console.error('turnstile verify error', e.message);
-    return true;
+
+  const form = new URLSearchParams({ secret: env.TURNSTILE_SECRET, response: token });
+  if (ip) form.set('remoteip', ip);
+
+  let lastErr = '';
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const r = await fetch(TURNSTILE_VERIFY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form.toString(),
+        signal: AbortSignal.timeout(TURNSTILE_TIMEOUT_MS),
+      });
+      const j = await r.json();
+      // 응답이 왔다면 그 판정을 따른다 — 거절은 거절이다(여기서 통과시키면 캡차가 없는 것과 같다).
+      if (!j.success) console.error('turnstile rejected', JSON.stringify(j['error-codes'] || []));
+      return j.success === true;
+    } catch (e) {
+      lastErr = e.message;
+      // 첫 번째 실패는 조용히 다시 시도한다.
+    }
   }
+  console.error('TURNSTILE_FAIL_OPEN 캡차 검증 2회 실패 — 통과시킴:', lastErr);
+  return true;
 }
 
 async function recordLoginFail(env, email, att, now) {
@@ -673,9 +730,14 @@ async function handleLogin(request, env, origin) {
   const att = await env.DB.prepare(
     'SELECT fail_count, window_start, locked_until FROM login_attempts WHERE email = ?'
   ).bind(email).first();
+  // ⚠️ 잠금 키가 이메일이라 **남의 이메일로 일부러 틀려 표적 계정을 잠글 수 있다**(2026-08-16 보안감사).
+  //    IP를 키에 넣는 방법은 CGNAT·공용 와이파이에서 정상 이용자를 무더기로 막아 더 나쁘다.
+  //    그래서 잠금은 그대로 두되 **복구 경로를 안내에 명시**한다 — 비밀번호 재설정에 성공하면
+  //    이메일 통제를 입증한 것이므로 잠금도 함께 풀린다(handleResetPassword의 login_attempts 삭제).
+  //    피해자가 15분을 기다리는 것 말고 할 수 있는 일이 있다는 것을 화면에서 알 수 있어야 한다.
   if (att && att.locked_until && att.locked_until > now) {
     const mins = Math.ceil((att.locked_until - now) / 60000);
-    return err(429, `로그인 시도가 많아 약 ${mins}분간 제한되었습니다. 잠시 후 다시 시도해주세요.`, origin);
+    return err(429, `로그인 시도가 많아 약 ${mins}분간 제한되었습니다. 잠시 후 다시 시도하시거나, 지금 바로 이용하시려면 비밀번호 재설정을 진행해주세요(재설정하면 제한이 해제됩니다).`, origin);
   }
 
   const user = await env.DB.prepare(
@@ -757,10 +819,27 @@ async function handleSendCode(request, env, origin) {
     }
   }
 
+  // 수신번호 기준 한도. 위 검사는 전부 세션(계정) 기준이라 계정을 갈아타면 무력화된다.
+  // 회수 예약과 같은 방식으로 **보내기 전에** 원자적으로 선점한다 — 조건부 UPDATE의 changes로 판정.
+  await env.DB.prepare(
+    `INSERT INTO phone_send_log (phone, window_start, send_count) VALUES (?1, ?2, 0)
+     ON CONFLICT(phone) DO UPDATE SET window_start = ?2, send_count = 0 WHERE window_start < ?3`
+  ).bind(phone, now, now - PHONE_WINDOW_MS).run();
+  const slot = await env.DB.prepare(
+    'UPDATE phone_send_log SET send_count = send_count + 1 WHERE phone = ? AND send_count < ?'
+  ).bind(phone, PHONE_MAX_PER_NUMBER).run();
+  if (slot.meta.changes !== 1)
+    return err(429, '이 번호로 보낸 인증 문자가 많습니다. 24시간 후 다시 시도해주세요.', origin);
+
   const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
   const codeHash = await sha256hex(code);
   const sent = await sendSms(env, phone, `[챔로드] 인증번호 ${code} (3분 내 입력). 타인에게 알려주지 마세요.`);
-  if (!sent) return err(502, '문자 발송에 실패했습니다. 번호를 확인하고 잠시 후 다시 시도해주세요.', origin);
+  if (!sent) {
+    // 나가지 않은 문자는 한도를 쓰지 않는다(선점했으니 되돌린다).
+    await env.DB.prepare('UPDATE phone_send_log SET send_count = send_count - 1 WHERE phone = ? AND send_count > 0')
+      .bind(phone).run().catch(() => {});
+    return err(502, '문자 발송에 실패했습니다. 번호를 확인하고 잠시 후 다시 시도해주세요.', origin);
+  }
 
   await env.DB.prepare(
     `INSERT INTO phone_otp (user_id, phone, code_hash, expires_at, attempts, last_sent, window_start, send_count)
@@ -1063,9 +1142,23 @@ async function handleSyncData(request, env, origin) {
 /* ── 주민등록번호 자동 가리기 (진짜 경계선) ──
    「개인정보 보호법」 제24조의2: 법령에 구체적 근거가 없으면 주민등록번호는 **동의를 받아도** 처리할 수 없다.
    화면(js/main.js maskIdNumbers)에서도 가리지만 클라이언트는 우회할 수 있으므로, 외부(Anthropic)로
-   나가기 전과 저장 전에 서버가 다시 지운다. 한쪽만 고치지 말 것 — 두 곳의 정규식은 같아야 한다. */
+   나가기 전과 저장 전에 서버가 다시 지운다. 한쪽만 고치지 말 것 — 두 곳의 정규식은 같아야 한다.
+
+   ⚠️ 구분자를 하이픈 하나로만 보면 안 된다(2026-08-15 보안감사에서 11/14 통과). HWP·Word는 숫자 사이
+      하이픈을 자동으로 en dash(–)로 바꾸고 PDF 복사는 U+2010을 낳는다. 즉 법원 서류를 붙여넣는
+      정상 경로가 곧 우회 경로였다. 전각 숫자(０~９)도 같은 이유로 함께 본다.
+   ⚠️ 뒤 7자리 첫 글자는 [1-8]을 유지한다(1~4 내국인 / 5~8 외국인등록번호). 9·0은 1900년 이전 출생이라
+      사실상 없는데, 넣으면 6자리+7자리 형식의 계좌번호를 잘못 가린다.
+   ⚠️ 구분자 주위에 공백을 허용하지 말 것. 한 번 `\s{0,2}`로 넓혔다가 서류가 깨졌다(2026-08-15 반박검증):
+      `잔액 500000 - 1234567`(뺄셈), `원금 500000\n- 1234567원`(개행을 건너뛴 불릿 두 줄),
+      `이자 500000 −1234567`(음수 표기)가 전부 주민번호로 잡혔다. 마침표도 같은 이유로 뺐다(`123456.1234567`).
+      대시가 숫자에 붙어 있거나 구분자가 아예 없을 때만 가린다.
+   ⚠️ 남은 한계 두 가지를 알고 쓸 것: ①공백 구분(`901010 1234567`)은 못 잡는다 — 잡으면 표에서 떨어진
+      두 금액(`500000 1200000`)까지 가려진다. ②반대로 6자리-7자리 형식의 계좌번호·법인등록번호는
+      과하게 가린다(원래부터 그랬다). 둘 다 형식만으로는 못 가르는 문제라, 정확히 하려면
+      라벨 근접("주민등록번호" 뒤 20자 이내) 판정을 더해야 한다. */
 const RRN_MASK = '○○○○○○-○○○○○○○';
-const RRN_RE = /(?<![0-9])[0-9]{6}-?[1-8][0-9]{6}(?![0-9])/g;
+const RRN_RE = /(?<![0-9０-９])[0-9０-９]{6}[-­‐-―−－]?[1-8１-８][0-9０-９]{6}(?![0-9０-９])/g;
 
 function maskIdNumbers(text) {
   return typeof text === 'string' ? text.replace(RRN_RE, RRN_MASK) : text;
@@ -1359,19 +1452,20 @@ async function handleAiReview(request, env, origin) {
   const consentErr = await requireSensitiveConsent(env, session, body, origin);
   if (consentErr) return consentErr;
 
-  const gate = await checkAiQuota(env, session, origin);
+  // 회수는 **부르기 전에** 깎는다. 실패하면 아래에서 되돌린다(reserveAiQuota 주석 참조).
+  const gate = await reserveAiQuota(env, session, origin);
   if (gate.error) return gate.error;
 
   let review;
   try {
     review = await callClaude(env.ANTHROPIC_API_KEY, docLabel, checklist, text, context);
   } catch (e) {
+    await gate.rollback();
     console.error('ai review failed', e.message);
     return err(502, 'AI 검토 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', origin);
   }
 
-  const spent = await consumeAiQuota(env, session, gate);
-  return ok({ review, ...spent }, origin);
+  return ok({ review, ...gate.spent }, origin);
 }
 
 /* ── 민감정보 처리에 대한 별도 동의 (개인정보 보호법 제23조) ──
@@ -1408,10 +1502,23 @@ async function handleSensitiveConsent(request, env, origin) {
   return ok({ sensitiveConsent: body.consent }, origin);
 }
 
-/* ── AI 회수 판정·차감 (서류검토와 서류 간 대조가 같은 회수를 쓴다) ──
+/* ── AI 회수 예약·환원 (서류검토와 서류 간 대조가 같은 회수를 쓴다) ──
    두 기능이 같은 Anthropic 실비를 태우므로 회수도 한 주머니에서 나간다.
-   나눠서 관리하면 이용자도 헷갈리고 잔여 표시도 두 벌이 된다. */
-async function checkAiQuota(env, session, origin) {
+   나눠서 관리하면 이용자도 헷갈리고 잔여 표시도 두 벌이 된다.
+
+   🔴 **먼저 깎고 부르고, 실패하면 되돌린다.** 종전에는 "검사 → Claude 호출 → 차감" 순서였는데,
+   검사와 차감 사이에 Anthropic 왕복(수 초)이 통째로 들어가 그 사이 도착한 동시 요청이 **전부 검사를
+   통과**했다(2026-08-15 보안감사·반박검증 CONFIRMED). 차감은 `ai_used < ai_quota` 가드가 12에서
+   멈추지만 **이미 발사된 API 호출의 실비는 되돌아오지 않는다.** Anthropic은 선불이라 잔액이 마르면
+   정상 구매자의 검토가 즉시 중단된다. 버튼 두 번 누르기로도 회수 1회에 2건이 나갔다.
+
+   원자성은 조건부 UPDATE의 `meta.changes`로 만든다 — SELECT로 읽고 판단하면 그 사이가 다시 열린다.
+   Workers는 `fetch()` 대기 중에도 다른 요청을 받고(대기는 CPU 시간에 잡히지 않는다), D1은
+   요청 간 트랜잭션을 걸어 주지 않으므로 애플리케이션 층에서 이렇게 막아야 한다.
+
+   ⚠️ `DAILY_AI_LIMIT`은 **이용자 1인당**이다. 앱 전체 상한(전역 백스톱)은 존재하지 않는다 —
+   OPERATIONS-COST.md가 "앱 전체 일 30회"라고 적은 것은 사실과 다르다. 비용 상한을 계산할 때 주의. */
+async function reserveAiQuota(env, session, origin) {
   // 유효한 이용권의 잔여 회수(패키지 총량제)만 인정한다. 여러 패키지를 보유하면 잔여가 많은 쪽부터 쓴다.
   // 미구매자 체험 1회는 폐지됨(위 PACKAGES 아래 주석 참조) — 이용권이 없으면 여기서 끝난다.
   const now = Date.now();
@@ -1426,33 +1533,62 @@ async function checkAiQuota(env, session, origin) {
       : '서류검토 AI는 패키지를 구매하신 회원만 이용할 수 있습니다.', origin) };
   }
 
-  // 남용 방지용 일일 상한(총량제와 별개). 스크립트로 총량을 한 번에 태우는 것을 막는다.
+  // 남용 방지용 1인 1일 상한(총량제와 별개). 스크립트로 총량을 한 번에 태우는 것을 막는다.
+  // 행을 먼저 0으로 만들어 두고(경합해도 ON CONFLICT DO NOTHING으로 하나만 성공) 조건부 증가로 게이트를 건다.
   const day = new Date(now).toISOString().slice(0, 10);
-  const row = await env.DB.prepare('SELECT count FROM ai_usage WHERE user_id = ? AND day = ?')
-    .bind(session.id, day).first();
-  const usedToday = row ? row.count : 0;
-  if (usedToday >= DAILY_AI_LIMIT)
+  await env.DB.prepare(
+    'INSERT INTO ai_usage (user_id, day, count) VALUES (?1, ?2, 0) ON CONFLICT(user_id, day) DO NOTHING'
+  ).bind(session.id, day).run();
+  const daily = await env.DB.prepare(
+    'UPDATE ai_usage SET count = count + 1 WHERE user_id = ? AND day = ? AND count < ?'
+  ).bind(session.id, day, DAILY_AI_LIMIT).run();
+  if (daily.meta.changes !== 1)
     return { error: err(429, `오늘 이용 가능한 검토 횟수(${DAILY_AI_LIMIT}회)를 모두 사용했습니다. 내일 다시 이용해주세요.`, origin) };
+  // 화면에 "오늘 이용 N/10회"를 그리므로 증가 후 값을 다시 읽는다(표시용이라 경합해도 무해).
+  const after = await env.DB.prepare('SELECT count FROM ai_usage WHERE user_id = ? AND day = ?')
+    .bind(session.id, day).first();
+  const usedToday = after ? after.count : 1;
 
-  return { ent, day, usedToday };
+  // 패키지 총량도 같은 방식으로 선점한다. 여기서 밀리면 방금 올린 일일 카운트를 되돌린다.
+  const taken = await env.DB.prepare(
+    'UPDATE entitlements SET ai_used = ai_used + 1 WHERE user_id = ? AND package = ? AND ai_used < ai_quota'
+  ).bind(session.id, ent.package).run();
+  if (taken.meta.changes !== 1) {
+    await releaseDaily(env, session.id, day);
+    return { error: err(403, '보유하신 패키지의 서류검토 AI 회수를 모두 사용했습니다. 추가 회수는 요금제에서 구매하실 수 있습니다.', origin) };
+  }
+
+  return {
+    ent, day,
+    // 이미 깎은 상태의 값이다(예약 성공 = 사용 확정). 호출이 실패하면 rollback이 되돌린다.
+    spent: {
+      quota: { type: 'package', package: ent.package, used: ent.ai_used + 1, limit: ent.ai_quota, left: ent.ai_quota - ent.ai_used - 1 },
+      usage: { used: usedToday, limit: DAILY_AI_LIMIT },
+    },
+    // Claude 호출이 실패했을 때만 부른다 — 실패한 호출이 회수를 소모하면 안 된다.
+    rollback: async () => {
+      try {
+        await env.DB.batch([
+          env.DB.prepare('UPDATE ai_usage SET count = count - 1 WHERE user_id = ? AND day = ? AND count > 0')
+            .bind(session.id, day),
+          env.DB.prepare('UPDATE entitlements SET ai_used = ai_used - 1 WHERE user_id = ? AND package = ? AND ai_used > 0')
+            .bind(session.id, ent.package),
+        ]);
+      } catch (e) {
+        // 환원 실패는 이용자에게 알리지 않는다(원 오류가 더 중요하다). 회수 1회를 손해 보는 쪽이 안전하다.
+        console.error('ai quota rollback failed', e.message);
+      }
+    },
+  };
 }
 
-// 성공 시에만 차감 — 실패한 호출은 회수를 소모하지 않는다
-async function consumeAiQuota(env, session, gate) {
-  const { ent, day, usedToday } = gate;
-  await env.DB.batch([
-    env.DB.prepare(
-      `INSERT INTO ai_usage (user_id, day, count) VALUES (?1, ?2, 1)
-       ON CONFLICT(user_id, day) DO UPDATE SET count = count + 1`
-    ).bind(session.id, day),
-    env.DB.prepare(
-      'UPDATE entitlements SET ai_used = ai_used + 1 WHERE user_id = ? AND package = ? AND ai_used < ai_quota'
-    ).bind(session.id, ent.package),
-  ]);
-  return {
-    quota: { type: 'package', package: ent.package, used: ent.ai_used + 1, limit: ent.ai_quota, left: ent.ai_quota - ent.ai_used - 1 },
-    usage: { used: usedToday + 1, limit: DAILY_AI_LIMIT },
-  };
+async function releaseDaily(env, userId, day) {
+  try {
+    await env.DB.prepare('UPDATE ai_usage SET count = count - 1 WHERE user_id = ? AND day = ? AND count > 0')
+      .bind(userId, day).run();
+  } catch (e) {
+    console.error('ai daily release failed', e.message);
+  }
 }
 
 /* ── 서류 간 대조 (서술 ↔ 숫자) ──
@@ -1640,19 +1776,20 @@ async function handleAiCrosscheck(request, env, origin) {
   const consentErr = await requireSensitiveConsent(env, session, body, origin);
   if (consentErr) return consentErr;
 
-  const gate = await checkAiQuota(env, session, origin);
+  // 서류검토와 같은 주머니를 쓴다 — 여기도 선차감이다.
+  const gate = await reserveAiQuota(env, session, origin);
   if (gate.error) return gate.error;
 
   let result;
   try {
     result = await callClaudeCrosscheck(env.ANTHROPIC_API_KEY, docLabel, text, figures, context);
   } catch (e) {
+    await gate.rollback();
     console.error('ai crosscheck failed', e.message);
     return err(502, 'AI 대조 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', origin);
   }
 
-  const spent = await consumeAiQuota(env, session, gate);
-  return ok({ result, ...spent }, origin);
+  return ok({ result, ...gate.spent }, origin);
 }
 
 /* ── 운영 상태 (관리자 대시보드) ──
@@ -1716,6 +1853,16 @@ async function handleAdminOpsStatus(request, env, origin) {
     ai:    { today: (aiToday && aiToday.n) || 0, month: (aiMonth && aiMonth.n) || 0 },
     // Anthropic 잔액은 조회 API가 없다 — 화면이 이 사실을 그대로 표시한다(위 주석 참조).
     anthropic: { balanceApi: false, reason: '남은 크레딧을 조회하는 공개 API가 없습니다. 콘솔에서 확인해 주세요.' },
+    // 시크릿이 빠지면 조용히 무효가 되는 것들. **값은 절대 내보내지 않고 설정 여부만** 본다.
+    // Turnstile 시크릿이 없으면 verifyTurnstile이 무조건 통과라 자동 가입 방지가 통째로 사라지는데,
+    // 화면에는 아무 표시가 없어 알아챌 방법이 없었다(2026-08-16 보안감사에서 '확인 불가'로 남았던 항목).
+    secrets: {
+      turnstile: !!env.TURNSTILE_SECRET,
+      resend: !!env.RESEND_API_KEY,
+      anthropic: !!env.ANTHROPIC_API_KEY,
+      solapi: !!(env.SOLAPI_API_KEY && env.SOLAPI_API_SECRET && env.SMS_SENDER),
+      portone: !!(env.PORTONE_STORE_ID && env.PORTONE_CHANNEL_KEY && env.PORTONE_API_SECRET),
+    },
     checkedAt: Date.now(),
   }, origin);
 }
@@ -1857,6 +2004,38 @@ async function handlePaymentHistory(request, env, origin) {
 // 유료 콘텐츠를 처음 연 시각을 기록한다(최초 1회만).
 // 전자상거래법 제17조 제2항 제5호의 '제공 개시' 시점 = 청약철회 가능 여부의 기준.
 // 프론트(main.js markContentAccess)가 잠금 해제 직후 호출한다.
+/* ── 유료 본문 내려주기 (2026-08-16 신설) ──
+   🔴 종전에는 `rehabilitation.html`·`bankruptcy.html`의 스크립트 안에 8단계 본문이 **평문으로 전부**
+   들어 있었고 잠금은 클라이언트 렌더 분기뿐이었다. `curl https://chamroad.com/rehabilitation.html`
+   한 번이면 149,000원 패키지의 전문이 읽혔다(2026-08-16 보안감사, 반박검증에서도 반박 실패).
+   `pricing.html`이 "가이드·예시 **열람**"을 판매 항목으로 적고 있으므로 이것은 매출과 직결된다.
+
+   이제 2단계 이후 본문은 이 엔드포인트만 준다. 1단계는 정적으로 남는데, 그 미리보기 범위가
+   전상법 시행령 제21조의2 제1호의 '일부 이용 허용'에 해당해 환불 제한의 근거이기 때문이다.
+   경계를 옮기려면 약관·pricing의 환불 문구를 함께 봐야 한다.
+
+   ⚠️ 판정은 `activeEntitlements`(기간이 살아 있는 이용권)로 한다 — 환불 시 revokePackage가
+   entitlements를 지우므로 환불 즉시 본문도 닫힌다. payments 행으로 보면 그 연동이 끊긴다. */
+const CONTENT_SETS = {
+  rehab: { pkg: 'rehab-full', mod: REHAB_CONTENT },
+  bankrupt: { pkg: 'bankrupt-full', mod: BANKRUPT_CONTENT },
+};
+
+async function handleContentSteps(request, env, origin) {
+  const session = await getSessionUser(env.DB, request);
+  if (!session) return err(401, '로그인이 필요합니다.', origin);
+
+  const type = new URL(request.url).searchParams.get('type') || '';
+  const set = CONTENT_SETS[type];
+  if (!set) return err(400, '알 수 없는 콘텐츠입니다.', origin);
+
+  const ents = await activeEntitlements(env.DB, session.id);
+  if (!ents.some(e => e.package === set.pkg))
+    return err(403, '이 내용은 패키지를 구매하신 회원만 이용할 수 있습니다.', origin);
+
+  return ok({ steps: set.mod.STEPS, docExamples: set.mod.DOC_EXAMPLES }, origin);
+}
+
 async function handleContentAccess(request, env, origin) {
   const session = await getSessionUser(env.DB, request);
   if (!session) return err(401, '로그인이 필요합니다.', origin);
@@ -2043,6 +2222,46 @@ async function revokePackage(env, userId, pkgKey) {
 
 /* ── 자체 익명 분석 ── */
 // 인증 불필요(익명). 개인·세션·IP를 저장하지 않고 (날짜, 이벤트, 라벨) 카운트만 올린다.
+//
+// 🔴 **요청마다 D1에 쓰지 않는다.** 이 경로는 로그인 없이 DB 쓰기를 일으킬 수 있는 **유일한 곳**이라,
+//    종전처럼 요청당 UPSERT 1건이면 자동 요청으로 D1 무료 한도(일 10만 쓰기)를 태울 수 있었다
+//    (2026-08-15 보안감사·반박검증 CONFIRMED). 쓰기 한도가 마르면 세션 생성이 먼저 실패해
+//    **로그인부터 죽는다.** WAF 레이트리밋은 무료 플랜이라 규칙 1개뿐이고 가입·재설정 경로에 이미 쓰였다.
+//
+//    그래서 아이솔레이트 메모리에 모았다가 10초에 한 번만 기록한다. 평상시 트래픽은 사실상 즉시
+//    기록되고(첫 요청은 바로 flush), 쏟아지면 10초당 1회로 접힌다. 표본추출과 달리 **정상 트래픽의
+//    카운트가 정확하다**(이 사이트는 이벤트 수가 적어 샘플링하면 수치가 못 쓰게 된다).
+//    라벨은 이용자가 정하는 값이라 종류 수도 막는다 — 넘치면 라벨을 'overflow'로 접어
+//    analytics 테이블의 행 자체가 무한정 늘어나는 것을 함께 막는다.
+//    ⚠️ 남은 한계 둘. ①버퍼는 아이솔레이트가 죽으면 사라지고 상한도 아이솔레이트별이다 — 완전한 해결은
+//      Workers 유료 전환이나 Analytics Engine 이전이다. ②공격이 라벨 상한을 채우면 그날 새로 등장한
+//      **정상 라벨도 overflow로 접힌다**(이미 집계 중이던 라벨은 그대로). 둘 다 분석 정확도를 잃을 뿐
+//      서비스는 살아 있다는 쪽을 택한 것이다 — 분석은 부가 기능이고 로그인은 아니다.
+const ANALYTICS_BUF = new Map();          // 'day\0event\0label' → count
+const ANALYTICS_SEP = '\u0000';   // 라벨 정규식이 걸러 내는 문자라 키가 섞일 수 없다
+const ANALYTICS_FLUSH_MS = 10_000;        // 기록 간격 = 한 번에 쓰는 주기
+const ANALYTICS_MAX_KEYS = 40;            // 한 번에 쓰는 행 수 상한
+const ANALYTICS_MAX_LABELS = 200;         // 하루에 만들 수 있는 라벨 종류 상한(테이블 행 증가 차단)
+const ANALYTICS_SEEN = new Set();         // 오늘 이미 쓴 키 — flush로 버퍼가 비어도 종류 상한은 유지된다
+let analyticsSeenDay = '';
+let analyticsFlushedAt = 0;
+
+async function flushAnalytics(env, now) {
+  if (!ANALYTICS_BUF.size) return;
+  const rows = [...ANALYTICS_BUF.entries()];
+  ANALYTICS_BUF.clear();
+  analyticsFlushedAt = now;
+  try {
+    await env.DB.batch(rows.map(([k, n]) => {
+      const [day, event, label] = k.split(ANALYTICS_SEP);
+      return env.DB.prepare(
+        `INSERT INTO analytics (day, event, label, count) VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(day, event, label) DO UPDATE SET count = count + ?4`
+      ).bind(day, event, label, n);
+    }));
+  } catch (e) { /* 분석 실패는 무시 — 접힌 카운트는 복구하지 않는다 */ }
+}
+
 async function handleAnalytics(request, env, origin) {
   const body = await readJson(request, 2048);
   if (!body || typeof body.event !== 'string' || !ANALYTICS_EVENTS.has(body.event))
@@ -2050,13 +2269,24 @@ async function handleAnalytics(request, env, origin) {
   // 라벨은 페이지 id·단계 번호 등 비개인 세부값만. 안전 문자로 제한하고 길이 컷.
   const label = (typeof body.label === 'string' ? body.label : '')
     .replace(/[^\w\-./]/g, '').slice(0, 40);
-  const day = new Date().toISOString().slice(0, 10);
-  try {
-    await env.DB.prepare(
-      `INSERT INTO analytics (day, event, label, count) VALUES (?1, ?2, ?3, 1)
-       ON CONFLICT(day, event, label) DO UPDATE SET count = count + 1`
-    ).bind(day, body.event, label).run();
-  } catch (e) { /* 분석 실패는 무시 */ }
+  const now = Date.now();
+  const day = new Date(now).toISOString().slice(0, 10);
+
+  if (analyticsSeenDay !== day) { ANALYTICS_SEEN.clear(); analyticsSeenDay = day; }
+
+  let key = day + ANALYTICS_SEP + body.event + ANALYTICS_SEP + label;
+  // 라벨 종류가 비정상적으로 많다 = 사람이 아니다. 세부는 버리고 이벤트 단위로만 센다.
+  // (이벤트는 화이트리스트라 overflow 키의 개수도 자동으로 막힌다.)
+  // 상한은 **하루 기준**이다 — 버퍼 기준으로만 세면 flush로 비워질 때마다 상한이 되살아나
+  // 10초마다 새 라벨 40종씩 계속 만들 수 있다(2026-08-16 시뮬레이션에서 확인).
+  const 새키 = !ANALYTICS_SEEN.has(key);
+  if (새키 && (ANALYTICS_SEEN.size >= ANALYTICS_MAX_LABELS || ANALYTICS_BUF.size >= ANALYTICS_MAX_KEYS)) {
+    key = day + ANALYTICS_SEP + body.event + ANALYTICS_SEP + 'overflow';
+  }
+  ANALYTICS_SEEN.add(key);
+  ANALYTICS_BUF.set(key, (ANALYTICS_BUF.get(key) || 0) + 1);
+
+  if (now - analyticsFlushedAt >= ANALYTICS_FLUSH_MS) await flushAnalytics(env, now);
   return ok({}, origin);
 }
 
@@ -2308,6 +2538,7 @@ const ROUTES = {
   'POST /api/payment/complete': handlePaymentComplete,
   'GET /api/payment/history': handlePaymentHistory,
   'POST /api/payment/withdraw': handleWithdraw,
+  'GET /api/content/steps': handleContentSteps,
   'POST /api/content/access': handleContentAccess,
   'POST /api/analytics': handleAnalytics,
 };

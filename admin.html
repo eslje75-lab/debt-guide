@@ -166,7 +166,9 @@
     test: '<span class="text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full text-xs">테스트</span>',
     revoked: '<span class="text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full text-xs">회수됨</span>',
   };
-  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  // 작은따옴표까지 이스케이프한다(심층방어). 다만 이것만으로 XSS가 막히지는 않는다 —
+  // 인라인 onclick 안에서는 &#39;가 다시 '로 디코드된다. 진짜 방어는 아래 data-* + 위임 핸들러다.
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   const won = (n) => (n || 0).toLocaleString('ko-KR') + '원';
   const fmtDate = (ms) => { if (!ms) return '-'; const d = new Date(ms); return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
   const fmtDateStr = (s) => s ? String(s).slice(0, 10) : '-';
@@ -254,6 +256,18 @@
     }
   }
 
+  /* 🔴 버튼에 onclick 문자열을 조립하지 말 것. 이 화면은 이용자가 정한 문자열(이메일)을 그린다.
+     HTML 파서는 속성값의 문자 참조를 **JS로 컴파일하기 전에** 디코드한다. 그래서 esc()로 따옴표를
+     &#39;로 바꿔 놔도 인라인 핸들러 안에서는 '로 되돌아가 문자열을 탈출한다 — 이스케이프로는 못 막는다
+     (2026-08-15 headless Chrome으로 실측 확인). data-*는 같은 디코드가 일어나도 **값으로만** 읽히므로
+     코드가 되지 않는다. 새 버튼을 추가할 때도 이 방식을 따를 것. */
+  document.addEventListener('click', (e) => {
+    const r = e.target.closest && e.target.closest('.js-refund');
+    if (r) { refund(r.dataset.pid, r.dataset.email, Number(r.dataset.amount)); return; }
+    const v = e.target.closest && e.target.closest('.js-revoke');
+    if (v) revokeTest(v.dataset.pid, v.dataset.email);
+  });
+
   function showDenied() {
     document.getElementById('loading').classList.add('hidden');
     document.getElementById('denied').classList.remove('hidden');
@@ -311,7 +325,7 @@
               이용 개시 ${started ? '있음' : '없음'}${days !== null ? ` · 결제 후 ${days}일` : ''}
             </div>
             ${w.payment_status === 'paid'
-              ? `<button onclick="refund('${esc(w.payment_id)}', '${esc(w.email)}', ${w.amount || 0})" class="mt-2 text-xs text-red-600 border border-red-200 bg-white rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors">환불 처리</button>`
+              ? `<button class="js-refund mt-2 text-xs text-red-600 border border-red-200 bg-white rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors" data-pid="${esc(w.payment_id)}" data-email="${esc(w.email)}" data-amount="${w.amount || 0}">환불 처리</button>`
               : `<div class="mt-2 text-[11px] text-slate-400">${w.payment_status === 'refunded' ? '환불 완료됨' : '처리 대상 아님'}</div>`}
           </div>
         </div>
@@ -370,6 +384,7 @@
     sms:       { url: 'https://console.solapi.com', label: '솔라피 콘솔' },
     email:     { url: 'https://resend.com/emails',  label: 'Resend 대시보드' },
     anthropic: { url: 'https://console.anthropic.com/settings/billing', label: 'Anthropic Billing' },
+    secrets:   { url: 'https://dash.cloudflare.com', label: 'Cloudflare 대시보드(Workers → 설정 → 변수)' },
   };
 
   function opsCard(opts) {
@@ -388,7 +403,7 @@
         </div>
         <div class="text-xl font-extrabold ${numTone} mb-0.5" style="word-break:keep-all">${opts.value}</div>
         <p class="text-xs text-slate-500 leading-relaxed">${opts.note}</p>
-        <a href="${opts.link.url}" target="_blank" rel="noopener" class="inline-block mt-2 text-xs text-blue-700 hover:underline">${opts.link.label} ↗</a>
+        ${opts.link ? `<a href="${opts.link.url}" target="_blank" rel="noopener" class="inline-block mt-2 text-xs text-blue-700 hover:underline">${opts.link.label} ↗</a>` : ''}
       </div>`;
   }
 
@@ -462,7 +477,31 @@
       link: CONSOLE_LINKS.anthropic,
     });
 
-    box.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-3">${smsCard}${emailCard}${aiCard}</div>
+    // ④ 시크릿 설정 여부 — 빠지면 조용히 기능이 무효가 되는 것들.
+    //    특히 Turnstile은 시크릿이 없으면 검증이 무조건 통과라 자동 가입 방지가 통째로 사라지는데,
+    //    화면 어디에도 표시가 없어 알 방법이 없었다. 값은 서버가 내려보내지 않고 설정 여부만 온다.
+    const SECRET_LABEL = {
+      turnstile: ['자동 가입 방지(Turnstile)', '없으면 캡차가 무조건 통과 — 자동 가입이 열립니다'],
+      resend:    ['메일 발송(Resend)', '없으면 가입 인증·비밀번호 재설정 메일이 나가지 않습니다'],
+      anthropic: ['AI(Anthropic)', '없으면 AI 검토·대조가 동작하지 않습니다'],
+      solapi:    ['SMS(솔라피)', '없으면 결제 시 번호 인증을 못 합니다'],
+      portone:   ['결제(포트원)', '없으면 결제가 동작하지 않습니다'],
+    };
+    const sec = j.secrets || {};
+    const missing = Object.keys(SECRET_LABEL).filter(k => sec[k] === false);
+    const secretCard = opsCard({
+      title: '시크릿 설정',
+      tone: missing.length ? (sec.turnstile === false ? 'danger' : 'warn') : 'ok',
+      badge: missing.length ? `${missing.length}건 미설정` : '전부 설정됨',
+      value: Object.keys(SECRET_LABEL).map(k =>
+        `<span class="inline-flex items-center gap-1 mr-2 text-xs">${sec[k] ? '✅' : '⛔'} ${esc(SECRET_LABEL[k][0])}</span>`).join(''),
+      note: missing.length
+        ? missing.map(k => `<strong>${esc(SECRET_LABEL[k][0])}</strong> — ${esc(SECRET_LABEL[k][1])}`).join('<br>')
+        : '값은 표시하지 않습니다(설정 여부만 확인).',
+      link: CONSOLE_LINKS.secrets,
+    });
+
+    box.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-3">${smsCard}${emailCard}${aiCard}${secretCard}</div>
       <p class="text-[11px] text-slate-400 mt-2">확인 시각: ${fmtDate(j.checkedAt)}</p>`;
   }
 
@@ -490,9 +529,9 @@
         <td class="py-2 pr-3">${STATUS_BADGE[p.status] || esc(p.status)}</td>
         <td class="py-2 text-right whitespace-nowrap">${
           p.status === 'paid'
-            ? `<button onclick="refund('${esc(p.payment_id)}', '${esc(p.email)}', ${p.amount})" class="text-xs text-red-600 border border-red-200 rounded-lg px-2.5 py-1 hover:bg-red-50 transition-colors">환불</button>`
+            ? `<button class="js-refund text-xs text-red-600 border border-red-200 rounded-lg px-2.5 py-1 hover:bg-red-50 transition-colors" data-pid="${esc(p.payment_id)}" data-email="${esc(p.email)}" data-amount="${p.amount}">환불</button>`
             : p.status === 'test'
-            ? `<button onclick="revokeTest('${esc(p.payment_id)}', '${esc(p.email)}')" class="text-xs text-slate-600 border border-slate-200 rounded-lg px-2.5 py-1 hover:bg-slate-50 transition-colors">회수</button>`
+            ? `<button class="js-revoke text-xs text-slate-600 border border-slate-200 rounded-lg px-2.5 py-1 hover:bg-slate-50 transition-colors" data-pid="${esc(p.payment_id)}" data-email="${esc(p.email)}">회수</button>`
             : ''}</td>
       </tr>`).join('');
 
