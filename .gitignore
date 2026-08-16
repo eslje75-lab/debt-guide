@@ -23,3 +23,8 @@ backup/
 backups/
 *-backup-*.sql
 d1-*.sql
+
+# 🔴 D1 백업용 Cloudflare API 토큰. 원칙은 저장소 **바깥**(백업 폴더 옆)에 두는 것이고,
+#    이 규칙은 실수로 저장소 안에 만들었을 때를 막는 2차 방어선이다. 상세는 BACKUP.md.
+.cf-token
+*.cf-token

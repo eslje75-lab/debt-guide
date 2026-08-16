@@ -219,3 +219,12 @@ CREATE TABLE IF NOT EXISTS phone_send_log (
   window_start INTEGER NOT NULL,         -- 24시간 창 시작(unix ms)
   send_count   INTEGER NOT NULL DEFAULT 0
 );
+
+-- 일자별 이메일 발송 수 — Resend 무료 한도(일 100통) 감시용. 사용자별이 아니라 **계정 전체 합계**다.
+-- ⚠️ 2026-08-11 마이그레이션으로 원격에만 만들어 두고 이 파일에 반영하지 않아, 2026-08-16까지
+--    schema.sql로 새로 만든 DB에는 이 표가 없었다(코드가 조회 실패를 삼켜 0으로 보였다).
+--    마이그레이션을 적용하면 **schema.sql에도 같이 반영할 것.**
+CREATE TABLE IF NOT EXISTS email_usage (
+  day   TEXT PRIMARY KEY,           -- 'YYYY-MM-DD' (UTC)
+  count INTEGER NOT NULL DEFAULT 0
+);

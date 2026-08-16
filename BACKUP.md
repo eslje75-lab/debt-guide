@@ -47,6 +47,34 @@ powershell -ExecutionPolicy Bypass -File tools\backup-d1.ps1
 - 판매 오픈 직전, 그리고 오픈 후에는 주 1회.
 - 회원·결제가 늘면 주기를 좁힐 것.
 
+### `d1 export`가 401로 실패할 때
+
+2026-08-16에 `Authentication error [code: 10000]`으로 한 번 실패했다가, 잠시 뒤 **같은 OAuth 토큰으로 정상 성공**했다. 같은 시각 `d1 execute --remote`는 계속 정상이었으므로 토큰이 죽은 것은 아니다. 원인은 확정하지 못했다.
+
+⛔ **한 번 실패했다고 "권한이 없다"고 단정하지 말 것.** 순서는 이렇다:
+
+1. **그냥 다시 실행해 본다.** 이것으로 해결된 사례가 있다.
+2. 그래도 안 되면 **대체 경로**로 덤프를 뜬다. 스크립트가 자동으로 넘어가지만 직접 부를 수도 있다:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File tools\backup-d1.ps1 -ForceFallback
+   ```
+   살아 있는 `d1 execute --remote --command`로 전 테이블을 SELECT해 `tools/d1-dump-fallback.js`가 INSERT 문으로 되만든다. **`api/schema.sql`을 앞에 붙이므로 이 덤프 하나로도 빈 DB에 복원된다**(리허설로 확인함).
+   ⚠️ 대신 schema.sql에 없는 표는 복원되지 않는다 — 그래서 **마이그레이션을 적용하면 `schema.sql`에도 반드시 반영할 것.** (실제로 `email_usage`가 2026-08-11 마이그레이션 이후 반영되지 않아 2026-08-16까지 빠져 있었다. 코드가 조회 실패를 삼켜서 화면엔 0으로만 보였다.)
+3. 반복되면 **API 토큰**을 쓴다(아래).
+
+### 백업 토큰 (export가 계속 실패할 때)
+
+OAuth 갱신과 무관해져 더 안정적이다.
+
+1. Cloudflare 대시보드 → **My Profile → API Tokens → Create Token → Create Custom Token**
+2. 권한에 **`Account · D1 · Read`** 를 넣는다(export가 여전히 401이면 `Edit`으로 올려 본다). 계정 범위는 이 계정 하나로 제한할 것.
+3. 토큰을 **저장소 바깥**에 둔다 — 백업 폴더 옆이 기본 위치다:
+   ```
+   ..\_chamroad-backups\.cf-token
+   ```
+   스크립트가 이 파일을 자동으로 읽는다. 환경변수 `CLOUDFLARE_API_TOKEN`이 있으면 그쪽이 우선이다.
+4. 🔴 **토큰은 저장소에 넣지 말 것.** `.gitignore`에 `.cf-token` 규칙이 있지만 그건 2차 방어선일 뿐이다. 유출되면 대시보드에서 즉시 폐기(Roll)할 것.
+
 ## 백업이 실제로 복원되는지 확인 (리허설)
 
 받아만 두고 복원해 본 적 없는 백업은 백업이 아니다.
