@@ -405,7 +405,9 @@
       ${procedureNote}`;
   }
 
-  // ── 절차 선택 도우미: 점수 근접할 때 개인화 비교 ──
+  // ── 어느 절차가 유리한지 묻는 사람에게 "판단하지 않는다"고 답하는 카드 ──
+  // ⚠️함수 이름(tossup)과 이 주석은 점수가 근접할 때 비교해 주던 옛 설계의 잔재였다.
+  //   점수·승자 체계는 삭제됐고 이 카드는 조건 없이 같은 문구를 낸다. 되살리지 말 것.
   function buildTossupAdvice() {
     return `<div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
       <p class="font-bold text-slate-800 text-sm mb-1">두 절차는 서로 다른 법정요건을 심사합니다</p>
