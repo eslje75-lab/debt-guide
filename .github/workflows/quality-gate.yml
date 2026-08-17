@@ -1,0 +1,39 @@
+name: Quality Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: JavaScript 및 HTML 문법 검사
+        run: node tools/check-project.js
+
+      - name: 로컬 저장·동기화 회귀 검사
+        run: node tools/test-storage-regressions.js
+
+      - name: 법률 계산·중립성 회귀 검사
+        run: node tools/test-legal-regressions.js
+
+      - name: 공개 배포 산출물 생성·허용목록 검사
+        run: node tools/build-public.js
+
+      - name: 유료 콘텐츠·백엔드 보안 회귀 검사
+        run: node --test api/tests/security-regression.test.mjs api/tests/paid-content-static.test.mjs
+
+      # AI 출력 판정기의 자가검사. 네트워크·API 키를 쓰지 않아 게이트에서 돌려도 안전하다.
+      # ⚠️실제 Anthropic 호출은 tools/ai-output-eval.mjs이며 **여기에 넣지 않는다** — 돈이 나간다.
+      - name: AI 출력 판정기 자가검사
+        run: node --test api/tests/ai-eval-judge.test.mjs

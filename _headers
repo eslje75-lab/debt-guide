@@ -1,0 +1,21 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(self)
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'
+
+/login.html
+  Cache-Control: no-store
+
+/mypage.html
+  Cache-Control: no-store
+
+/result.html
+  Cache-Control: no-store
+
+/admin.html
+  Cache-Control: no-store
+
+/ai-review.html
+  Cache-Control: no-store

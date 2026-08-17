@@ -1,31 +1,42 @@
-# Worker 자동 배포
+# Worker 수동 배포
 #
-# 왜: 화면(GitHub Pages)은 push하면 자동 반영되는데 서버(Cloudflare Worker)만 수동이라,
-#     둘이 어긋난 상태로 운영되는 사고가 반복됐다(결제 잠금·허용 명단·인증 시간 미반영 등).
-#     api/ 아래가 바뀐 push에서만 배포하므로, 화면만 고친 push는 이 워크플로를 건드리지 않는다.
+# 왜: Worker가 새 D1 테이블·컬럼을 먼저 참조하면 전체 API가 500이 될 수 있다. push는 품질검사만
+#     실행하고, 운영 DB 백업·필수 마이그레이션·프런트 호환성을 확인한 뒤 이 작업을 수동 실행한다.
 #
-# 순서: Worker 배포는 보통 10초, GitHub Pages 빌드는 1~3분이 걸린다.
-#       따라서 한 번의 push로도 "서버 먼저, 화면 나중"이 자연히 지켜진다.
+# 이번 전환 순서: Pages 수동 배포(신·구 Worker 호환 요청) → D1 백업/필수 마이그레이션 →
+#                이 Worker 수동 배포 → 점수 제거 마이그레이션.
 #
 # 필요한 것: 저장소 Settings → Secrets and variables → Actions 에 등록
 #   - CLOUDFLARE_API_TOKEN   (필수) Cloudflare 대시보드에서 'Edit Cloudflare Workers' 템플릿으로 발급
 #   - CLOUDFLARE_ACCOUNT_ID  (선택) 토큰이 여러 계정에 걸쳐 있을 때만 필요
 #
-# ⚠️ D1 마이그레이션(테이블·컬럼 변경)은 자동화하지 않는다. 되돌리기 어려운 작업이라
-#    사람이 확인하고 실행해야 한다. api/migrations/*.sql 은 여전히 수동으로 적용할 것.
+# ⚠️ 이 작업은 D1 마이그레이션을 실행하지 않는다. 아래 확인란은 실행을 대신하지 않는다.
 
 name: Deploy Worker
 
+# Worker 배포 작업은 저장소 내용을 읽는 권한만 사용한다.
+permissions:
+  contents: read
+
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'api/**'
-      - '.github/workflows/deploy-worker.yml'
-  workflow_dispatch:   # 필요하면 Actions 탭에서 수동 실행도 가능
+  workflow_dispatch:
+    inputs:
+      required_d1_migrations_applied:
+        description: 'D1 백업 후 SMS 제한·주문 원장·가입 동의 판본 마이그레이션을 적용하고 검증했습니까?'
+        required: true
+        type: boolean
+      frontend_compatibility_confirmed:
+        description: '호환 프런트 배포와 가입·유료 콘텐츠 계약을 확인했습니까?'
+        required: true
+        type: boolean
+
+concurrency:
+  group: worker-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
+    if: ${{ inputs.required_d1_migrations_applied == true && inputs.frontend_compatibility_confirmed == true }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,9 +46,21 @@ jobs:
           # wrangler 4는 Node 22 이상을 요구한다(20이면 실행 자체가 거부된다).
           node-version: 22
 
-      # 문법이 깨진 코드는 프로덕션에 올라가지 않게 여기서 막는다.
-      - name: 문법 검사
-        run: node --check api/src/index.js
+      # API만 고쳤더라도 공유 스크립트·HTML 계약이 함께 깨질 수 있으므로 공통 게이트를 쓴다.
+      - name: 프로젝트 문법 검사
+        run: node tools/check-project.js
+
+      - name: 로컬 저장·동기화 회귀 검사
+        run: node tools/test-storage-regressions.js
+
+      - name: 법률 계산·중립성 회귀 검사
+        run: node tools/test-legal-regressions.js
+
+      - name: 공개 배포 산출물 생성·허용목록 검사
+        run: node tools/build-public.js
+
+      - name: 백엔드 보안 회귀 검사
+        run: node --test api/tests/security-regression.test.mjs api/tests/paid-content-static.test.mjs
 
       - name: Cloudflare Worker 배포
         uses: cloudflare/wrangler-action@v3

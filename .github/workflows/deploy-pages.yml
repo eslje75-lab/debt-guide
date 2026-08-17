@@ -1,0 +1,57 @@
+name: Deploy public site
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_confirmed:
+        description: 'Quality Gate 통과와 API 호환성·공개 산출물(dist) 구성을 확인했습니까?'
+        required: true
+        type: boolean
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  verify-build-deploy:
+    if: ${{ inputs.release_confirmed == true }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: JavaScript 및 HTML 문법 검사
+        run: node tools/check-project.js
+
+      - name: 로컬 저장·동기화 회귀 검사
+        run: node tools/test-storage-regressions.js
+
+      - name: 법률 계산·중립성 회귀 검사
+        run: node tools/test-legal-regressions.js
+
+      - name: 유료 콘텐츠·백엔드 보안 회귀 검사
+        run: node --test api/tests/security-regression.test.mjs api/tests/paid-content-static.test.mjs
+
+      - name: 공개 배포 산출물 생성·허용목록 검사
+        run: node tools/build-public.js
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+      - name: GitHub Pages 배포
+        id: deployment
+        uses: actions/deploy-pages@v4

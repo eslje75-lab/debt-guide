@@ -1,0 +1,18 @@
+# GitHub Pages가 저장소 루트를 게시하는 동안의 최소 안전장치.
+# 장기적으로는 tools/build-public.js가 만든 dist/만 배포한다.
+exclude:
+  - api
+  - tools
+  - .github
+  - .claude
+  - .agents
+  - .gitignore
+  - CLAUDE.md
+  - PROGRESS.md
+  - LAUNCH-CHECKLIST.md
+  - BACKUP.md
+  - OPERATIONS-COST.md
+  - DESIGN-stripe.md
+  - LEGAL-REVIEW-BRIEF.md
+  - CODEX-HANDOFF.md
+  - _headers
