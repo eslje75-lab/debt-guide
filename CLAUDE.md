@@ -2,6 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ 2026-08-17 교차감사 이후 우선 규칙
+
+이 절은 아래의 과거 기록보다 우선한다. Codex 교차감사 수정은 현재 **로컬 작업트리에만** 있으며,
+커밋·push·Cloudflare 배포는 아직 하지 않았다. 세부 인계는 `CODEX-HANDOFF.md`와
+`PROGRESS.md` 최상단을 먼저 읽는다.
+
+- **판매 오픈 차단 사유는 사업자등록 하나가 아니다.** 유상 AI 검토와 개인별 절차 안내의
+  변호사법·법무사법 리스크를 국내 변호사에게 별도 확인하고, 유료 원문을 공개 저장소/정적
+  산출물에서 분리하고, 수정된 프런트와 Worker를 같은 릴리스로 검증한 뒤에만 판매를 검토한다.
+- 유료 본문은 페이지 진입이나 gate 이벤트에서 자동으로 받지 않는다. 이용자가 환불 제한 안내를
+  확인하고 누른 뒤 `POST /api/content/open`에
+  `{type, consent:true, consentVersion:'content-open-v1'}`를 보내며, Worker가 소비 기록 저장에 성공한
+  경우에만 본문을 반환한다. 옛 `GET /api/content/steps` 계약으로 되돌리지 않는다.
+- 저장소 루트를 공개 산출물로 쓰지 않는다. `node tools/build-public.js`가 만든 `dist/`만 배포한다.
+  `_config.yml`은 기존 GitHub Pages branch 배포를 위한 임시 안전장치일 뿐, 공개 Git 저장소 원본을
+  숨기지는 못한다.
+- 비로그인 guest 자료는 현재 탭의 sessionStorage에만, 로그인 자료는 이메일 UTF-8 hex 기반 계정별
+  localStorage namespace에 둔다. 로그인 시 guest 자료는 본인 것인지 명시적으로 확인한 뒤에만 가져온다.
+  동기화 큐는 서버 성공 응답 전 삭제하지 않고, 로그아웃·전체 초기화는 실제 삭제 성공을 확인한 뒤에만 성공으로 표시한다.
+- 기존 코드·문서에 적힌 점수, 승자 절차, 적합도 %, 면책 예상액, 실제 생활비 자동 전액 인정,
+  명목 변제액 기반 청산가치 “통과” 판정을 되살리지 않는다.
+
 ## 작업 진행 기록 (PROGRESS.md)
 
 이 저장소에는 `PROGRESS.md` 파일이 있다. 세션 시작 시(특히 `/clear` 직후) 가장 먼저 이 파일을 읽어 직전까지 무슨 작업을 하고 있었는지 파악한다. 기능 추가·버그 수정 등 의미 있는 작업 단위가 끝나거나 작업을 중단하는 시점마다 `PROGRESS.md`의 "현재 상태"와 "다음에 할 일"을 갱신한다.
@@ -10,13 +32,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **챔로드** — 개인회생·파산 셀프 진행 지원 정보 제공 플랫폼 (순수 HTML/CSS/JS, 프레임워크 없음)
 
-- 배포: GitHub Pages (`main` 브랜치 push 시 자동 반영)
+- 현재 배포: GitHub Pages branch 방식. **안전 전환 전에는 저장소 루트가 게시될 수 있으므로** `dist/` artifact 배포로 바꿔야 한다.
 - URL: https://chamroad.com/ (구 GitHub Pages 주소 https://eslje75-lab.github.io/debt-guide/ 도 병행 유효)
 - GitHub: https://github.com/eslje75-lab/debt-guide
 
 ## 로컬 개발
 
-별도 빌드 과정 없음. `node tools/serve.js` → http://localhost:3456 (또는 VS Code **Live Server** 확장).
+소스 확인은 `node tools/serve.js` → http://localhost:3456. 공개 배포물은
+`node tools/build-public.js` 뒤 `node tools/serve.js --public`으로 확인한다. 실제 호스팅에는
+반드시 후자의 `dist/`만 사용한다.
 `.claude/launch.json`의 `chamroad-static`도 같은 서버를 쓴다.
 
 포트 3456인 이유: Worker의 `ALLOWED_ORIGINS`에 들어 있어 로컬 화면에서 운영 API를 호출해 볼 수 있다.
@@ -36,20 +60,25 @@ Cloudflare에 올린 시크릿은 이름만 조회되고 값은 다시 읽을 �
 
 ※ 과거 단일파일 빌드 산출물(`app.html`, `build.ps1`)은 2026-07-02에 삭제됨 — 다시 만들지 말 것.
 
-## 배포 (2026-08-09 자동화)
+## 배포 (2026-08-16 안전 산출물 전환 중)
 
-**`git push origin main` 하나로 화면과 서버가 모두 반영된다.**
+기존 운영은 `main` push로 화면과 Worker가 반영됐지만, 저장소 루트 전체를 Pages가 읽는 방식은
+더 이상 안전한 최종 구성이 아니다. **현재 로컬 수정은 배포되지 않았다.** 먼저 품질 게이트를 통과하고,
+프런트는 `dist/` 산출물만 게시하도록 GitHub Pages custom workflow 또는 Cloudflare Pages를 설정한다.
 
 | 대상 | 경로 | 걸리는 시간 |
 |---|---|---|
-| 화면 (HTML·CSS·JS) | push → GitHub Pages 자동 빌드 | 1~3분 + 브라우저 캐시 최대 10분(`max-age=600`) |
-| 서버 (`api/src/index.js`) | push → GitHub Actions(`.github/workflows/deploy-worker.yml`) → `wrangler deploy` | 10초 내외 |
+| 화면 (HTML·CSS·JS) | `node tools/build-public.js` → `dist/`만 게시 | 호스팅 설정에 따름 |
+| 서버 (`api/src/index.js`) | Actions에서 확인란 2개 검토 후 `deploy-worker.yml` 수동 실행 | 10초 내외 |
 
-- 서버 배포는 `api/**`가 바뀐 push에서만 돈다. 화면만 고친 push는 Actions를 거치지 않는다.
-- Worker(10초)가 Pages(1~3분)보다 먼저 끝나므로 **"서버 먼저, 화면 나중"** 순서가 자연히 지켜진다.
-  이 순서가 중요한 이유: 옛 화면 + 새 서버는 안전하지만, 새 화면 + 옛 서버는 없는 기능을 불러 깨진다.
-- 배포 전 `node --check api/src/index.js`가 자동 실행된다. 문법 오류면 배포되지 않는다.
-- 실패하면 GitHub 저장소 **Actions** 탭에서 로그 확인. 수동 배포는 여전히 `cd api && npx wrangler deploy`.
+- push는 `.github/workflows/quality-gate.yml`의 검사만 실행한다. Pages와 Worker 배포는 마이그레이션 없는
+  자동 배포 사고를 막기 위해 모두 `workflow_dispatch` 수동 실행이다.
+- 이번 전환은 새 프런트가 구 Worker에도 보낼 `agree:true` 호환 필드를 포함하므로 **Pages 먼저**, 그 다음
+  D1 백업과 `phone_send_log`·주문 원장·가입 동의 판본 마이그레이션, 마지막으로 Worker를 배포한다.
+  Worker 성공 뒤 구버전 진단 점수 삭제 마이그레이션을 실행한다. 판매 잠금은 전체 확인 전까지 유지한다.
+- 각 배포 워크플로 안에서 문법·저장소·공개 산출물·백엔드 보안 회귀를 모두 통과시킨다.
+  프런트·Worker 계약 변경은 반드시 한 커밋/릴리스로 묶어 구버전 혼합을 피한다.
+- 실패하면 GitHub 저장소 **Actions** 탭에서 로그를 확인한다. CLI 직접 배포는 확인란을 우회하므로 긴급복구 외에는 쓰지 않는다.
 
 ⚠️ **D1 마이그레이션은 자동화하지 않았다.** 테이블·컬럼 변경은 되돌리기 어려우므로
 `api/migrations/*.sql`을 사람이 확인하고 `wrangler d1 execute chamroad --remote --command "..."`로 적용한다.
@@ -76,10 +105,12 @@ Cloudflare에 올린 시크릿은 이름만 조회되고 값은 다시 읽을 �
 
 `diagnosis.html` + `js/diagnosis.js` 가 담당.
 
-- 4단계 폼(채무현황 → 연체·법적현황 → 소득·생활비 → 재산·기타)
+- 4단계 폼(채무현황 → 연체·법적현황 → 소득·가구 → 재산·기타)
 - 단계 이동: `goStep(n)` / `nextStep()` / `prevStep()`
-- 결과 계산 후 `localStorage`(`cdg_diagnosis_*` 키, `js/main.js`의 `Storage` 헬퍼)에 저장 → `result.html`에서 읽어 표시
-- 변제 여력 계산 기준: 표준생계비(2026 기준중위소득 60%)와 입력 생활비 중 큰 값 — `calcScores`와 `calcRepayment`가 동일 기준을 사용해야 함 (수치 불일치 방지)
+- 결과 계산 후 `js/main.js`의 `Storage` 헬퍼로 저장(guest는 현재 탭 sessionStorage, 로그인 사용자는 계정별 localStorage) → `result.html`에서 읽어 표시
+- 변제 여력의 기계적 참고값은 2026 기준중위소득 60%만 공제한다. 입력 생활비 초과분은
+  증빙과 개별 사정을 법원이 심사하므로 자동 전액 공제하지 않는다. `calcRepayment`와
+  `NumCheck.incomeExpense`가 이 표시 원칙을 함께 지켜야 한다. `calcScores`는 삭제됐으며 되살리지 않는다.
 - ⚠️ **표준생계비(`MEDIAN_INCOME_2026` / `getStandardLiving`)는 `js/main.js`에 있다.** 진단·숫자 검산·작성예시가 모두 이 하나를 쓴다. 다른 파일에 복사본을 만들지 말 것(기준이 갈리면 화면마다 다른 금액이 나온다). 매년 보건복지부 고시가 바뀌므로 연초 갱신 대상.
 
 ### 숫자 검산 (`js/numcheck.js` + `numcheck.html`)
@@ -276,12 +307,14 @@ Tailwind의 `group-open:`은 CDN 버전에 따라 없을 수 있어 쓰지 않�
 
 ### 유료 본문은 서버에 있다 (2026-08-16) — 콘텐츠를 고치기 전에 읽을 것
 
-회생·파산 완주 패키지의 **2단계 이후 본문**은 정적 HTML이 아니라 **`api/src/content/`** 에 있다.
+각 유료 패키지의 미리보기 이후 본문은 정적 HTML이 아니라 **`api/src/content/`** 에 있다.
 
 | | 어디에 | 누가 볼 수 있나 |
 |---|---|---|
-| 1단계(미리보기) | `rehabilitation.html` / `bankruptcy.html` 안 `*_FREE` | 누구나 |
-| 2단계~8단계 본문 · 서식 예시 | `api/src/content/rehab-steps.js` · `bankrupt-steps.js` | `GET /api/content/steps?type=` 가 이용권 확인 후 |
+| 무료 첫 단계·구성 미리보기 | 각 진행 HTML 안 `*_FREE` | 누구나 |
+| 회생·파산 2단계 이후 | `api/src/content/rehab-steps.js` · `bankrupt-steps.js` | 명시적 `POST /api/content/open` 뒤 이용권·소비기록 확인 |
+| 변제기간 관리 미리보기 이후 | `api/src/content/maintain-steps.js` | 위와 같음 (`type: maintain`) |
+| 보정 대응 미리보기 이후 | `api/src/content/supplement-*-steps.js` | 위와 같음 (`type: supplement-rehab\|supplement-bankrupt`) |
 
 - **왜**: 종전에는 8단계 전문이 정적 파일에 평문으로 있어 `curl https://chamroad.com/rehabilitation.html` 한 번이면 149,000원짜리 내용이 통째로 읽혔다. 잠금이 클라이언트 렌더 분기뿐이었기 때문이다. `pricing.html`이 "가이드·예시 **열람**"을 판매 항목으로 적고 있으므로 매출과 직결된다.
 - 🔴**콘텐츠를 고치면 화면이 아니라 Worker가 배포돼야 반영된다**(`api/**` 변경 → GitHub Actions 자동 배포). 고치고 나서 화면만 새로고침하면 안 바뀐 것처럼 보인다.
@@ -289,11 +322,11 @@ Tailwind의 `group-open:`은 CDN 버전에 따라 없을 수 있어 쓰지 않�
 - **1단계를 유료로 옮기지 말 것.** 그 미리보기 범위가 「전자상거래법 시행령」 제21조의2 제1호의 '일부 이용 허용'에 해당해 **환불 제한의 근거**다. 경계를 바꾸려면 약관·`pricing.html`의 환불 문구를 함께 봐야 한다.
 - 판정은 `activeEntitlements`(기간이 살아 있는 이용권)로 한다 — 환불 시 `revokePackage`가 entitlements를 지우므로 **환불 즉시 본문도 닫힌다**.
 - 서버가 못 내려주면 **캐시하지 않고** 오류 안내 + [다시 시도] 버튼을 그린다(`contentStateCard`). 유료 본문을 브라우저에 남기면 서버 게이팅의 의미가 줄고 환불 후에도 남는다.
-- ⚠️ `maintenance.html`·`supplement.html`은 **아직 정적이다**(페이지 전체가 유료라 구조가 다르다). 같은 이관이 필요하다.
+- 공개 Git 저장소에서는 `api/src/content/` 원본 자체가 읽힌다. 정적 `dist/` 배포만으로는 저장소 원본을 숨길 수 없으므로 판매 전에 Worker 소스를 비공개 저장소로 분리해야 한다.
 
 ### 요금제·결제
 
-`pricing.html` — 회생 완주 패키지 149,000원 / 변제기간 관리 패키지 29,000원 / 파산 완주 패키지 49,000원 / 보정 추가 대응 19,000원·회. 결제 기능 미구현(mock 모달만 존재). 구매 시 `plan='premium'`과 함께 `plan_package`(rehab-full / maintain / correction-rehab / bankrupt-full / correction-bankrupt)·`plan_package_name`이 저장되고 패키지별 전용 페이지로 이동 — 완주 패키지는 `rehabilitation.html`/`bankruptcy.html`, 변제기간 관리는 `maintenance.html`, 보정 추가 대응은 `supplement.html?type=rehab|bankrupt`.
+`pricing.html` — 회생 완주 패키지 149,000원 / 변제기간 관리 패키지 29,000원 / 파산 완주 패키지 49,000원 / 보정 추가 대응 19,000원. PortOne 결제·환불 백엔드는 구현돼 있지만 프런트와 Worker의 `PAYMENTS_ENABLED = false`로 판매가 잠겨 있다. 구매 시 `plan_package`(rehab-full / maintain / correction-rehab / bankrupt-full / correction-bankrupt)·`plan_package_name`이 저장되고 패키지별 전용 페이지로 이동한다.
 
 ## 페이지별 역할
 
@@ -301,12 +334,12 @@ Tailwind의 `group-open:`은 CDN 버전에 따라 없을 수 있어 쓰지 않�
 |---|---|
 | `index.html` | 메인 홈 (히어로, 요금제 미리보기) |
 | `diagnosis.html` | 4단계 무료 채무진단 폼 |
-| `result.html` | 진단 결과 표시 (sessionStorage에서 읽음) |
+| `result.html` | 진단 결과 표시 (`Storage`의 guest/계정 namespace에서 읽음) |
 | `rehabilitation.html` | 개인회생 절차 안내 |
 | `bankruptcy.html` | 개인파산·면책 절차 안내 |
 | `maintenance.html` | 변제기간 관리 센터 (변제계획 변경·실직 대처·특별면책 — 변제기간 관리 패키지 전용) |
 | `supplement.html` | 보정 대응 센터 (`?type=rehab\|bankrupt` — 보정 추가 대응 전용) |
-| `setup.html` | 맞춤 준비 진단 (?type=rehab\|bankrupt — 상황 질문지 → 필요 서류 선별 + 체크리스트·서류센터 '해당없음' 자동 반영, cdg_profile 저장) |
+| `setup.html` | 준비 항목 확인 (?type=rehab\|bankrupt — 상황 질문지 → 직접 확인할 후보 표시, 자동 '해당없음' 처리 금지, profile 저장) |
 | `documents.html` | 서류 체크리스트 |
 | `ai-review.html` | AI 서류 검토 기능 (서술형 전용 — 숫자 계산은 하지 않음) |
 | `numcheck.html` | 숫자 검산기 (채권자목록·수입지출·변제계획안 — 무료, 저장 없음) |
@@ -319,11 +352,11 @@ Tailwind의 `group-open:`은 CDN 버전에 따라 없을 수 있어 쓰지 않�
 
 세 가지가 **법 위반과 직결**된다. 편의를 이유로 완화하지 말 것.
 
-### ① 주민등록번호는 어떤 경우에도 처리하지 않는다 (제24조의2)
+### ① 주민등록번호 원문을 보관하거나 외부로 보내지 않는다 (제24조의2)
 
 법령에 구체적 근거가 없으면 **정보주체의 동의를 받아도** 처리할 수 없다(제23조 민감정보와 다른 점). 우리에겐 근거가 없다.
 
-- 안내가 아니라 **코드로 지운다**: `maskIdNumbers()`가 `js/main.js`(화면)와 `api/src/index.js`(서버)에 **같은 정규식으로** 있다. 한쪽만 고치지 말 것.
+- 안내가 아니라 **코드로 지운다**: `maskIdNumbers()`가 `js/main.js`(화면)와 `api/src/index.js`(서버)에 같은 판정 규칙으로 있다. 하이픈·붙여쓰기뿐 아니라 공백·점·줄바꿈은 검증번호 또는 라벨 근접 판정으로 잡아 금액 목록 오탐을 줄인다. 한쪽만 고치지 말 것.
 - 서버에서 지우는 지점이 셋: AI 검토 본문 / AI 대조 본문 / **`/api/data` 동기화의 직렬화 문자열**. 마지막 것 덕분에 앞으로 새 기능이 추가돼도 저장 경로는 자동으로 보호된다.
 - 옛 방식("○○으로 가린 뒤 입력해 주세요" + confirm에서 [예] 누르면 그대로 전송)으로 되돌리지 말 것 — **안내를 읽은 사람만 보호받는 구조**였다.
 
@@ -341,6 +374,9 @@ Tailwind의 `group-open:`은 CDN 버전에 따라 없을 수 있어 쓰지 않�
 - `AI_INFERENCE_GEO = 'us'`. 기본값 `'global'`은 "어느 지역에서든 추론이 돌 수 있다"는 뜻이라 방침의 "이전되는 국가: 미국"이 거짓이 된다. 요금 1.1배를 내고 사실로 만든 것이다.
 - AI로 나가는 통로는 셋뿐이다: 서류 본문 / `CrossCheck.summaryForAI()` / `AiContext.build()`. **늘리면 `privacy.html` 제2항 표와 제6항 국외이전 ②를 함께 고칠 것.**
 - 검토 이력에 **서류 본문을 저장하지 않는다**(옛 `preview` 80자는 폐지 — 법원 서류 첫머리가 대개 "신청인 ○○○ (주민등록번호 …)"였다). AI가 만든 질문 주제만 남긴다.
+- 챔로드 DB에 원문을 저장하지 않는 것과 Anthropic 측 보유기간은 별개다. ZDR 적용을 서면으로 확인하기 전에는
+  “처리 즉시 폐기”라고 쓰지 않는다. 현재 화면·방침처럼 기본 정책상 원칙적으로 최대 30일 보관 가능성을 고지하고,
+  실제 계정의 ZDR·DPA·하위처리자를 출시 전에 확인한다.
 
 ## 법률 정보 정확성 지침
 
