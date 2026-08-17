@@ -4,13 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## ⚠️ 2026-08-17 교차감사 이후 우선 규칙
 
-이 절은 아래의 과거 기록보다 우선한다. Codex 교차감사 수정은 현재 **로컬 작업트리에만** 있으며,
-커밋·push·Cloudflare 배포는 아직 하지 않았다. 세부 인계는 `CODEX-HANDOFF.md`와
+이 절은 아래의 과거 기록보다 우선한다. Codex 교차감사 수정은 **2026-08-17에 운영 배포 완료**했다
+(commit `418755e` — Pages + Worker + D1 마이그레이션 4건). 세부는 `CODEX-HANDOFF.md`와
 `PROGRESS.md` 최상단을 먼저 읽는다.
 
-- **판매 오픈 차단 사유는 사업자등록 하나가 아니다.** 유상 AI 검토와 개인별 절차 안내의
-  변호사법·법무사법 리스크를 국내 변호사에게 별도 확인하고, 유료 원문을 공개 저장소/정적
-  산출물에서 분리하고, 수정된 프런트와 Worker를 같은 릴리스로 검증한 뒤에만 판매를 검토한다.
+- **판매 오픈 차단 사유는 사업자등록 하나가 아니다.** 배포는 끝났지만 판매는 별개다. 유상 AI 검토와
+  개인별 절차 안내의 변호사법·법무사법 리스크를 국내 변호사에게 별도 확인하고(`LEGAL-REVIEW-BRIEF.md`),
+  유료 원문을 공개 저장소/정적 산출물에서 분리하고, AI가 내는 조문 번호 오류(PROGRESS.md 차단사유 7)를
+  해결한 뒤에만 판매를 검토한다. `PAYMENTS_ENABLED = false`는 배포 후에도 두 곳 모두 유지 중이다.
 - 유료 본문은 페이지 진입이나 gate 이벤트에서 자동으로 받지 않는다. 이용자가 환불 제한 안내를
   확인하고 누른 뒤 `POST /api/content/open`에
   `{type, consent:true, consentVersion:'content-open-v1'}`를 보내며, Worker가 소비 기록 저장에 성공한
@@ -60,21 +61,24 @@ Cloudflare에 올린 시크릿은 이름만 조회되고 값은 다시 읽을 �
 
 ※ 과거 단일파일 빌드 산출물(`app.html`, `build.ps1`)은 2026-07-02에 삭제됨 — 다시 만들지 말 것.
 
-## 배포 (2026-08-16 안전 산출물 전환 중)
+## 배포
 
-기존 운영은 `main` push로 화면과 Worker가 반영됐지만, 저장소 루트 전체를 Pages가 읽는 방식은
-더 이상 안전한 최종 구성이 아니다. **현재 로컬 수정은 배포되지 않았다.** 먼저 품질 게이트를 통과하고,
-프런트는 `dist/` 산출물만 게시하도록 GitHub Pages custom workflow 또는 Cloudflare Pages를 설정한다.
+`main` push로는 화면·Worker가 반영되지 않는다. Pages와 Worker 배포는 모두 `workflow_dispatch`
+수동 실행이다(마이그레이션 없는 자동 배포 사고를 막기 위함). push는 quality-gate 검사만 돈다.
 
 | 대상 | 경로 | 걸리는 시간 |
 |---|---|---|
-| 화면 (HTML·CSS·JS) | `node tools/build-public.js` → `dist/`만 게시 | 호스팅 설정에 따름 |
-| 서버 (`api/src/index.js`) | Actions에서 확인란 2개 검토 후 `deploy-worker.yml` 수동 실행 | 10초 내외 |
+| 화면 (HTML·CSS·JS) | Actions `Deploy public site` 수동 실행 | 2분 내외 |
+| 서버 (`api/src/index.js`) | Actions에서 확인란 2개 체크 후 `Deploy Worker` 수동 실행 | 20초 내외 |
 
-- push는 `.github/workflows/quality-gate.yml`의 검사만 실행한다. Pages와 Worker 배포는 마이그레이션 없는
-  자동 배포 사고를 막기 위해 모두 `workflow_dispatch` 수동 실행이다.
-- 이번 전환은 새 프런트가 구 Worker에도 보낼 `agree:true` 호환 필드를 포함하므로 **Pages 먼저**, 그 다음
-  D1 백업과 `phone_send_log`·주문 원장·가입 동의 판본 마이그레이션, 마지막으로 Worker를 배포한다.
+⚠️ **저장소 루트가 여전히 Pages 소스다.** `tools/build-public.js`가 만드는 `dist/`는 존재하지만
+아직 GitHub Pages 설정을 그리로 전환하지 않았다 — `_config.yml`의 exclude 목록이 현재의
+유일한 방어선이다(허용목록이 아니라 제외목록이므로 새 운영 `.md`를 추가하면 **반드시** 여기에도
+넣을 것 — 2026-08-17에 `LEGAL-RISK-ANALYSIS.md`를 빠뜨려 잠깐 노출될 뻔했다). `dist/` 전환은
+LAUNCH-CHECKLIST.md 6단계.
+
+- 프런트·Worker 계약이 바뀌는 배포는 **Pages 먼저, D1 마이그레이션, Worker 나중** 순서를 지킨다 —
+  새 프런트가 구 Worker에도 통하는 호환 필드를 보내는 동안에만 순서가 안전하기 때문이다.
   Worker 성공 뒤 구버전 진단 점수 삭제 마이그레이션을 실행한다. 판매 잠금은 전체 확인 전까지 유지한다.
 - 각 배포 워크플로 안에서 문법·저장소·공개 산출물·백엔드 보안 회귀를 모두 통과시킨다.
   프런트·Worker 계약 변경은 반드시 한 커밋/릴리스로 묶어 구버전 혼합을 피한다.
