@@ -5,7 +5,7 @@
 // ── 단계 관리 ──
 let currentStep = 1;
 const TOTAL_STEPS = 4;
-const STEP_LABELS = ['채무현황', '연체·법적현황', '소득·생활비', '재산·기타'];
+const STEP_LABELS = ['채무현황', '연체·법적현황', '소득·가구', '재산·기타'];
 
 function goStep(n) {
   if (n < 1 || n > TOTAL_STEPS) return;
@@ -114,11 +114,6 @@ function validateStep(step) {
       return warn('부양가족 수를 입력해 주세요. (없으면 0)');
     }
 
-    const living = document.getElementById('monthly-living');
-    if (!living || !living.value) {
-      living && living.focus();
-      return warn('월 필수 생활비를 입력해 주세요.');
-    }
   }
 
   if (step === 4) {
@@ -165,7 +160,8 @@ function collectFormData() {
   const carValue       = money('car-value');
   const depositValue   = money('deposit-value');
   const insuranceValue = money('insurance-value');
-  // 예상 퇴직금(재직자는 1/2이 청산가치에 산입)은 무료 진단에서 묻지 않는다 —
+  // 퇴직급여 제도·예상액은 무료 진단에서 묻지 않는다. 퇴직금채권·퇴직연금 수급권 등
+  // 종류별 보호 범위가 달라 일률적인 비율을 청산가치에 자동 산입하지 않는다 —
   // 금액을 모르는 이용자가 많아 이탈 요인이 되고, 판정을 뒤집는 경우도 드물다.
   // 정확한 반영은 setup.html(맞춤 준비 진단)에서 재직 여부로 안내한다.
   const totalAssets    = cashAssets + propertyValue + carValue + depositValue + insuranceValue;
@@ -173,8 +169,6 @@ function collectFormData() {
   const unsecuredDebt = money('unsecured-debt');
   const securedDebt   = money('secured-debt');
   const totalDebt     = unsecuredDebt + securedDebt;
-  const monthlyLiving = money('monthly-living');
-
   return {
     // 채무
     unsecuredDebt,
@@ -192,8 +186,6 @@ function collectFormData() {
     incomeType:              val('income-type'),
     monthlyIncome,
     dependents:              num('dependents'),
-    monthlyLiving,
-    livingCost:              monthlyLiving,
     // 재산
     cashAssets,
     propertyValue,
@@ -213,119 +205,19 @@ function collectFormData() {
   };
 }
 
-// ── 진단 점수 계산 ──
-function calcScores(d) {
-  let rehab = 0, bankrupt = 0;
-
-  // 법원 인정 생계비 = 표준생계비(기준중위소득 60%)와 입력 생활비 중 큰 값 — calcRepayment와 동일 기준
-  const effLiving = Math.max(d.monthlyLiving || 0, getStandardLiving(1 + (parseInt(d.dependents) || 0)));
-
-  // ── 개인회생 ──
-  if (d.hasIncome && d.monthlyIncome > 0) {
-    rehab += 40;                    // 소득 있음 (회생 필수 조건)
-    if (['employed_insured', 'pension'].includes(d.incomeType)) rehab += 15; // 소득 안정·증빙 용이
-    else if (['freelance', 'self'].includes(d.incomeType)) rehab += 8;       // 일부 증빙 가능
-    else if (d.incomeType === 'employed_uninsured') rehab += 5;              // 증빙 어려움
-
-    const disposable = d.monthlyIncome - effLiving;
-    if (disposable > 0) rehab += 20; // 가처분소득 양수 → 변제 가능
-    else rehab -= 10;
-  } else {
-    rehab -= 30;                    // 소득 없으면 회생 불가
-  }
-
-  if (d.unsecuredDebt > 1_000_000_000) rehab -= 50; // 무담보 10억 초과 → 회생 불가
-  if (d.securedDebt   > 1_500_000_000) rehab -= 30; // 담보 15억 초과 → 회생 불가
-
-  if (d.arrearsMonths > 0)  rehab += 10; // 연체 → 회생 필요성
-  if (d.hasLegalAction)     rehab += 5;  // 법적 조치 → 시급성
-
-
-  if (d.recentLoan === 'within-3m') {
-    bankrupt -= 10; // 3개월 내 신규 대출 → 면책불허가 위험 높음
-    rehab    -= 5;  // 채무 발생 경위 심사에서 불리
-  } else if (d.recentLoan === 'within-1y') {
-    bankrupt -= 5;  // 1년 이내 → 면책불허가 사유 가능성 있음
-    rehab    -= 1;  // 회생은 경미한 영향
-  }
-
-  // 회생 하드블록 여부 사전 확인 (채무한도·이력)
-  const rehabHardBlocked =
-    d.unsecuredDebt > 1_000_000_000 ||
-    d.securedDebt   > 1_500_000_000 ||
-    d.priorAdjustments.includes('rehab-done-recent') ||
-    d.priorAdjustments.includes('rehab-ongoing');
-
-  // ── 개인파산·면책 ──
-  if (!d.hasIncome || d.monthlyIncome === 0) {
-    bankrupt += 45;                 // 소득 없음 → 파산 가장 강력한 신호
-  } else if (d.monthlyIncome < effLiving) {
-    bankrupt += 30;                 // 소득이 법원 인정 생계비에도 못 미침
-  } else if (d.monthlyIncome < 1_000_000) {
-    bankrupt += 15;
-  } else if (rehabHardBlocked) {
-    bankrupt += 30;                 // 소득 있어도 회생이 법적으로 불가 → 파산이 유일한 법원 절차
-  }
-
-  if (d.totalAssets < d.totalDebt * 0.2) bankrupt += 20; // 채무초과 상태
-  if (d.totalAssets < 5_000_000)         bankrupt += 15; // 재산 거의 없음
-
-  if (d.arrearsMonths >= 18)       bankrupt += 20;
-  else if (d.arrearsMonths >= 9)   bankrupt += 10;
-  else if (d.arrearsMonths >= 5)   bankrupt += 5;
-
-  if (d.hasHealthIssues)           bankrupt += 10; // 근로능력 상실
-
-  // ── 도박·사행성 채무 (면책불허가 위험 반영) ──
-  if (d.debtCauses.includes('gambling')) {
-    bankrupt -= 30; // 법 제564조 면책불허가 사유 해당 가능성
-    rehab    += 10; // 파산보다 회생이 상대적으로 유리
-  }
-
-  // ── 이전 채무조정 이력 반영 (복수 선택, 각 조건 독립 적용) ──
-  const priors = d.priorAdjustments;
-  // 개인회생 면책 5년 미경과 → 회생은 기각 사유(제595조 제5호),
-  // ⚠️ 파산도 면책불허가 사유다(제564조 제1항 제4호 **후단** — "제624조에 의하여 면책을 받은
-  //    경우에는 면책확정일부터 5년"). 이 감점을 빼면 그 이용자에게 "파산이 적합"이 나온다.
-  //    다만 -60(=완전 차단)은 쓰지 말 것 — 제564조 제2항 재량면책 여지가 있어 전단 7년과 동급이 아니다.
-  if (priors.includes('rehab-done-recent'))    { rehab -= 60; bankrupt -= 40; }
-  if (priors.includes('bankrupt-done-recent')) { bankrupt -= 60; rehab -= 15; } // 파산 면책 7년 미경과 → 면책불허가 사유(제564조 1항 4호), 면책 후 5년 이내면 개인회생도 기각 사유(제595조 제5호)
-  if (priors.includes('rehab-ongoing'))    { rehab -= 40; bankrupt -= 30; }
-  if (priors.includes('bankrupt-ongoing')) { bankrupt -= 40; rehab -= 30; }
-  if (priors.includes('bankrupt-denied'))  bankrupt -= 20;
-  if (priors.includes('rehab-cancel'))     rehab    -= 10;
-  if (priors.includes('bankrupt-cancel'))  bankrupt -= 10;
-
-  // 정규화 (0~100)
-  rehab    = Math.max(0, Math.min(100, rehab));
-  bankrupt = Math.max(0, Math.min(100, bankrupt));
-
-  return { rehab, bankrupt };
-}
-
-function scoreToLevel(s) {
-  if (s >= 60) return 'high';
-  if (s >= 30) return 'medium';
-  return 'low';
-}
-
-function levelLabel(l) {
-  if (l === 'high')   return '검토 가능성 높음';
-  if (l === 'medium') return '검토 가능성 보통';
-  return '검토 가능성 낮음';
-}
-
 // ── 2026년 기준중위소득·표준생계비(getStandardLiving)는 js/main.js로 옮겼다 ──
 // 진단 외에 숫자 검산(js/numcheck.js)도 같은 기준을 써야 해서 모든 페이지가 읽는 곳에 둔 것이다.
 // 여기에 복사본을 다시 만들지 말 것 — 기준이 갈리면 화면마다 다른 금액이 나온다.
 
-// ── 개인회생 예상 변제금 계산 (2026 표준생계비 기준) ──
+// ── 개인회생 숫자 참고 계산 (2026 기준중위소득 60% 기준) ──
 function calcRepayment(d) {
   const householdSize   = 1 + (parseInt(d.dependents) || 0);        // 본인 + 부양가족
-  const standardLiving  = getStandardLiving(householdSize);          // 법원 표준생계비
-  const effectiveLiving = Math.max(d.monthlyLiving || 0, standardLiving); // 실제 공제액 (둘 중 큰 값)
+  const standardLiving  = getStandardLiving(householdSize);        // 기준중위소득 60% 참고값
+  // 실제 생활비 초과분은 자동 인정하지 않는다. 이 값은 어디까지나 60% 기준의 기본 추정액이다.
+  const effectiveLiving = standardLiving;
   const monthly  = Math.max(0, (d.monthlyIncome || 0) - effectiveLiving);
   const total36  = monthly * 36;
+  // 기존 저장 데이터와의 호환을 위해 키는 유지하지만, 이는 법원이 정한 면책액이 아니라 단순 차액이다.
   const exempt   = Math.max(0, d.totalDebt - total36);
   return { monthly, total36, exempt, standardLiving, effectiveLiving, householdSize };
 }
@@ -338,18 +230,17 @@ function submitDiagnosis() {
   }
 
   const data    = collectFormData();
-  const scores  = calcScores(data);
-  const levels  = {
-    rehab:    scoreToLevel(scores.rehab),
-    bankrupt: scoreToLevel(scores.bankrupt),
-  };
   const repayment = calcRepayment(data);
 
-  Storage.save('diagnosis_data',   data);
-  Storage.save('diagnosis_scores', scores);
-  Storage.save('diagnosis_levels', levels);
-  Storage.save('diagnosis_repay',  repayment);
-  Storage.save('diagnosis_date',   new Date().toLocaleDateString('ko-KR'));
+  const saved = Storage.saveBatch([
+    ['diagnosis_data', data],
+    ['diagnosis_repay', repayment],
+    ['diagnosis_date', new Date().toLocaleDateString('ko-KR')],
+  ]);
+  if (!saved) {
+    showToast('진단 결과를 저장하지 못해 이동을 중단했습니다. 브라우저 저장 공간·개인정보 보호 설정을 확인한 뒤 다시 시도해 주세요.', 'error');
+    return;
+  }
 
   if (typeof track === 'function') track('diag_complete', '');   // 진단 완료(익명)
   showToast('진단을 완료했습니다. 결과 페이지로 이동합니다.', 'success');

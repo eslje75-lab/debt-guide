@@ -191,8 +191,8 @@
       note: '목록에서 누락된 채권은 면책되지 않습니다 — 개인 간 채무까지 전부 기재하세요. 제출 시 부본이 "채권자 수 + 2통" 필요합니다.',
       link: { label: '양식 내려받기 (서울회생법원)', url: FORM_REHAB } },
     { id: 'd-r5', cat: 'rehab', name: '재산목록 (법원 양식)', reason: '청산가치 판단의 기초', where: '법원 공식 사이트 다운로드',
-      issue: '현금·예금·보험·보증금·부동산·차량 등 모든 재산을 시가 기준으로 기재합니다. 재직 중이면 예상 퇴직금의 1/2도 포함됩니다.',
-      note: '재산 합계(청산가치)보다 변제 총액이 커야 인가됩니다. 누락 시 변제금 증액·불인가 사유가 될 수 있습니다.',
+      issue: '현금·예금·보험·보증금·부동산·차량 등 재산을 공식 양식에 따라 기재합니다. 재직 중이면 퇴직급여 제도 종류와 예상액 증명서를 확인하되, 퇴직금채권·퇴직연금 수급권 등의 보호 범위가 달라 일률적으로 절반을 더하지 마세요.',
+      note: '재산목록은 청산가치 산정의 기초입니다. 단순 재산 합계와 명목 변제총액만으로 인가 여부를 판정할 수 없으며, 면제재산·담보 등과 인가시점 현재가치를 공식 양식에서 확인해야 합니다.',
       link: { label: '양식 내려받기 (서울회생법원)', url: FORM_REHAB } },
     { id: 'd-r3', cat: 'rehab', name: '수입 및 지출에 관한 목록 (법원 양식)', reason: '가용소득(월 변제액) 산정', where: '법원 공식 사이트 다운로드',
       issue: '세후 월평균 수입과 실제 지출을 기재합니다. 수입 − 생계비 = 가용소득이 월 변제액의 기준이 됩니다.',
@@ -203,8 +203,8 @@
       note: '사실대로 작성해야 합니다 — 허위·과장 기재는 불인가 사유. 채권자목록의 시점·금액과 서로 맞아야 합니다.',
       link: { label: '양식 내려받기 (서울회생법원)', url: FORM_REHAB } },
     { id: 'd-r2', cat: 'rehab', name: '변제계획안 (법원 양식)', reason: '월 변제액·기간 제시', where: '법원 공식 사이트 다운로드',
-      issue: '월 가용소득 전액 × 36회(3년)가 원칙이며, 청산가치를 맞추기 위해 필요한 경우 등에는 최대 60회(5년)까지 가능합니다. 양식의 표준 문구에 숫자를 채우는 방식입니다.',
-      note: '신청일부터 14일 이내 제출 규정이 있으나 실무상 신청서와 동시에 제출합니다. 총 변제액이 재산 합계(청산가치)보다 커야 인가됩니다.',
+      issue: '월 가용소득과 변제기간을 법원 공식 양식에 기재합니다. 변제기간은 원칙적으로 3년을 넘지 않고 특별한 사정이 있으면 5년 이내가 될 수 있으며, 현재가치 계산 등은 최신 양식과 법원 안내를 따르세요.',
+      note: '신청일부터 14일 이내 제출 규정이 있으나 실무상 신청서와 동시에 제출합니다. 청산가치 요건은 인가시점 현재가치로 심사되므로 월 금액×횟수의 명목합계만으로 충족 여부를 단정하지 마세요.',
       link: { label: '양식 내려받기 (서울회생법원)', url: FORM_REHAB } },
 
     // 개인파산·면책 전용
@@ -426,8 +426,13 @@
 
   function toggleDoc(id) {
     const el = document.getElementById(id);
+    const previous = savedChecks[id];
     if (el.checked) savedChecks[id] = true; else delete savedChecks[id];
-    Storage.save('docs_checks', savedChecks);
+    if (!Storage.save('docs_checks', savedChecks)) {
+      if (previous === undefined) delete savedChecks[id]; else savedChecks[id] = previous;
+      el.checked = previous === true;
+      return;
+    }
     const wrap = document.getElementById('wrap-' + id);
     if (wrap) wrap.classList.toggle('completed', el.checked);
     refreshDocProgress();
@@ -436,9 +441,13 @@
 
   // '해당없음' 토글 (조건부 서류만) — 처리 완료로 진행률에 반영
   function toggleDocNA(id) {
+    const previous = savedChecks[id];
     const isNA = savedChecks[id] === 'na';
     if (isNA) { delete savedChecks[id]; } else { savedChecks[id] = 'na'; }
-    Storage.save('docs_checks', savedChecks);
+    if (!Storage.save('docs_checks', savedChecks)) {
+      if (previous === undefined) delete savedChecks[id]; else savedChecks[id] = previous;
+      return;
+    }
     renderDocs();
     if (!isNA) showToast('해당없음으로 표시했습니다.', 'info');
   }

@@ -28,7 +28,7 @@
 <section class="bg-blue-700 text-white py-8">
   <div class="max-w-4xl mx-auto px-4">
     <h1 class="text-2xl md:text-3xl font-bold mb-1">변제기간 관리 센터</h1>
-    <p class="text-blue-200 text-sm">인가 후 3~5년 변제기간 중 소득 변동·납입 어려움이 생겼을 때 대처 방법을 안내합니다.</p>
+    <p class="text-blue-200 text-sm">인가 후 법원이 인가한 변제기간 중 소득 변동·납입 어려움이 생겼을 때 대처 방법을 안내합니다.</p>
   </div>
 </section>
 
@@ -129,157 +129,202 @@
     '권장': 'bg-blue-50 text-blue-700 border border-blue-100',
   };
 
-  const MAINTAIN_STEPS = [
-    {
-      title: '가이드 1 · 변제계획 변경 신청',
-      items: [
-        { id: 'm1-1', text: '변경이 필요한 사유 확인 (실직·급여 감소·질병·폐업 등)', hint: '소득이나 재산에 실제 변동이 있어야 신청 가능', must: '필수',
-          guide: '단순히 "납입이 힘들다"가 아니라 소득·재산의 실제 변동이 있어야 합니다(채무자회생법 제619조). 실직, 이직으로 급여 감소, 질병으로 근로 곤란, 폐업 등이 대표적입니다.\n"변동 전 월 ○○원 → 변동 후 월 ○○원"처럼 숫자로 말할 수 있게 정리해 두세요.' },
-        { id: 'm1-2', text: '소득 변동 증빙서류 준비', hint: '급여명세서·퇴직증명서·진단서·폐업사실증명원 등', must: '필수',
-          guide: '급여 감소는 변경 전후 급여명세서(또는 새 근로계약서), 실직은 퇴직증명서와 고용보험 자격상실 이력, 질병은 진단서, 폐업은 폐업사실증명원(홈택스 발급)으로 증빙합니다.\n증빙 없는 변경 신청은 받아들여지기 어렵습니다.',
-          links: [
-            { label: '국세청 홈택스', url: 'https://www.hometax.go.kr' },
-            { label: '고용보험', url: 'https://www.ei.go.kr' },
-          ],
-          ex: { title: '증빙 서류 → 실전 예시로 확인', content: '상황별 증빙 서류와 발급처는 페이지 상단 "실전 작성예시 → 소득 변동 증빙 정리표" 버튼에서 표로 확인할 수 있습니다.' } },
-        { id: 'm1-3', text: '변경된 소득 기준으로 월 납입 가능액 다시 계산', hint: '생계비를 제외하고 실제 납입 가능한 금액', must: '필수',
-          guide: '새 월 소득(세후) − 생계비(가구원 수 기준 표준생계비) = 새 가용소득이 변경안의 기준입니다.\n무리하게 높게 잡으면 다시 미납에 빠지고, 실제보다 낮게 잡으면 인가받기 어렵습니다 — 증빙 서류의 숫자와 맞는 금액으로 계산하세요.' },
-        { id: 'm1-4', text: '변제계획 변경안 작성', hint: '법원 양식 — 공식 사이트에서 다운로드', must: '필수',
-          guide: '법원 양식을 사용하세요(서울회생법원 양식모음·전자소송포털에서 다운로드). 변경 전/후의 월 변제액·기간이 비교되도록 작성하고, 변경 사유와 증빙을 함께 냅니다.\n상단 실전 작성예시에서 완성 형태를 확인할 수 있습니다.',
-          links: [
-            { label: '서울회생법원 양식모음', url: 'https://slb.scourt.go.kr/rel/information/min/MinListAction.work?gubun=25' },
-            { label: '전자소송포털', url: 'https://ecfs.scourt.go.kr/psp/index.on?m=PSPA17M01' },
-          ],
-          ex: { title: '변경신청 → 실전 예시로 확인', content: '완성된 형태의 예시는 페이지 상단 "실전 작성예시 → 변제계획 변경신청" 버튼에서 확인할 수 있습니다.\n\n핵심 구조\n① 사건번호·채무자\n② 변경 사유 (언제, 무엇이, 얼마나 변동했는지 + 증빙)\n③ 변경 전 → 변경 후 비교 (월 변제액·기간)\n④ 첨부서류 목록' } },
-        { id: 'm1-5', text: '담당 법원에 변경안 제출', hint: '전자소송 또는 법원 접수창구, 사건번호 기재', must: '필수',
-          guide: '사건번호를 기재해 전자소송 또는 법원 접수창구로 제출합니다. 제출 후 회생위원에게도 변경 신청 사실을 알려두면 이후 안내를 받기 쉽습니다. 법원이 변동 상황을 조사한 후 변경 인가 여부를 결정합니다.' },
-      ],
-      example: { title: '변제계획 변경 신청 안내', content: '[변제계획 변경이란]\n인가된 변제계획에 따라 변제가 완료되기 전, 소득·재산 변동 등 사유가 생긴 경우 변제금액·변제기간 등을 변경하는 절차입니다. (채무자회생법 제619조)\n\n■ 누가 신청할 수 있나\n채무자 본인, 회생위원, 개인회생채권자\n\n■ 언제까지 가능한가\n변제계획에 따른 변제가 완료되기 전까지\n\n■ 어떤 경우에 가능한가\n실직, 급여 감소, 질병, 폐업 등 소득·재산의 변동으로\n기존 변제계획을 그대로 이행하기 어려워진 경우\n(변동 사유 없이 임의로 변경할 수는 없음)\n\n■ 유의사항\n- 변제기간은 원칙적으로 3년, 특별한 사정이 있는 경우에도 최대 5년을 초과할 수 없습니다. (채무자회생법 제611조 제5항)\n- 법원이 소득·재산 변동 상황을 조사한 후 변경 인가 여부를 결정합니다.\n\n※ 변경안 양식은 서울회생법원 양식모음·전자소송포털에서 확인하세요.' }
-    },
-    {
-      title: '가이드 2 · 실직·소득 변동 대처',
-      items: [
-        { id: 'm2-1', text: '변제금 미납을 방치하지 않기', hint: '미납이 계속 누적되면 개인회생절차가 폐지될 수 있음', must: '필수',
-          guide: '미납 누적은 폐지(절차 중단) 사유입니다. 폐지되면 면책을 받지 못하고 채무가 그대로 살아납니다 — 지금까지 낸 노력이 물거품이 되는 최악의 경우입니다.\n납입이 어려워진 바로 그 달에 움직이는 것이 가장 중요합니다.' },
-        { id: 'm2-2', text: '회생위원에게 상황 미리 알리기', hint: '사건번호와 함께 소득 변동 상황 설명', must: '필수',
-          guide: '회생위원 연락처는 개시결정문·임치 안내문에 있습니다. 사건번호를 밝히고 "언제부터, 왜, 얼마나" 납입이 어려운지 설명하세요. 통화 날짜와 안내받은 내용을 메모해 두면 이후 절차에서 유용합니다.' },
-        { id: 'm2-3', text: '소득 변동 증빙자료 확보', hint: '퇴직증명서·실업급여 수급자격 확인서·진단서 등', must: '필수',
-          guide: '실직: 퇴직증명서·고용보험 자격상실 이력·실업급여 수급자격 확인서(고용24) / 질병: 진단서·입퇴원확인서 / 폐업: 폐업사실증명원(홈택스). 나중에 변경 신청이나 특별면책으로 가더라도 이 증빙이 모두 쓰입니다.',
-          links: [
-            { label: '고용보험', url: 'https://www.ei.go.kr' },
-            { label: '국세청 홈택스', url: 'https://www.hometax.go.kr' },
-          ],
-          ex: { title: '증빙 서류 → 실전 예시로 확인', content: '상황별 증빙 서류와 발급처는 페이지 상단 "실전 작성예시 → 소득 변동 증빙 정리표" 버튼에서 표로 확인할 수 있습니다.' } },
-        { id: 'm2-4', text: '일시적 변동인지, 장기적 변동인지 판단', hint: '재취업 예정이면 시기·예상 소득 정리', must: '권장',
-          guide: '1~2개월 공백 후 재취업이 예정되어 있다면 그 계획(시기·예상 소득)을 정리해 회생위원과 상의하세요. 장기적인 변동이라면 변제계획 변경(가이드 1)이나 특별면책(가이드 3) 검토로 넘어갑니다.' },
-        { id: 'm2-5', text: '소득 회복이 어려우면 변제계획 변경 신청 검토', hint: '가이드 1 참고', must: '해당 시 필수',
-          guide: '줄어든 소득으로도 일부 납입이 가능하다면 변제계획 변경으로 월 변제액을 조정하는 것이 원칙적인 대응입니다. 가이드 1의 절차를 따라 진행하세요.' },
-        { id: 'm2-6', text: '변제 지속이 불가능하면 특별면책 검토', hint: '가이드 3 참고', must: '해당 시 필수',
-          guide: '중병·재해 등으로 납입 자체가 장기적으로 불가능하고 변제계획 변경으로도 해결되지 않는다면, 특별면책(가이드 3)의 요건에 해당하는지 확인하세요.' },
-      ],
-      example: { title: '실직했을 때 대처 순서', content: '[실직·소득 급감 시 대처 순서]\n\n① 미납 방치 금지\n   변제금을 계속 납입하지 못하는 상태가 이어지면\n   개인회생절차가 폐지될 수 있습니다.\n   폐지되면 면책을 받지 못하고 채무가 그대로 남습니다.\n\n② 회생위원에게 먼저 알리기\n   사건번호를 밝히고 실직·소득 감소 상황을 설명하세요.\n\n③ 증빙자료 준비\n   - 실직: 퇴직증명서, 실업급여 수급자격 확인서\n   - 질병: 진단서, 입퇴원 확인서\n   - 폐업: 폐업사실증명원\n\n④ 상황에 맞는 절차 선택\n   - 소득이 줄었지만 일부 납입 가능 → 변제계획 변경 신청 (가이드 1)\n   - 납입 자체가 불가능 → 특별면책 검토 (가이드 3)\n\n※ 가장 위험한 것은 아무 조치 없이 미납을 방치하는 것입니다.' }
-    },
-    {
-      title: '가이드 3 · 특별면책 신청',
-      items: [
-        { id: 'm3-1', text: '특별면책 요건 3가지 해당 여부 확인', hint: '상세안내에서 요건 확인', must: '필수',
-          guide: '세 가지를 모두 충족해야 합니다(채무자회생법 제624조 제2항).\n① 채무자가 책임질 수 없는 사유(중병·재해·갑작스러운 해고 등)로 변제를 완료하지 못했을 것\n② 채권자들이 지금까지 변제받은 금액이, 파산절차였다면 배당받았을 금액 이상일 것\n③ 변제계획 변경으로도 해결이 불가능할 것' },
-        { id: 'm3-2', text: '책임질 수 없는 사유 증빙 준비', hint: '질병 진단서·해고 통지서·폐업사실증명원 등', must: '필수',
-          guide: '요건 ①을 서류로 보여야 합니다. 중병은 진단서·소견서(근로 불가 취지가 드러나면 좋음), 해고는 해고 통지서·수급자격 확인서, 재해는 관련 증명서로 준비하세요.' },
-        { id: 'm3-3', text: '지금까지 변제한 금액 정리', hint: '회생위원을 통해 납입 내역 확인', must: '필수',
-          guide: '회생위원을 통해 총 납입 내역을 확인하세요. "기납입 총액 ≥ 재산 청산가치(파산 시 배당액)"가 요건 ②의 핵심 비교입니다. 재산목록의 청산가치와 나란히 정리해 두면 신청 서면에 그대로 쓸 수 있습니다.' },
-        { id: 'm3-4', text: '특별면책 신청 서면 작성·제출', hint: '요건에 해당하는 사정을 기재 — 개인회생절차 종료 전 신청', must: '필수',
-          guide: '요건 3가지에 하나씩 대응하는 구조로 작성하면 법원이 판단하기 쉽습니다. 반드시 개인회생절차가 종료되기 전에 신청해야 합니다.\n상단 실전 작성예시에서 완성 형태를 확인하세요.',
-          ex: { title: '특별면책 서면 → 실전 예시로 확인', content: '완성된 형태의 예시는 페이지 상단 "실전 작성예시 → 특별면책 신청 서면" 버튼에서 확인할 수 있습니다.\n\n핵심 구조\n① 사건번호·채무자\n② 요건 ①: 책임질 수 없는 사유 (증빙 연결)\n③ 요건 ②: 기납입 총액 ≥ 청산가치 비교\n④ 요건 ③: 변제계획 변경이 불가능한 사정\n⑤ 첨부서류 목록' } },
-        { id: 'm3-5', text: '법원의 면책결정 확인', hint: '면책 확정 시 잔여 채무 법적 소멸', must: '필수',
-          guide: '법원이 채권자 등 이해관계인의 의견을 들은 후 면책 여부를 결정합니다. 면책이 확정되면 남은 채무는 법적으로 소멸합니다 — 면책결정문 원본을 잘 보관하세요.' },
-      ],
-      example: { title: '특별면책 신청 안내', content: '[특별면책이란]\n변제계획에 따른 변제를 다 완료하지 못했더라도, 일정 요건을 모두 충족하면 법원이 면책결정을 할 수 있는 제도입니다. (채무자회생법 제624조 제2항)\n\n■ 요건 (3가지 모두 충족해야 함)\n① 채무자가 책임질 수 없는 사유로 변제를 완료하지 못했을 것\n   예: 중병, 갑작스러운 해고, 재해 등\n② 개인회생채권자가 지금까지 변제받은 금액이,\n   파산절차였다면 배당받았을 금액보다 적지 않을 것\n③ 변제계획의 변경이 불가능할 것\n\n■ 신청 방법\n- 위 요건에 해당하는 사정을 기재한 서면을 담당 법원에 제출\n- 개인회생절차가 종료되기 전에 신청해야 합니다.\n\n■ 결정 절차\n법원이 채권자 등 이해관계인의 의견을 들은 후 면책 여부를 결정합니다.\n면책이 확정되면 남은 채무는 법적으로 소멸합니다.\n\n※ 요건 해당 여부 판단이 어려운 경우 전문가 상담을 권장합니다.' }
-    },
-  ];
+  // 첫 가이드는 구매 전 미리보기로 공개한다. 이후 상세와 서식 예시는 Worker에서만 받는다.
+  const MAINTAIN_STEPS_FREE = [
+  {
+    "title": "가이드 1 · 변제계획 변경 신청",
+    "items": [
+      {
+        "id": "m1-1",
+        "text": "인가 후 변제계획에서 정한 사항을 변경할 필요가 생긴 사유 확인",
+        "hint": "변경 필요 사유와 증빙, 변경안 인가요건 확인",
+        "must": "필수",
+        "guide": "인가 후 소득·재산 변동 등 인가된 변제계획에서 정한 사항을 변경할 필요가 생긴 사유가 있어야 합니다(대법원 2019. 3. 19. 자 2018마6364 결정). 실직, 이직에 따른 급여 감소, 질병으로 인한 근로 곤란, 폐업 등이 대표적입니다. 변경안을 제출했다고 자동으로 인가되는 것은 아니며, 법 제619조 제2항이 준용하는 인가요건을 충족하는지는 법원이 심리·판단합니다.\n변경 전 월 ○○원 → 변경 후 월 ○○원처럼 변동 내용을 수치와 증빙으로 정리하세요."
+      },
+      {
+        "id": "m1-2",
+        "text": "소득 변동 증빙서류 준비",
+        "hint": "급여명세서·퇴직증명서·진단서·폐업사실증명원 등",
+        "must": "필수",
+        "guide": "급여 감소는 변경 전후 급여명세서(또는 새 근로계약서), 실직은 퇴직증명서와 고용보험 자격상실 이력, 질병은 진단서, 폐업은 폐업사실증명원(홈택스 발급)으로 증빙합니다.\n증빙 없는 변경 신청은 받아들여지기 어렵습니다.",
+        "links": [
+          {
+            "label": "국세청 홈택스",
+            "url": "https://www.hometax.go.kr"
+          },
+          {
+            "label": "고용보험",
+            "url": "https://www.ei.go.kr"
+          }
+        ],
+        "ex": {
+          "title": "증빙 서류 → 실전 예시로 확인",
+          "content": "상황별 증빙 서류와 발급처는 페이지 상단 \"실전 작성예시 → 소득 변동 증빙 정리표\" 버튼에서 표로 확인할 수 있습니다."
+        }
+      },
+      {
+        "id": "m1-3",
+        "text": "변경된 소득 기준으로 월 납입 가능액 다시 계산",
+        "hint": "생계비를 제외하고 실제 납입 가능한 금액",
+        "must": "필수",
+        "guide": "기준중위소득 60%는 새 월 소득에서 공제할 생계비를 확인하기 위한 출발점일 뿐, 법원이 인정한 가용소득을 자동으로 확정하지 않습니다. 실제 부양가족, 주거비·의료비 등 추가 사정과 증빙을 반영해 법원 양식으로 다시 계산하고, 변경 전후 소득과 지출 자료를 함께 내세요."
+      },
+      {
+        "id": "m1-4",
+        "text": "변제계획 변경안 작성",
+        "hint": "법원 양식 — 공식 사이트에서 다운로드",
+        "must": "필수",
+        "guide": "법원 양식을 사용하세요(서울회생법원 양식모음·전자소송포털에서 다운로드). 변경 전/후의 월 변제액·기간이 비교되도록 작성하고, 변경 사유와 증빙을 함께 냅니다.\n상단 실전 작성예시에서 완성 형태를 확인할 수 있습니다.",
+        "links": [
+          {
+            "label": "서울회생법원 양식모음",
+            "url": "https://slb.scourt.go.kr/rel/information/min/MinListAction.work?gubun=25"
+          },
+          {
+            "label": "전자소송포털",
+            "url": "https://ecfs.scourt.go.kr/psp/index.on?m=PSPA17M01"
+          }
+        ],
+        "ex": {
+          "title": "변경신청 → 실전 예시로 확인",
+          "content": "완성된 형태의 예시는 페이지 상단 \"실전 작성예시 → 변제계획 변경신청\" 버튼에서 확인할 수 있습니다.\n\n핵심 구조\n① 사건번호·채무자\n② 변경 사유 (언제, 무엇이, 얼마나 변동했는지 + 증빙)\n③ 변경 전 → 변경 후 비교 (월 변제액·기간)\n④ 첨부서류 목록"
+        }
+      },
+      {
+        "id": "m1-5",
+        "text": "담당 법원에 변경안 제출",
+        "hint": "전자소송 또는 법원 접수창구, 사건번호 기재",
+        "must": "필수",
+        "guide": "사건번호를 기재해 전자소송 또는 법원 접수창구로 제출합니다. 제출 후 회생위원에게도 변경 신청 사실을 알려두면 이후 안내를 받기 쉽습니다. 법원이 변동 상황을 조사한 후 변경 인가 여부를 결정합니다."
+      }
+    ],
+    "example": {
+      "title": "변제계획 변경 신청 안내",
+      "content": "[변제계획 변경이란]\n인가된 변제계획에 따라 변제가 완료되기 전, 변제계획에서 정한 사항을 변경할 필요가 생긴 경우 변경안을 제출하는 절차입니다(채무자회생법 제619조).\n\n■ 누가 신청할 수 있나\n채무자 본인, 회생위원, 개인회생채권자\n\n■ 언제까지 가능한가\n변제계획에 따른 변제가 완료되기 전까지\n\n■ 어떤 경우에 가능한가\n인가 후 소득·재산 변동 등 기존 변제계획에서 정한 사항의 변경이 필요한 사유가 새로 발생한 경우\n(변경안은 법 제619조 제2항이 준용하는 인가요건을 충족해야 하며, 제출만으로 확정되지 않음)\n\n■ 유의사항\n- 변제기간은 변제개시일부터 3년을 초과할 수 없습니다. 다만 법 제614조 제1항 제4호의 요건을 충족하기 위하여 필요한 경우 등 특별한 사정이 있으면 5년 이내로 정할 수 있습니다(채무자회생법 제611조 제5항).\n- 변경안은 법원이 인가요건을 심리한 뒤 결정합니다.\n\n※ 변경안 양식은 서울회생법원 양식모음·전자소송포털에서 확인하세요."
+    }
+  }
+];
 
-  // ── 실전 작성예시 (가상 인물: 김○민 — 개인회생 진행센터와 동일 사례) ──
-  const AMT = 'text-right whitespace-nowrap';
-  const TH = 'border border-slate-200 bg-slate-100 px-2 py-1.5 text-left font-semibold text-slate-700';
-  const TD = 'border border-slate-200 px-2 py-1.5';
-  const CAVEAT = '<p class="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5 mb-3 leading-relaxed">아래는 <strong>가상 인물의 작성 예시</strong>입니다. 실제 양식의 항목·순서는 관할 법원의 최신 양식을 기준으로 하고, 내용은 반드시 본인의 실제 상황을 사실대로 적어야 합니다.</p>';
+  // 유료 본문을 받기 전에도 전체 진행률을 계산할 수 있는 제목·id 뼈대만 공개한다.
+  const MAINTAIN_STEPS_SKELETON = [
+  {
+    "title": "가이드 2 · 실직·소득 변동 대처",
+    "ids": [
+      "m2-1",
+      "m2-2",
+      "m2-3",
+      "m2-4",
+      "m2-5",
+      "m2-6"
+    ]
+  },
+  {
+    "title": "가이드 3 · 특별면책 신청",
+    "ids": [
+      "m3-1",
+      "m3-2",
+      "m3-3",
+      "m3-4",
+      "m3-5"
+    ]
+  }
+];
+  const lockedStep = (step) => ({
+    title: step.title,
+    locked: true,
+    example: null,
+    items: step.ids.map(id => ({ id })),
+  });
 
-  const DOC_EXAMPLES = [
-    {
-      icon: '📅', name: '변제계획 변경신청',
-      html: CAVEAT + `
-        <p class="text-xs text-slate-500 mb-2">사례: 이직으로 월 실수령이 2,600,000원 → 1,900,000원으로 줄어든 경우</p>
-        <div class="overflow-x-auto"><table class="w-full text-xs border-collapse">
-          <tr><th class="${TH} w-32">칸</th><th class="${TH}">작성 내용 (예시)</th></tr>
-          <tr><td class="${TD} font-medium">사건번호·채무자</td><td class="${TD}">20○○개회○○○○ / 채무자 김○민</td></tr>
-          <tr><td class="${TD} font-medium">신청취지</td><td class="${TD}">인가된 변제계획의 변경(인가)을 구합니다.</td></tr>
-          <tr><td class="${TD} font-medium">변경 사유</td><td class="${TD}">20○○. ○. 다니던 회사의 경영 악화로 권고사직 후 재취업하면서 월 실수령 급여가 2,600,000원에서 1,900,000원으로 감소하였음 (근로계약서·급여명세서 첨부)</td></tr>
-          <tr><td class="${TD} font-medium">변경 내용</td><td class="${TD}">
-            <table class="w-full border-collapse mt-1">
-              <tr><th class="${TH}"></th><th class="${TH} text-right">변경 전</th><th class="${TH} text-right">변경 후</th></tr>
-              <tr><td class="${TD}">월평균 소득</td><td class="${TD} ${AMT}">2,600,000</td><td class="${TD} ${AMT}">1,900,000</td></tr>
-              <tr><td class="${TD}">생계비 (1인 표준)</td><td class="${TD} ${AMT}">1,538,543</td><td class="${TD} ${AMT}">1,538,543</td></tr>
-              <tr class="bg-blue-50 font-semibold"><td class="${TD}">월 변제액 (가용소득)</td><td class="${TD} ${AMT}">1,061,457</td><td class="${TD} ${AMT}">361,457</td></tr>
-            </table>
-          </td></tr>
-          <tr><td class="${TD} font-medium">첨부서류</td><td class="${TD}">새 근로계약서, 최근 3개월 급여명세서, 변경된 수입·지출 목록</td></tr>
-          <tr><td class="${TD} font-medium">날짜·서명</td><td class="${TD}">2026. ○. ○. 채무자 김○민 (서명 또는 날인)</td></tr>
-        </table></div>
-        <ul class="text-xs text-slate-600 mt-3 space-y-1 leading-relaxed">
-          <li>· 변경 전/후가 <strong>숫자로 비교</strong>되게 쓰는 것이 핵심입니다.</li>
-          <li>· 변제기간은 3년 원칙·최대 5년 한도(제611조 제5항) 안에서 법원이 조사 후 인가 여부를 결정합니다.</li>
-          <li>· 실제 양식은 서울회생법원 양식모음·전자소송포털에서 내려받아 그 양식 그대로 작성하세요.</li>
-        </ul>`
-    },
-    {
-      icon: '📑', name: '소득 변동 증빙 정리표',
-      html: CAVEAT + `
-        <p class="text-xs text-slate-500 mb-2">상황별로 어떤 서류를 어디서 받는지 정리한 표입니다. 변경 신청·특별면책 어느 쪽으로 가더라도 그대로 쓰입니다.</p>
-        <div class="overflow-x-auto"><table class="w-full text-xs border-collapse">
-          <tr><th class="${TH}">상황</th><th class="${TH}">증빙 서류</th><th class="${TH}">발급처</th></tr>
-          <tr><td class="${TD}">실직 (해고·권고사직)</td><td class="${TD}">퇴직증명서, 고용보험 자격상실 이력, 해고 통지서</td><td class="${TD}">회사 / 고용24(ei.go.kr)</td></tr>
-          <tr><td class="${TD}">실업급여 수급 중</td><td class="${TD}">수급자격 인정 확인서, 수급 내역</td><td class="${TD}">고용24 / 고용센터</td></tr>
-          <tr><td class="${TD}">이직·급여 감소</td><td class="${TD}">새 근로계약서, 변경 전후 급여명세서</td><td class="${TD}">회사</td></tr>
-          <tr><td class="${TD}">질병·부상</td><td class="${TD}">진단서(근로 곤란 취지), 입퇴원확인서, 진료비 영수증</td><td class="${TD}">병원</td></tr>
-          <tr><td class="${TD}">폐업</td><td class="${TD}">폐업사실증명원</td><td class="${TD}">홈택스 / 세무서</td></tr>
-        </table></div>
-        <ul class="text-xs text-slate-600 mt-3 space-y-1 leading-relaxed">
-          <li>· 증빙은 "언제부터, 왜, 얼마나" 소득이 줄었는지를 보여줄 수 있어야 합니다.</li>
-          <li>· 회생위원과 통화하기 전에 이 표 기준으로 서류를 모아두면 상담이 빨라집니다.</li>
-        </ul>`
-    },
-    {
-      icon: '🕊️', name: '특별면책 신청 서면',
-      html: CAVEAT + `
-        <p class="text-xs text-slate-500 mb-2">사례: 24회차까지 납입 후 중병으로 근로가 불가능해진 경우 — 요건 3가지에 하나씩 대응하는 구조입니다.</p>
-        <div class="bg-white border border-slate-200 rounded-xl p-4 text-xs text-slate-700 leading-relaxed space-y-3">
-          <p class="font-bold text-sm text-slate-800 text-center">면책(특별면책) 신청서</p>
-          <p>사건번호: 20○○개회○○○○<br>채무자(신청인): 김 ○ 민</p>
-          <div>
-            <p class="font-semibold mb-1">1. 책임질 수 없는 사유 (요건 ①)</p>
-            <p>채무자는 인가된 변제계획에 따라 24회차까지 성실히 납입하여 왔으나, 20○○. ○. 위암 진단을 받고 수술·항암치료로 근로가 불가능해져(진단서·소견서 첨부) 더 이상 변제를 계속할 수 없게 되었습니다.</p>
-          </div>
-          <div>
-            <p class="font-semibold mb-1">2. 기변제액이 파산 시 배당액 이상 (요건 ②)</p>
-            <p>채무자가 현재까지 변제한 총액은 25,474,968원(월 1,061,457원 × 24회)으로, 신청 당시 재산의 청산가치 10,260,000원을 초과합니다. 따라서 채권자들은 파산절차에서 배당받았을 금액 이상을 이미 변제받았습니다.</p>
-          </div>
-          <div>
-            <p class="font-semibold mb-1">3. 변제계획 변경이 불가능한 사정 (요건 ③)</p>
-            <p>채무자는 치료로 인해 소득 활동이 전면 중단되어 변제계획을 변경하더라도 이행할 수 없는 상태이므로, 변제계획의 변경으로는 해결이 불가능합니다.</p>
-          </div>
-          <div>
-            <p class="font-semibold mb-1">첨부서류</p>
-            <p>1. 진단서 및 소견서 / 2. 납입 내역 확인 자료 / 3. 수입·지출에 관한 목록(현재 기준)</p>
-          </div>
-          <p class="text-right">20○○. ○. ○.<br>위 채무자 김 ○ 민 (서명 또는 날인)<br>○○법원 귀중</p>
-        </div>
-        <ul class="text-xs text-slate-600 mt-3 space-y-1 leading-relaxed">
-          <li>· 요건 3가지(제624조 제2항)에 <strong>하나씩 번호를 붙여 대응</strong>하면 법원이 판단하기 쉽습니다.</li>
-          <li>· 개인회생절차가 <strong>종료되기 전</strong>에 신청해야 합니다.</li>
-          <li>· 요건 해당 여부가 애매하면 신청 전에 전문가 상담을 권장합니다.</li>
-        </ul>`
-    },
-  ];
+  let MAINTAIN_STEPS = MAINTAIN_STEPS_FREE.concat(MAINTAIN_STEPS_SKELETON.map(lockedStep));
+  let DOC_EXAMPLES = [];
+  let paidState = 'none';          // none · loading · ok · error
+  let paidOpenAuthorized = false;  // 사전 고지를 확인한 뒤에만 서버 본문을 요청한다
+  let paidPromise = null;
+
+  async function loadPaidContent() {
+    if (paidState === 'ok') return true;
+    if (!paidOpenAuthorized) return false;
+    if (paidPromise) return paidPromise;
+    if (typeof Auth === 'undefined' || !Auth.isLoggedIn()) return false;
+
+    paidState = 'loading';
+    paidPromise = (async () => {
+      try {
+        const res = await fetch(API_BASE + '/api/content/open', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + Auth.getSession().token,
+          },
+          body: JSON.stringify({
+            type: 'maintain',
+            consent: true,
+            consentVersion: 'content-open-v1',
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok || !Array.isArray(data.steps)) {
+          throw new Error(data.error || 'bad response');
+        }
+        MAINTAIN_STEPS = MAINTAIN_STEPS_FREE.concat(data.steps);
+        DOC_EXAMPLES = Array.isArray(data.docExamples) ? data.docExamples : [];
+        paidState = 'ok';
+        return true;
+      } catch (error) {
+        paidState = 'error';
+        return false;
+      } finally {
+        paidPromise = null;
+      }
+    })();
+    return paidPromise;
+  }
+
+  async function openPaidContent() {
+    if (paidState === 'ok') return true;
+    if (isPreview()) return false;
+    if (!paidOpenAuthorized) {
+      if (!(await confirmContentOpen())) return false;
+      paidOpenAuthorized = true;
+    }
+    return loadPaidContent();
+  }
+
+  async function openPaidContentAndRender() {
+    await openPaidContent();
+    renderSteps();
+    renderExampleButtons();
+  }
+
+  async function retryPaidContent() {
+    paidState = 'none';
+    renderSteps();
+    renderExampleButtons();
+    await openPaidContent();
+    renderSteps();
+    renderExampleButtons();
+  }
+
+  function contentStateCard() {
+    if (paidState === 'error') {
+      return `<div class="bg-white rounded-2xl shadow-sm border border-red-200 p-6 text-center">
+        <p class="text-sm text-slate-700 font-medium mb-1">내용을 불러오지 못했습니다</p>
+        <p class="text-xs text-slate-500 mb-4">일시적인 연결 문제일 수 있습니다. 이용권은 그대로 있으니 다시 시도해 주세요.</p>
+        <button onclick="retryPaidContent()" class="bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-blue-800 transition-colors">다시 시도</button>
+      </div>`;
+    }
+    if (paidState === 'loading') {
+      return `<div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 text-center">
+        <p class="text-sm text-slate-500">내용을 불러오는 중입니다…</p>
+      </div>`;
+    }
+    return `<div class="bg-white rounded-2xl shadow-sm border border-blue-200 p-6 text-center">
+      <p class="text-sm text-slate-700 font-medium mb-1">구매한 유료 내용을 열 수 있습니다</p>
+      <p class="text-xs text-slate-500 mb-4">버튼을 누르면 환불 제한 안내를 먼저 확인한 뒤 서버에서 내용을 불러옵니다. 페이지 방문만으로는 제공이 시작되지 않습니다.</p>
+      <button onclick="openPaidContentAndRender()" class="bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-blue-800 transition-colors">안내 확인 후 내용 열기</button>
+    </div>`;
+  }
 
   function renderExampleButtons() {
     // 미리보기에서는 서식 예시 라이브러리를 잠근다. DOM 구조는 그대로 두고 버튼만 비운다.
@@ -288,6 +333,10 @@
     if (isPreview()) {
       document.getElementById('doc-example-buttons').innerHTML = '';
       lib.appendChild(previewLockCard('서식 예시는 변제기간 관리 패키지 전용입니다'));
+      return;
+    }
+    if (paidState !== 'ok') {
+      document.getElementById('doc-example-buttons').innerHTML = contentStateCard();
       return;
     }
     document.getElementById('doc-example-buttons').innerHTML = DOC_EXAMPLES.map((d, i) => `
@@ -358,7 +407,15 @@
 
   function renderSteps() {
     const saved = Storage.load('maintain_checks') || {};
-    const html = MAINTAIN_STEPS.map(step => {
+    // 구매자도 버튼을 누르기 전에는 무료 첫 가이드와 열기 카드만 본다.
+    // 미구매자는 제목·id 뼈대를 렌더한 뒤 첫 가이드 이후를 잠근다.
+    const steps = !isPreview() && paidState !== 'ok' ? MAINTAIN_STEPS_FREE : MAINTAIN_STEPS;
+    let html = steps.map(step => {
+      if (step.locked) {
+        return `<div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+          <h3 class="font-bold text-slate-800">${step.title}</h3>
+        </div>`;
+      }
       const items = step.items.map(item => itemRowHtml(item, stateOf(saved, item))).join('');
 
       return `
@@ -373,6 +430,8 @@
           <div class="px-5 py-3 divide-y divide-slate-50">${items}</div>
         </div>`;
     }).join('');
+
+    if (!isPreview() && paidState !== 'ok') html += contentStateCard();
 
     document.getElementById('steps-container').innerHTML = html;
     // 미리보기(미구매): 첫 항목만 열어 두고 나머지를 잠근다 — main.js requirePackage 주석 참조
@@ -392,7 +451,7 @@
     const saved = Storage.load('maintain_checks') || {};
     const el = document.getElementById(id);
     if (el.checked) saved[id] = true; else delete saved[id];
-    Storage.save('maintain_checks', saved);
+    if (!Storage.save('maintain_checks', saved)) { el.checked = !el.checked; return; }
     const wrap = document.getElementById('wrap-' + id);
     if (wrap) wrap.classList.toggle('completed', el.checked);
 
@@ -406,7 +465,7 @@
     const saved = Storage.load('maintain_checks') || {};
     const isNA = saved[id] === 'na';
     if (isNA) { delete saved[id]; } else { saved[id] = 'na'; }
-    Storage.save('maintain_checks', saved);
+    if (!Storage.save('maintain_checks', saved)) return;
     const item = MAINTAIN_STEPS.flatMap(s => s.items).find(i => i.id === id);
     if (item) {
       const row = document.getElementById('wrap-' + id).parentElement;
@@ -433,8 +492,13 @@
 
   async function showDocExample(i) {
     // 서식 작성예시 열람 = 제공 개시(환불 기준). 처음이면 사전 고지 후 동의를 받는다.
-    if (!(await confirmContentOpen())) return;
+    if (paidState !== 'ok' && !(await openPaidContent())) {
+      renderSteps();
+      renderExampleButtons();
+      return;
+    }
     const d = DOC_EXAMPLES[i];
+    if (!d) return;
     document.getElementById('modal-title').textContent = d.name + ' — 작성예시';
     const box = document.getElementById('modal-content');
     box.classList.remove('whitespace-pre-line');
@@ -451,7 +515,16 @@
   initTempSave(() => countProgress(Storage.load('maintain_checks') || {}));
 
   // 구매 판정은 서버 응답 뒤에 확정된다 — 바뀌면 다시 그린다(미리보기 ↔ 전체)
-  document.addEventListener('chamroad:gate', () => { renderSteps(); renderExampleButtons(); });
+  document.addEventListener('chamroad:gate', () => {
+    if (isPreview()) {
+      MAINTAIN_STEPS = MAINTAIN_STEPS_FREE.concat(MAINTAIN_STEPS_SKELETON.map(lockedStep));
+      DOC_EXAMPLES = [];
+      paidState = 'none';
+      paidOpenAuthorized = false;
+    }
+    renderSteps();
+    renderExampleButtons();
+  });
 </script>
 </body>
 </html>

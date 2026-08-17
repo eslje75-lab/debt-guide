@@ -146,9 +146,33 @@ function toggleUserMenu() {
   if (d) d.classList.toggle('hidden');
 }
 
-function authLogout() {
-  Auth.logout();
-  showToast('로그아웃되었습니다.', 'info');
+async function authLogout() {
+  let r = await Auth.logout(false);
+  if (!r.ok) {
+    if (r.canForce !== true) {
+      showToast(r.error || '로그아웃하지 못했습니다.', 'warn');
+      return;
+    }
+    const leave = confirm(
+      '계정에 아직 동기화하지 못한 진행 내용이 있습니다.\n\n' +
+      '지금 로그아웃하면 이 기기의 계정 자료를 삭제하므로 복구하지 못할 수 있습니다.\n' +
+      '네트워크를 확인한 뒤 다시 시도하려면 [취소]를 눌러 주세요.\n\n' +
+      '그래도 로그아웃하시겠습니까?'
+    );
+    if (!leave) {
+      showToast(r.error || '동기화를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.', 'warn');
+      return;
+    }
+    r = await Auth.logout(true);
+  }
+  if (!r.ok) {
+    showToast(r.error || '로그아웃하지 못했습니다.', 'warn');
+    return;
+  }
+  showToast(r.localCleared === false
+    ? '로그아웃은 완료됐지만 이 기기의 일부 구버전 자료는 남아 있습니다. 브라우저 설정에서 chamroad.com 사이트 데이터를 삭제해 주세요.'
+    : '로그아웃되었습니다. 이 기기에 남은 계정 자료도 삭제했습니다.',
+  r.localCleared === false ? 'warn' : 'info');
   setTimeout(() => { location.href = 'index.html'; }, 600);
 }
 
@@ -244,16 +268,57 @@ function renderDisclaimer(containerId) {
 const RRN_MASK = '○○○○○○-○○○○○○○';
 // 6자리 + (구분자) + 7자리, 뒤 7자리의 첫 글자는 1~8(주민등록번호 1~4 / 외국인등록번호 5~8).
 // 앞뒤가 숫자면 제외 — 긴 숫자열(계좌번호 등)을 잘못 가리지 않도록.
-// ⚠️ 구분자는 하이픈만이 아니다: HWP·Word가 자동 변환하는 en dash(–), PDF 복사의 U+2010, 전각 하이픈,
-//    전각 숫자까지 본다(2026-08-15 보안감사). 반대로 구분자 주위 공백과 마침표는 허용하지 않는다 —
-//    `잔액 500000 - 1234567` 같은 뺄셈과 개행 낀 금액 목록까지 가려 서류가 깨진다. 근거는 서버 쪽 주석에.
+// 하이픈류·붙여쓴 형식은 형식 자체가 강한 신호라 항상 가린다. 공백·점·줄바꿈 형식도
+// 생년월일과 뒷자리 구분자가 그럴듯하면 가린다. OCR 오류로 검증번호 한 자리가 틀려도 원문을
+// 남기는 것보다 과잉 마스킹이 안전하며, 날짜가 아닌 일반 금액 목록은 그대로 둔다.
 const RRN_RE = /(?<![0-9０-９])[0-9０-９]{6}[-­‐-―−－]?[1-8１-８][0-9０-９]{6}(?![0-9０-９])/g;
+const RRN_FLEX_RE = /(?<![0-9０-９])([0-9０-９]{6})([ \t.\r\n]{1,8})([1-8１-８][0-9０-９]{6})(?![0-9０-９])/g;
+
+function idAsciiDigits(value) {
+  return String(value || '').replace(/[０-９]/g, ch => String(ch.charCodeAt(0) - 0xFF10));
+}
+function idDatePlausible(digits) {
+  const month = Number(digits.slice(2, 4));
+  const day = Number(digits.slice(4, 6));
+  const max = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month] || 0;
+  return day >= 1 && day <= max;
+}
+function idChecksumValid(value) {
+  const digits = idAsciiDigits(value).replace(/\D/g, '');
+  if (digits.length !== 13 || !idDatePlausible(digits.slice(0, 6))) return false;
+  const weights = [2, 3, 4, 5, 6, 7, 8, 9, 2, 3, 4, 5];
+  const sum = weights.reduce((total, weight, i) => total + Number(digits[i]) * weight, 0);
+  const base = (11 - (sum % 11)) % 10;
+  const expected = Number(digits[6]) >= 5 ? (base + 2) % 10 : base;
+  return expected === Number(digits[12]);
+}
+function idShapePlausible(value) {
+  const digits = idAsciiDigits(value).replace(/\D/g, '');
+  return digits.length === 13
+    && idDatePlausible(digits.slice(0, 6))
+    && /^[1-8]$/.test(digits[6]);
+}
+function idLabelNearby(text, offset, length) {
+  const around = text.slice(Math.max(0, offset - 48), Math.min(text.length, offset + length + 24));
+  return /주민\s*(?:등록\s*)?번호|외국인\s*등록\s*번호/.test(around);
+}
 
 function maskIdNumbers(text) {
-  return typeof text === 'string' ? text.replace(RRN_RE, RRN_MASK) : text;
+  if (typeof text !== 'string') return text;
+  const strictMasked = text.replace(RRN_RE, RRN_MASK);
+  return strictMasked.replace(RRN_FLEX_RE, (match, first, separator, second, offset, whole) =>
+    (idChecksumValid(first + second) || idShapePlausible(first + second)
+      || idLabelNearby(whole, offset, match.length)) ? RRN_MASK : match
+  );
 }
 function hasIdNumber(text) {
-  return typeof text === 'string' && new RegExp(RRN_RE.source).test(text);
+  if (typeof text !== 'string') return false;
+  if (new RegExp(RRN_RE.source).test(text)) return true;
+  for (const match of text.matchAll(new RegExp(RRN_FLEX_RE.source, 'g'))) {
+    if (idChecksumValid(match[1] + match[3]) || idShapePlausible(match[1] + match[3])
+        || idLabelNearby(text, match.index, match[0].length)) return true;
+  }
+  return false;
 }
 
 /* ── 민감정보 처리에 대한 별도 동의 (개인정보 보호법 제23조) ──
@@ -282,7 +347,7 @@ function renderSensitiveConsent(elId) {
             동의하시면 <strong>내용을 지우지 않고 그대로 넣으셔도 됩니다</strong> — 그래야 검토가 제대로 됩니다.
           </span>
           <span class="block text-[11px] text-amber-700 leading-relaxed mt-1.5">
-            처리 목적: 서류 완성도 점검 / 보유 기간: <strong>저장하지 않고 처리 즉시 폐기</strong>(검토 결과만 화면에 표시) /
+            처리 목적: 서류 완성도 점검 / 보유 기간: 챔로드 DB에는 원문을 저장하지 않으며, Anthropic API에는 ZDR 약정이 없으면 정책상 원칙적으로 <strong>최대 30일</strong> 보관될 수 있음 /
             동의를 거부하셔도 다른 기능은 이용하실 수 있으나 AI 검토·대조는 이용할 수 없습니다. 동의는 언제든 철회할 수 있습니다.
           </span>
           <span class="block text-[11px] text-slate-500 mt-1.5">
@@ -299,48 +364,428 @@ function sensitiveConsentPayload() {
   return cb ? cb.checked : undefined;
 }
 
-/* ── 표준생계비 (법원 인정 생계비의 하한) ──
-   2026년 기준중위소득(보건복지부 고시)의 60%. 개인회생 가용소득 계산의 공제 기준이다.
+/* ── 60% 생계비 참고값 ──
+   2026년 기준중위소득(보건복지부 고시)의 60%. 개인회생 생계비 산정의 실무상 출발점이며,
+   법원이 실제 인정한 금액이나 법정 하한으로 단정하지 않는다.
    ⚠️ 이 상수는 사이트 전체의 단일 출처다 — 진단(js/diagnosis.js)·숫자 검산(js/numcheck.js)·
    작성예시(rehabilitation.html)가 모두 이 값을 써야 한다. 어느 한 곳에 복사본을 만들지 말 것
    (계산 기준이 갈리면 같은 화면에서 서로 다른 금액이 나온다 — CLAUDE.md '수치 불일치 방지' 참조).
    매년 고시가 바뀌므로 연초에 갱신 대상. */
-const MEDIAN_INCOME_2026 = [0, 2564238, 4199292, 5359036, 6494738, 7556719, 8555952];
-// 인덱스: [미사용, 1인, 2인, 3인, 4인, 5인, 6인 이상]
+const MEDIAN_INCOME_2026 = [0, 2564238, 4199292, 5359036, 6494738, 7556719, 8555952, 9515150];
+// 인덱스: [미사용, 1인, 2인, 3인, 4인, 5인, 6인, 7인].
+// 보건복지부 고시 방식에 따라 8인 이상은 7인과 6인의 차액을 1명마다 더한다.
 
 function getStandardLiving(householdSize) {
-  const idx = Math.min(Math.max(householdSize, 1), 6);
+  const size = Math.max(1, Math.floor(Number(householdSize) || 1));
+  const median = size <= 7
+    ? MEDIAN_INCOME_2026[size]
+    : MEDIAN_INCOME_2026[7] + (size - 7) * (MEDIAN_INCOME_2026[7] - MEDIAN_INCOME_2026[6]);
   // 기준중위소득 60% — 법정 금액이 아니라 **법원 실무 원칙**이다(개인회생사건 처리지침 재민 2004-4,
   // 서울회생법원 실무준칙 405호). 법률은 "법원이 정하는 금액"이라고만 한다(제579조 제4호 다목)
   // → 사정에 따라 증감되고 추가 생계비가 인정될 수 있으므로 '='로 단정하지 말 것.
-  return Math.round(MEDIAN_INCOME_2026[idx] * 0.6);
+  return Math.round(median * 0.6);
 }
 
-/* ── Storage: localStorage 동기 캐시 + 로그인 시 서버 미러링(Phase 2) ──
-   - 읽기(load)는 항상 로컬 캐시에서 동기로 — 기존 모든 호출부 무수정.
-   - 쓰기(save/remove)는 로컬에 즉시 반영 + 로그인 상태면 서버로 디바운스 푸시.
-   - 로그인 시(syncOnLogin): 서버에 데이터가 있으면 서버가 소스(로컬 교체),
-     서버가 비어있으면 게스트 로컬데이터를 서버로 이관.
-   - auth 키(cdg_auth*)는 동기화 대상에서 제외. */
+/* ── Storage: 계정별 localStorage 캐시 + 로그인 시 서버 미러링 ──
+   - 게스트 자료는 현재 탭의 sessionStorage(cdg_guest_*)에만 둔다. 탭을 닫으면 사라지므로
+     공용 기기의 다음 익명 이용자가 이전 사람의 채무·건강 자료를 볼 수 없다.
+   - 계정 자료는 충돌 없는 UTF-8 hex namespace의 localStorage에 둔다.
+   - 소유자를 증명할 수 없는 구버전 cdg_<key>는 자동 삭제·자동 귀속하지 않고 복구 배너에서
+     이용자가 명시적으로 가져오거나 삭제하게 한다.
+   - 읽기는 계속 동기식이라 기존 90여 개 호출부는 그대로 쓸 수 있다. */
 const Storage = {
+  ROOT: 'cdg_',
+  GUEST_PREFIX: 'cdg_guest_',
+  USER_PREFIX: 'cdg_user_',
+  SCOPE_EPOCH_KEY: 'cdg_scope_epoch',
+  _migratedAccounts: new Set(),
+  _storageWarnedAt: 0,
+  _failedSaveKeys: new Set(),
+
+  _scopeToken(email) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) return 'guest';
+    // UTF-8 바이트의 16진수 표현은 일대일 대응이다. encodeURIComponent 뒤 치환 방식은
+    // a_b와 a~5fb 같은 서로 다른 이메일이 같은 키가 되는 충돌이 있었다.
+    return Array.from(new TextEncoder().encode(normalized), b => b.toString(16).padStart(2, '0')).join('');
+  },
+  _legacyScopeToken(email) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) return 'guest';
+    return encodeURIComponent(normalized).replace(/%/g, '~').replace(/_/g, '~5f');
+  },
+  _userPrefix(email) { return this.USER_PREFIX + this._scopeToken(email) + '_'; },
+  _legacyUserPrefix(email) { return this.USER_PREFIX + this._legacyScopeToken(email) + '_'; },
+  _storeForPrefix(prefix) { return prefix === this.GUEST_PREFIX ? sessionStorage : localStorage; },
+  _scopeEpoch() {
+    try { return Number(sessionStorage.getItem(this.SCOPE_EPOCH_KEY) || 0); } catch (e) { return 0; }
+  },
+  bumpScopeEpoch() {
+    try {
+      const next = this._scopeEpoch() + 1;
+      sessionStorage.setItem(this.SCOPE_EPOCH_KEY, String(next));
+      return next;
+    } catch (e) { return this._scopeEpoch(); }
+  },
+  scopeFingerprint() { return this._activePrefix() + ':' + this._scopeEpoch(); },
+  _legacyArtifacts(email) {
+    const oldPrefix = this._legacyUserPrefix(email);
+    const keys = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const full = localStorage.key(i);
+        if (full && full.startsWith(oldPrefix)) keys.push(full);
+      }
+      for (const base of ['cdg_sync_', 'cdg_sync_login_']) {
+        const full = base + this._legacyScopeToken(email);
+        if (localStorage.getItem(full) !== null) keys.push(full);
+      }
+    } catch (e) {}
+    return [...new Set(keys)];
+  },
+  _migrateAccountNamespace(email) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized || this._migratedAccounts.has(normalized)) return true;
+    const oldToken = this._legacyScopeToken(normalized);
+    const newToken = this._scopeToken(normalized);
+    if (oldToken === newToken) { this._migratedAccounts.add(normalized); return true; }
+    const oldPrefix = this.USER_PREFIX + oldToken + '_';
+    const newPrefix = this.USER_PREFIX + newToken + '_';
+    const artifacts = this._legacyArtifacts(normalized);
+    if (!artifacts.length) { this._migratedAccounts.add(normalized); return true; }
+
+    // 옛 토큰은 %, _, '~xx' 조합이 서로 충돌할 수 있다. 정확한 이메일 owner marker가 없는
+    // namespace는 소유자를 증명할 수 없으므로 자동 복사·삭제하지 않는다.
+    const ownerKey = 'cdg_scope_owner_' + oldToken;
+    let owner = null;
+    try { owner = localStorage.getItem(ownerKey); } catch (e) {}
+    if (owner !== normalized) return true; // 격리 상태로 두되 새 안전 namespace는 정상 사용한다.
+
+    const createdTargets = [];
+    try {
+      const keys = artifacts.filter(full => full.startsWith(oldPrefix));
+      for (const full of keys) {
+        const target = newPrefix + full.slice(oldPrefix.length);
+        const raw = localStorage.getItem(full);
+        const existing = localStorage.getItem(target);
+        if (existing !== null && existing !== raw) throw new Error('namespace migration conflict');
+        if (existing === null && raw !== null) {
+          localStorage.setItem(target, raw);
+          if (localStorage.getItem(target) !== raw) throw new Error('namespace migration verify failed');
+          createdTargets.push(target);
+        }
+      }
+      for (const base of ['cdg_sync_', 'cdg_sync_login_']) {
+        const oldKey = base + oldToken;
+        const newKey = base + newToken;
+        const raw = localStorage.getItem(oldKey);
+        const existing = localStorage.getItem(newKey);
+        if (raw !== null && existing !== null && existing !== raw) throw new Error('sync namespace migration conflict');
+        if (raw !== null && existing === null) {
+          localStorage.setItem(newKey, raw);
+          if (localStorage.getItem(newKey) !== raw) throw new Error('sync namespace migration verify failed');
+          createdTargets.push(newKey);
+        }
+      }
+      for (const full of keys) localStorage.removeItem(full);
+      for (const base of ['cdg_sync_', 'cdg_sync_login_']) localStorage.removeItem(base + oldToken);
+      for (const full of artifacts) {
+        if (localStorage.getItem(full) !== null) throw new Error('legacy namespace delete verify failed');
+      }
+      localStorage.removeItem(ownerKey);
+      if (localStorage.getItem(ownerKey) !== null) throw new Error('legacy owner delete verify failed');
+      this._migratedAccounts.add(normalized);
+      return true;
+    } catch (e) {
+      // 원본은 마지막 단계까지 보존한다. 실패 전에 새로 만든 대상만 지워 다음 시도와 충돌하지 않게 한다.
+      for (const target of createdTargets) {
+        try { localStorage.removeItem(target); } catch (_) {}
+      }
+      return false;
+    }
+  },
+  _activeSession() {
+    // Storage가 Auth보다 먼저 선언되므로 Auth const를 직접 참조하지 않는다(TDZ 회피).
+    // 만료 세션은 여기서 활성 계정으로 취급하지 않고, 실제 정리는 Auth.getSession()이 맡는다.
+    try {
+      const s = JSON.parse(localStorage.getItem('cdg_auth_session') || 'null');
+      if (!s || !s.email || (s.expiresAt && Date.now() > s.expiresAt)) return null;
+      return s;
+    } catch (e) { return null; }
+  },
+  _activePrefix() {
+    const s = this._activeSession();
+    return s && s.email ? this._userPrefix(s.email) : this.GUEST_PREFIX;
+  },
+  _isLegacyAppKey(full) {
+    return !!full && full.startsWith(this.ROOT)
+      && !full.startsWith('cdg_auth')
+      && full !== 'cdg_api_target'
+      && !full.startsWith(this.GUEST_PREFIX)
+      && !full.startsWith(this.USER_PREFIX)
+      && !full.startsWith('cdg_scope_owner_')
+      && !full.startsWith('cdg_sync_');
+  },
+  _legacyKeys() {
+    const legacy = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const full = localStorage.key(i);
+        if (this._isLegacyAppKey(full)) legacy.push(full);
+      }
+    } catch (e) {}
+    return legacy;
+  },
+  hasUnownedLegacy() { return this._legacyKeys().length > 0; },
+  importUnownedLegacyToGuest() {
+    // 이용자가 이 기기의 구버전 익명 자료가 본인 것임을 명시적으로 확인한 경우에만
+    // 현재 탭(sessionStorage)의 guest namespace로 옮긴다.
+    const legacy = this._legacyKeys();
+    try {
+      // 이미 현재 탭에 새 익명 자료가 있으면 어느 쪽을 덮을지 자동 판단하지 않는다.
+      if (this._keysAt(this.GUEST_PREFIX).length) return false;
+      for (const full of legacy) {
+        const target = this.GUEST_PREFIX + full.slice(this.ROOT.length);
+        const raw = localStorage.getItem(full);
+        if (raw !== null) {
+          sessionStorage.setItem(target, raw);
+          if (sessionStorage.getItem(target) !== raw) throw new Error('legacy import verify failed');
+        }
+      }
+      for (const full of legacy) localStorage.removeItem(full);
+      return legacy.every(full => localStorage.getItem(full) === null);
+    } catch (e) { return false; }
+  },
+  deleteUnownedLegacy() {
+    const legacy = this._legacyKeys();
+    try {
+      for (const full of legacy) localStorage.removeItem(full);
+      return legacy.every(full => localStorage.getItem(full) === null);
+    } catch (e) { return false; }
+  },
+  _prefix() {
+    const s = this._activeSession();
+    const prefix = s && s.email ? this._userPrefix(s.email) : this.GUEST_PREFIX;
+    if (s && s.email) this._migrateAccountNamespace(s.email);
+    return prefix;
+  },
+  _readAt(prefix, key) {
+    try {
+      const raw = this._storeForPrefix(prefix).getItem(prefix + key);
+      return raw === null ? null : JSON.parse(raw);
+    } catch (e) { return null; }
+  },
+  _writeAt(prefix, key, data) {
+    try {
+      const store = this._storeForPrefix(prefix);
+      const serialized = JSON.stringify(data);
+      if (serialized === undefined) return false;
+      store.setItem(prefix + key, serialized);
+      return store.getItem(prefix + key) === serialized;
+    } catch (e) { return false; }
+  },
+  _removeAt(prefix, key) {
+    try {
+      const store = this._storeForPrefix(prefix);
+      store.removeItem(prefix + key);
+      return store.getItem(prefix + key) === null;
+    } catch (e) { return false; }
+  },
+  _keysAt(prefix) {
+    const out = [];
+    try {
+      const store = this._storeForPrefix(prefix);
+      for (let i = 0; i < store.length; i++) {
+        const full = store.key(i);
+        if (full && full.startsWith(prefix)) out.push(full.slice(prefix.length));
+      }
+    } catch (e) {}
+    return out;
+  },
+  _collectAt(prefix) {
+    const out = {};
+    for (const key of this._keysAt(prefix)) {
+      const value = this._readAt(prefix, key);
+      if (value !== null) out[key] = value;
+    }
+    return out;
+  },
+  _clearAt(prefix) {
+    const store = this._storeForPrefix(prefix);
+    const before = new Map();
+    try {
+      for (const key of this._keysAt(prefix)) before.set(key, store.getItem(prefix + key));
+      for (const key of before.keys()) {
+        store.removeItem(prefix + key);
+        if (store.getItem(prefix + key) !== null) throw new Error('storage delete verify failed');
+      }
+      return true;
+    } catch (e) {
+      // 일부만 삭제된 채 성공처럼 보이지 않도록 가능한 범위에서 원래 raw 값을 복원한다.
+      for (const [key, raw] of before) {
+        try { if (raw !== null) store.setItem(prefix + key, raw); } catch (_) {}
+      }
+      return false;
+    }
+  },
+
+  _reportSaveFailure(prefix, keys) {
+    for (const key of keys) this._failedSaveKeys.add(prefix + key);
+    if (Date.now() - this._storageWarnedAt > 3000) {
+      this._storageWarnedAt = Date.now();
+      showToast('이 브라우저의 저장 공간을 사용할 수 없어 변경사항을 저장하지 못했습니다. 저장 공간·개인정보 보호 설정을 확인해 주세요.', 'error');
+    }
+  },
+
+  // 여러 진단 결과처럼 서로 함께 바뀌어야 하는 값은 로컬에 전부 기록된 뒤에만
+  // 서버 동기화 큐에 넣는다. 한 항목이라도 실패하면 원래 raw 값을 복원해 새 값과 옛 값이
+  // 섞인 화면이나, 화면은 실패했는데 서버만 바뀌는 상태를 만들지 않는다.
+  saveBatch(entries) {
+    const list = Array.isArray(entries) ? entries : Object.entries(entries || {});
+    if (!list.length) return true;
+    const prefix = this._prefix();
+    const store = this._storeForPrefix(prefix);
+    const prepared = [];
+    try {
+      for (const [key, value] of list) {
+        const serialized = JSON.stringify(value);
+        if (serialized === undefined) throw new Error('not serializable');
+        prepared.push({ key, value, serialized, before: store.getItem(prefix + key) });
+      }
+      for (const item of prepared) {
+        store.setItem(prefix + item.key, item.serialized);
+        if (store.getItem(prefix + item.key) !== item.serialized) throw new Error('storage verify failed');
+      }
+      if (!DataSync.queueBatch(prepared.map(item => [item.key, item.value]), [])) {
+        throw new Error('sync retry journal failed');
+      }
+    } catch (e) {
+      // 가능한 범위에서 전부 원복한다. 원복 실패도 저장 실패 상태로 남겨 UI가 성공을 말하지 않게 한다.
+      for (const item of prepared) {
+        try {
+          if (item.before === null) store.removeItem(prefix + item.key);
+          else store.setItem(prefix + item.key, item.before);
+        } catch (_) {}
+      }
+      this._reportSaveFailure(prefix, list.map(([key]) => key));
+      return false;
+    }
+
+    for (const item of prepared) this._failedSaveKeys.delete(prefix + item.key);
+    return true;
+  },
+
   save(key, data) {
-    try { localStorage.setItem('cdg_' + key, JSON.stringify(data)); } catch(e) {}
-    DataSync.queuePut(key, data);
+    return this.saveBatch([[key, data]]);
   },
-  load(key) {
-    try { return JSON.parse(localStorage.getItem('cdg_' + key)); } catch(e) { return null; }
+  hasSaveFailure(key) {
+    const prefix = this._prefix();
+    return key === undefined
+      ? [...this._failedSaveKeys].some(failedKey => failedKey.startsWith(prefix))
+      : this._failedSaveKeys.has(prefix + key);
   },
+  load(key) { return this._readAt(this._prefix(), key); },
   remove(key) {
-    try { localStorage.removeItem('cdg_' + key); } catch(e) {}
-    DataSync.queueDel(key);
+    const prefix = this._prefix();
+    const store = this._storeForPrefix(prefix);
+    let before = null;
+    try { before = store.getItem(prefix + key); } catch (e) { return false; }
+    if (!this._removeAt(prefix, key)) return false;
+    if (DataSync.queueDel(key)) return true;
+    try {
+      if (before !== null) store.setItem(prefix + key, before);
+    } catch (e) {}
+    this._reportSaveFailure(prefix, [key]);
+    return false;
+  },
+  // 서버 삭제를 이미 확인한 경우처럼 재동기화를 만들지 않고 로컬만 정리할 때 쓴다.
+  removeLocal(key) { return this._removeAt(this._prefix(), key); },
+  collectCurrent() { return this._collectAt(this._prefix()); },
+  collectGuest() { return this._collectAt(this.GUEST_PREFIX); },
+  _replaceAt(prefix, data) {
+    const store = this._storeForPrefix(prefix);
+    const prepared = [];
+    const before = new Map();
+    try {
+      // 기존 자료를 지우기 전에 새 자료 전체가 직렬화 가능한지 먼저 확인한다.
+      for (const [key, value] of Object.entries(data || {})) {
+        const serialized = JSON.stringify(value);
+        if (serialized === undefined) throw new Error('not serializable');
+        prepared.push({ key, serialized });
+      }
+      for (const key of this._keysAt(prefix)) before.set(key, store.getItem(prefix + key));
+      for (const key of before.keys()) store.removeItem(prefix + key);
+      for (const item of prepared) {
+        store.setItem(prefix + item.key, item.serialized);
+        if (store.getItem(prefix + item.key) !== item.serialized) throw new Error('storage verify failed');
+      }
+      const expectedKeys = new Set(prepared.map(item => item.key));
+      if (this._keysAt(prefix).some(key => !expectedKeys.has(key))) throw new Error('stale storage key');
+      return true;
+    } catch (e) {
+      // 교체 중 한 건이라도 실패하면 부분 교체를 남기지 않고 원래 raw snapshot을 복원한다.
+      try {
+        for (const key of this._keysAt(prefix)) store.removeItem(prefix + key);
+        for (const [key, raw] of before) {
+          if (raw !== null) store.setItem(prefix + key, raw);
+        }
+      } catch (_) {}
+      this._reportSaveFailure(prefix, prepared.map(item => item.key));
+      return false;
+    }
+  },
+  replaceCurrent(data) { return this._replaceAt(this._prefix(), data); },
+  clearCurrent() { return this._clearAt(this._prefix()); },
+  clearUser(email) {
+    const legacySafe = this._migrateAccountNamespace(email);
+    const current = this._clearAt(this._userPrefix(email));
+    const leftovers = this._legacyArtifacts(email);
+    // owner marker가 확인된 자료는 위에서 이관 후 지워져야 한다. 소유 불명 legacy가 남아 있으면
+    // 삭제했다고 말할 수 없으므로 false를 반환해 브라우저 사이트 데이터 수동 삭제를 안내한다.
+    return legacySafe && current && leftovers.length === 0;
+  },
+  removeGuestLocal(key) { return this._removeAt(this.GUEST_PREFIX, key); },
+  clearAllAppData() {
+    const localTargets = [];
+    const sessionTargets = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const full = localStorage.key(i);
+        if (full && (full.startsWith(this.GUEST_PREFIX)
+          || full.startsWith(this.USER_PREFIX)
+          || full.startsWith('cdg_sync_')
+          || full.startsWith('cdg_scope_owner_')
+          || this._isLegacyAppKey(full))) localTargets.push(full);
+      }
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const full = sessionStorage.key(i);
+        if (full && full.startsWith(this.GUEST_PREFIX)) sessionTargets.push(full);
+      }
+      for (const full of localTargets) localStorage.removeItem(full);
+      for (const full of sessionTargets) sessionStorage.removeItem(full);
+      const cleared = localTargets.every(full => localStorage.getItem(full) === null)
+        && sessionTargets.every(full => sessionStorage.getItem(full) === null);
+      if (cleared) {
+        this._failedSaveKeys.clear();
+        this.bumpScopeEpoch();
+      }
+      return cleared;
+    } catch (e) { return false; }
   }
 };
 
 const DataSync = {
-  _put: new Map(),   // key -> data (최신값)
-  _del: new Set(),   // 삭제할 key
+  _put: new Map(),   // key -> { data, seq } (최신값)
+  _del: new Map(),   // key -> seq
   _timer: null,
+  _flushing: null,
+  _clearing: false,
+  _seq: 0,
+  _generation: 0,
+  _retryMs: 1500,
+  _restoredScope: null,
   DEBOUNCE_MS: 700,
+  MAX_RETRY_MS: 30000,
 
   // 서버로 올리지 않는 민감정보 필드.
   // 건강상태·채무발생원인은 「개인정보 보호법」 제23조 민감정보(건강에 관한 정보)에 해당해
@@ -357,108 +802,367 @@ const DataSync = {
     return copy;
   },
 
-  _on() { return typeof Auth !== 'undefined' && Auth.isLoggedIn(); },
-
-  // cdg_ 앱데이터 키(prefix 제거) 목록 — auth 키 제외
-  _localKeys() {
-    const out = [];
+  _on() { return !!Storage._activeSession(); },
+  _session() { return Storage._activeSession(); },
+  _pendingKey(email) { return 'cdg_sync_' + Storage._scopeToken(email); },
+  _loginSyncKey(email) { return 'cdg_sync_login_' + Storage._scopeToken(email); },
+  hasLoginSyncPending(email) {
+    try { return localStorage.getItem(this._loginSyncKey(email)) === '1'; } catch (e) { return false; }
+  },
+  _setLoginSyncPending(email, pending) {
     try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const full = localStorage.key(i);
-        if (full && full.startsWith('cdg_') && !full.startsWith('cdg_auth')) out.push(full.slice(4));
+      const key = this._loginSyncKey(email);
+      if (pending) {
+        localStorage.setItem(key, '1');
+        return localStorage.getItem(key) === '1';
       }
-    } catch (e) {}
-    return out;
+      localStorage.removeItem(key);
+      return localStorage.getItem(key) === null;
+    } catch (e) { return false; }
   },
-  _collectLocal() {
-    const d = {};
-    for (const k of this._localKeys()) { const v = Storage.load(k); if (v !== null) d[k] = this._strip(k, v); }
-    return d;
-  },
-  _clearLocal() {
-    for (const k of this._localKeys()) { try { localStorage.removeItem('cdg_' + k); } catch (e) {} }
-  },
-  // 대기 중인 업로드를 버린다(탈퇴 등 — 지운 데이터가 다시 올라가지 않도록)
-  cancelPending() {
-    if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+  _restorePending() {
+    const s = this._session();
+    if (!s || !s.email) return;
+    const scope = Storage._scopeToken(s.email);
+    if (this._restoredScope === scope) return;
+
     this._put.clear();
     this._del.clear();
+    this._restoredScope = scope;
+    try {
+      const saved = JSON.parse(localStorage.getItem(this._pendingKey(s.email)) || 'null');
+      for (const [key, data] of Object.entries((saved && saved.put) || {})) {
+        this._put.set(key, { data: this._strip(key, data), seq: ++this._seq });
+      }
+      for (const key of ((saved && saved.del) || [])) {
+        if (typeof key === 'string' && key) this._del.set(key, ++this._seq);
+      }
+    } catch (e) {
+      // 손상된 재시도 파일은 서버로 보낼 수 없으므로 지우고 이후 변경부터 다시 쌓는다.
+      try { localStorage.removeItem(this._pendingKey(s.email)); } catch (err) {}
+    }
+  },
+  _persistPending(session) {
+    const s = session || this._session();
+    if (!s || !s.email) return false;
+    const key = this._pendingKey(s.email);
+    try {
+      if (this._put.size === 0 && this._del.size === 0) {
+        localStorage.removeItem(key);
+        return localStorage.getItem(key) === null;
+      }
+      const put = {};
+      for (const [name, entry] of this._put) put[name] = entry.data;
+      const serialized = JSON.stringify({ put, del: [...this._del.keys()] });
+      localStorage.setItem(key, serialized);
+      return localStorage.getItem(key) === serialized;
+    } catch (e) { return false; }
+  },
+  // 대기 중인 업로드를 버린다(탈퇴·확인된 전체 삭제·강제 로그아웃).
+  cancelPending(email) {
+    if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    this._generation++;
+    this._put.clear();
+    this._del.clear();
+    let cleared = true;
+    if (email) {
+      try {
+        const pendingKey = this._pendingKey(email);
+        localStorage.removeItem(pendingKey);
+        cleared = localStorage.getItem(pendingKey) === null && cleared;
+      } catch (e) { cleared = false; }
+      cleared = this._setLoginSyncPending(email, false) && cleared;
+    }
+    this._restoredScope = null;
+    return cleared;
   },
 
-  queuePut(key, data) {
-    if (!this._on()) return;
-    this._del.delete(key);
-    this._put.set(key, data);
+  // 계정이 바뀌거나 세션이 만료될 때 메모리 상태만 분리한다. 영속 재시도 파일은
+  // 지우지 않아 다음 로그인에서 이어 보낼 수 있고, 진행 중이던 옛 요청의 응답은
+  // generation 불일치로 새 계정 큐에 영향을 주지 못한다.
+  detach(email) {
+    if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    if (email && this._restoredScope === Storage._scopeToken(email)
+        && !this._persistPending({ email })) return false;
+    this._generation++;
+    this._put.clear();
+    this._del.clear();
+    this._restoredScope = null;
+    this._flushing = null;
+    this._retryMs = 1500;
+    return true;
+  },
+
+  queueBatch(puts = [], dels = []) {
+    if (!this._on()) return true;
+    this._restorePending();
+    const beforePut = new Map(this._put);
+    const beforeDel = new Map(this._del);
+    for (const [key, data] of puts) {
+      this._del.delete(key);
+      this._put.set(key, { data: this._strip(key, data), seq: ++this._seq });
+    }
+    for (const key of dels) {
+      this._put.delete(key);
+      this._del.set(key, ++this._seq);
+    }
+    if (!this._persistPending()) {
+      this._put = beforePut;
+      this._del = beforeDel;
+      return false;
+    }
     this._schedule();
+    return true;
+  },
+  queuePut(key, data) {
+    return this.queueBatch([[key, data]], []);
   },
   queueDel(key) {
-    if (!this._on()) return;
-    this._put.delete(key);
-    this._del.add(key);
-    this._schedule();
+    return this.queueBatch([], [key]);
   },
-  _schedule() {
+  _schedule(delay = this.DEBOUNCE_MS) {
+    if (!this._on() || this._clearing) return;
     if (this._timer) clearTimeout(this._timer);
-    this._timer = setTimeout(() => this.flush(), this.DEBOUNCE_MS);
+    this._timer = setTimeout(() => this.flush(), delay);
   },
 
   async flush(keepalive = false) {
     if (this._timer) { clearTimeout(this._timer); this._timer = null; }
-    if (!this._on() || (this._put.size === 0 && this._del.size === 0)) return;
-    const put = {}; for (const [k, v] of this._put) put[k] = this._strip(k, v);
-    const del = [...this._del];
-    this._put.clear(); this._del.clear();
-    const s = Auth.getSession();
-    try {
-      await fetch(API_BASE + '/api/data/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + s.token },
-        body: JSON.stringify({ put, del }),
-        keepalive,
-      });
-    } catch (e) { /* 실패 시 다음 저장·로그인에서 재동기화 */ }
+    if (this._clearing) return { ok: false, error: '데이터 삭제 처리 중입니다.' };
+    this._restorePending();
+    const s = this._session();
+    if (!s) return { ok: false, error: '로그인이 필요합니다.' };
+    if (this._flushing) return this._flushing;
+    if (this._put.size === 0 && this._del.size === 0) return { ok: true };
+
+    const putSnapshot = new Map(this._put);
+    const delSnapshot = new Map(this._del);
+    const put = {};
+    for (const [key, entry] of putSnapshot) put[key] = entry.data;
+    const del = [...delSnapshot.keys()];
+    const generation = this._generation;
+
+    const job = (async () => {
+      try {
+        const res = await fetch(API_BASE + '/api/data/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + s.token },
+          body: JSON.stringify({ put, del }),
+          keepalive,
+        });
+        let j = null;
+        try { j = await res.json(); } catch (e) {}
+        if (!res.ok || !j || !j.ok) throw new Error((j && j.error) || `동기화 서버 오류(${res.status})`);
+
+        if (generation !== this._generation) {
+          return { ok: false, stale: true, error: '계정이 바뀌어 이전 동기화 결과를 폐기했습니다.' };
+        }
+        for (const [key, sent] of putSnapshot) {
+          const current = this._put.get(key);
+          if (current && current.seq === sent.seq) this._put.delete(key);
+        }
+        for (const [key, sentSeq] of delSnapshot) {
+          if (this._del.get(key) === sentSeq) this._del.delete(key);
+        }
+        this._retryMs = 1500;
+        if (!this._persistPending(s)) {
+          // 서버 반영은 끝났지만 재시도 파일 정리에 실패했다. 최신 변경을 덮지 않는 범위에서
+          // snapshot을 메모리에 되살려 다음 시도에서 멱등하게 다시 보낸다.
+          for (const [key, sent] of putSnapshot) {
+            if (!this._put.has(key) && !this._del.has(key)) this._put.set(key, sent);
+          }
+          for (const [key, sentSeq] of delSnapshot) {
+            if (!this._put.has(key) && !this._del.has(key)) this._del.set(key, sentSeq);
+          }
+          this._schedule(this._retryMs);
+          return { ok: false, error: '변경사항은 서버에 반영됐지만 이 기기의 재시도 기록을 정리하지 못했습니다.' };
+        }
+        return { ok: true };
+      } catch (e) {
+        if (generation !== this._generation) {
+          return { ok: false, stale: true, error: '계정이 바뀌어 이전 동기화 작업을 중단했습니다.' };
+        }
+        // 큐와 로컬 재시도 파일을 그대로 둔다. 새로고침해도 resume()이 이어서 보낸다.
+        if (!this._persistPending(s)) {
+          return { ok: false, error: '동기화 실패 후 재시도 기록도 저장하지 못했습니다. 이 탭을 닫지 말고 저장 공간을 확인해 주세요.' };
+        }
+        const wait = this._retryMs;
+        this._retryMs = Math.min(this._retryMs * 2, this.MAX_RETRY_MS);
+        this._schedule(wait);
+        return { ok: false, error: e && e.message ? e.message : '계정 동기화에 실패했습니다.' };
+      }
+    })();
+    this._flushing = job;
+    const result = await job;
+    if (this._flushing === job) this._flushing = null;
+    if (result.ok && (this._put.size || this._del.size)) this._schedule();
+    return result;
   },
 
-  // 로그인 직후 호출 — 서버/로컬 병합 정책 적용
-  async syncOnLogin() {
-    const s = Auth.getSession();
-    if (!s) return;
+  // flush가 진행되는 동안 생긴 새 변경까지 모두 비워질 때까지 반복한다. 로그아웃에서
+  // 한 번만 flush하면 첫 snapshot 뒤에 추가된 변경이 남은 채 캐시를 지울 수 있었다.
+  async drain() {
+    for (let i = 0; i < 25; i++) {
+      if (this._flushing) await this._flushing;
+      this._restorePending();
+      if (this._put.size === 0 && this._del.size === 0) return { ok: true };
+      const result = await this.flush();
+      if (!result.ok) return result;
+    }
+    return { ok: false, error: '변경사항이 계속 발생해 동기화를 마치지 못했습니다. 잠시 후 다시 시도해 주세요.' };
+  },
+
+  resume() {
+    if (!this._on()) return;
+    const s = this._session();
+    if (s && this.hasLoginSyncPending(s.email)) {
+      this._scheduleLoginSync(100);
+      return;
+    }
+    this._restorePending();
+    if (this._put.size || this._del.size) this._schedule(100);
+  },
+  _scheduleLoginSync(delay = this.DEBOUNCE_MS) {
+    if (!this._on() || this._clearing) return;
+    if (this._timer) clearTimeout(this._timer);
+    this._timer = setTimeout(() => {
+      this._timer = null;
+      this.syncOnLogin({ promptGuest: true });
+    }, delay);
+  },
+
+  // 로그인 직후 호출. await 전의 계정·generation을 고정해 둔 뒤, 응답 시점에 같은 scope인지
+  // 다시 확인한다. 익명 자료 충돌은 자동 덮어쓰지 않고 이용자가 어느 쪽을 유지할지 고른다.
+  async syncOnLogin(options = {}) {
+    const s = this._session();
+    if (!s) return { ok: false, error: '로그인이 필요합니다.' };
+    const email = String(s.email || '').trim().toLowerCase();
+    const generation = this._generation;
+    const accountPrefix = Storage._userPrefix(email);
+    const stillCurrent = () => {
+      const current = this._session();
+      return generation === this._generation && current
+        && String(current.email || '').trim().toLowerCase() === email
+        && current.token === s.token;
+    };
+    if (!Storage._migrateAccountNamespace(email)) {
+      return { ok: false, error: '이 계정의 구버전 로컬 자료를 안전하게 이관하지 못했습니다. 이 탭을 닫지 말고 브라우저 저장 공간을 확인해 주세요.' };
+    }
+    if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    if (!this._setLoginSyncPending(email, true)) {
+      return { ok: false, error: '로그인 동기화 복구표시를 저장하지 못했습니다. 브라우저 저장 공간을 확인해 주세요.' };
+    }
+    this._restorePending();
     try {
+      // 익명 자료는 현재 탭에만 있지만 공용 PC에서 직전 이용자가 탭을 닫지 않았을 수 있다.
+      // 로그인했다는 이유만으로 새 계정에 귀속하지 않고, 최초 로그인 흐름에서 명시적으로 묻는다.
+      let guestBeforePull = Storage.collectGuest();
+      const guestBeforePullKeys = Object.keys(guestBeforePull);
+      let transferGuest = false;
+      if (guestBeforePullKeys.length && options.promptGuest === true) {
+        transferGuest = typeof confirm === 'function' && confirm(
+          '이 탭에서 로그인 전에 작성한 익명 자료가 있습니다.\n\n본인이 작성한 자료가 확실하고 이 계정으로 가져오려면 [확인]을 누르세요. 공용기기이거나 내 자료인지 확실하지 않으면 [취소]를 누르세요. 취소하면 익명 자료는 이 탭에서 삭제됩니다.'
+        );
+        if (!transferGuest && !Storage._clearAt(Storage.GUEST_PREFIX)) {
+          throw new Error('익명 자료의 원본을 이 탭에서 지우지 못했습니다. 브라우저 저장 설정을 확인해 주세요.');
+        }
+        if (!transferGuest) guestBeforePull = {};
+      }
+
       const res = await fetch(API_BASE + '/api/data', { headers: { 'Authorization': 'Bearer ' + s.token } });
       const j = await res.json();
-      if (!j.ok) return;
+      if (!res.ok || !j.ok) throw new Error(j.error || `동기화 서버 오류(${res.status})`);
+      if (!stillCurrent()) return { ok: false, stale: true, error: '계정이 바뀌어 이전 로그인 동기화 결과를 폐기했습니다.' };
       const server = j.data || {};
-      if (Object.keys(server).length > 0) {
-        // 서버 데이터 우선 — 로컬 앱데이터 교체(다른 기기·이전 게스트 잔여 제거)
-        this._clearLocal();
-        for (const [k, v] of Object.entries(server)) {
-          try { localStorage.setItem('cdg_' + k, JSON.stringify(v)); } catch (e) {}
+      const local = Storage._collectAt(accountPrefix);
+      const merged = { ...local, ...server }; // 충돌은 서버 우선 — 기존 계정 자료를 임의로 덮지 않는다.
+      const upload = {};
+
+      // 서버에 없는 현재 계정 캐시는 실패했던 변경일 수 있으므로 다시 올린다.
+      for (const [key, value] of Object.entries(local)) {
+        if (!(key in server)) upload[key] = this._strip(key, value);
+      }
+      // 이미 큐에 남아 있던 최신 변경은 서버 응답보다 우선한다. 서버 전송용 큐는
+      // 민감 필드를 제거한 사본이므로, 화면 캐시에는 원래 로컬 값을 보존한다.
+      for (const [key, entry] of this._put) merged[key] = (key in local) ? local[key] : entry.data;
+      for (const key of this._del.keys()) { delete merged[key]; delete upload[key]; }
+
+      if (transferGuest) {
+        const conflicts = Object.keys(guestBeforePull).filter(key => {
+          if (!(key in merged)) return false;
+          try { return JSON.stringify(merged[key]) !== JSON.stringify(guestBeforePull[key]); }
+          catch (e) { return true; }
+        });
+        let guestWins = true;
+        if (conflicts.length) {
+          guestWins = typeof confirm === 'function' && confirm(
+            `이 탭의 익명 자료와 계정 자료가 ${conflicts.length}개 항목에서 다릅니다.\n\n[확인] 이 탭의 익명 자료를 사용\n[취소] 계정에 저장된 자료를 유지`
+          );
         }
-      } else {
-        // 서버 비어있음 — 게스트로 만든 로컬데이터를 계정으로 이관
-        const local = this._collectLocal();
-        if (Object.keys(local).length) {
-          await fetch(API_BASE + '/api/data/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + s.token },
-            body: JSON.stringify({ put: local }),
-          });
+        for (const [key, value] of Object.entries(guestBeforePull)) {
+          if (!(key in merged) || guestWins) {
+            merged[key] = value;
+            upload[key] = this._strip(key, value);
+          }
         }
       }
-    } catch (e) { /* 오프라인 등 — 로컬 캐시로 계속 동작 */ }
+
+      const cached = Storage._replaceAt(accountPrefix, merged);
+      if (!cached) throw new Error('계정 자료를 이 브라우저에 안전하게 저장하지 못했습니다.');
+      if (!this.queueBatch(Object.entries(upload), [])) {
+        throw new Error('계정 변경사항의 재시도 기록을 저장하지 못했습니다.');
+      }
+      const pushed = await this.flush();
+      if (!stillCurrent()) return { ok: false, stale: true, error: '계정이 바뀌어 이전 로그인 동기화 결과를 폐기했습니다.' };
+      if (pushed.ok) {
+        // 서버와 계정 cache 양쪽에 안전하게 반영된 뒤에만 익명 원본을 지운다.
+        if (transferGuest && !Storage._clearAt(Storage.GUEST_PREFIX)) {
+          throw new Error('계정에는 저장했지만 이 탭의 익명 원본을 지우지 못했습니다. 브라우저 설정을 확인해 주세요.');
+        }
+        if (!this._setLoginSyncPending(email, false)) {
+          throw new Error('로그인 동기화 완료표시를 저장하지 못했습니다.');
+        }
+        return { ok: true };
+      }
+      this._scheduleLoginSync(this._retryMs);
+      return pushed;
+    } catch (e) {
+      if (!stillCurrent()) return { ok: false, stale: true, error: '계정이 바뀌어 이전 로그인 동기화 작업을 중단했습니다.' };
+      const wait = this._retryMs;
+      this._retryMs = Math.min(this._retryMs * 2, this.MAX_RETRY_MS);
+      this._scheduleLoginSync(wait);
+      return { ok: false, error: e && e.message ? e.message : '계정 자료를 불러오지 못했습니다.' };
+    }
   },
 
   // 서버 데이터 전체 삭제(계정 데이터 초기화)
   async clearServer() {
-    if (!this._on()) return;
-    const s = Auth.getSession();
+    const s = this._session();
+    if (!s) return { ok: true, localOnly: true };
+    this._clearing = true;
+    if (this._timer) { clearTimeout(this._timer); this._timer = null; }
     try {
-      await fetch(API_BASE + '/api/data/sync', {
+      // 먼저 이미 진행 중인 저장 요청이 끝나게 해 clearAll 뒤에 옛 값이 다시 들어오는 것을 막는다.
+      if (this._flushing) await this._flushing;
+      const res = await fetch(API_BASE + '/api/data/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + s.token },
         body: JSON.stringify({ clearAll: true }),
       });
-    } catch (e) {}
+      let j = null;
+      try { j = await res.json(); } catch (e) {}
+      if (!res.ok || !j || !j.ok) throw new Error((j && j.error) || `삭제 서버 오류(${res.status})`);
+      if (!this.cancelPending(s.email)) {
+        return { ok: false, serverCleared: true, error: '서버 데이터는 삭제했지만 이 기기의 재시도 기록을 지우지 못했습니다. 브라우저에서 chamroad.com 사이트 데이터를 직접 삭제해 주세요.' };
+      }
+      return { ok: true };
+    } catch (e) {
+      this._persistPending(s);
+      return { ok: false, error: e && e.message ? e.message : '서버의 저장 데이터를 삭제하지 못했습니다.' };
+    } finally {
+      this._clearing = false;
+      if (this._put.size || this._del.size) this._schedule(this._retryMs);
+    }
   },
 };
 
@@ -557,9 +1261,55 @@ const Auth = {
   _saveSession(token, user) {
     // isAdmin은 헤더에 관리자 메뉴를 보여줄지 판단하는 표시용일 뿐이다.
     // 위조해도 얻는 게 없다 — 관리자 API는 매 요청 서버가 ADMIN_EMAIL과 대조한다.
-    const session = { token, email: user.email, name: user.name, expiresAt: user.expiresAt, emailVerified: !!user.emailVerified, isAdmin: !!user.isAdmin };
-    try { localStorage.setItem(this._KS, JSON.stringify(session)); } catch {}
+    let previous = null;
+    try { previous = JSON.parse(localStorage.getItem(this._KS) || 'null'); } catch (e) {}
+    const switchingAccount = previous && previous.email
+      && String(previous.email).toLowerCase() !== String(user.email).toLowerCase();
+    const session = {
+      token,
+      email: user.email,
+      name: user.name,
+      expiresAt: user.expiresAt,
+      emailVerified: !!user.emailVerified,
+      isAdmin: !!user.isAdmin,
+      sensitiveConsent: !!user.sensitiveConsent,
+    };
+
+    // 새 세션을 실제로 저장·재조회하기 전에는 이전 계정 캐시를 지우지 않는다. 저장공간 차단 시
+    // 로그인은 실패로 돌리고, 기존 이용자의 자료와 세션은 그대로 보존한다.
+    const serialized = JSON.stringify(session);
+    try {
+      localStorage.setItem(this._KS, serialized);
+      if (localStorage.getItem(this._KS) !== serialized) throw new Error('session verify failed');
+    } catch (e) {
+      try {
+        if (previous) localStorage.setItem(this._KS, JSON.stringify(previous));
+        else localStorage.removeItem(this._KS);
+      } catch (_) {}
+      return null;
+    }
+
+    if (switchingAccount) {
+      // 이전 계정의 cache·영속 재시도 자료는 보존하되 메모리 큐만 분리한다. 다른 계정으로
+      // 로그인했다는 이유로 아직 서버에 못 올린 자료를 삭제해서는 안 된다.
+      if (!DataSync.detach(previous.email)) {
+        try { localStorage.setItem(this._KS, JSON.stringify(previous)); } catch (_) {}
+        return null;
+      }
+    }
+    Storage._migrateAccountNamespace(user.email);
+    if (!previous || switchingAccount) Storage.bumpScopeEpoch();
     return session;
+  },
+
+  async _revokeUnstoredSession(token) {
+    // 서버가 세션을 만들었지만 브라우저에 안전하게 보관하지 못한 경우 토큰을 즉시 폐기한다.
+    try {
+      await fetch(API_BASE + '/api/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      });
+    } catch (e) {}
   },
 
   // 세션 캐시를 서버 값으로 갱신. emailVerified는 미인증 배너, isAdmin은 관리자 메뉴 판정에 쓴다.
@@ -575,12 +1325,24 @@ const Auth = {
     try { localStorage.setItem(this._KS, JSON.stringify(s)); } catch {}
   },
 
+  _rawSession() {
+    try {
+      return JSON.parse(localStorage.getItem(this._KS));
+    } catch { return null; }
+  },
+
   getSession() {
     try {
-      const s = JSON.parse(localStorage.getItem(this._KS));
+      const s = this._rawSession();
       if (!s) return null;
       if (s.expiresAt && Date.now() > s.expiresAt) {
-        try { localStorage.removeItem(this._KS); } catch {}
+        // 인증 토큰만 만료된 것이지 이용자가 저장해 둔 진행 자료를 삭제하라는 뜻은 아니다.
+        // 메모리만 분리하고 cache·재시도 파일은 다음 로그인 복구용으로 남긴다.
+        if (!DataSync.detach(s.email)) return null;
+        try {
+          localStorage.removeItem(this._KS);
+          if (localStorage.getItem(this._KS) === null) Storage.bumpScopeEpoch();
+        } catch {}
         return null;
       }
       return s;
@@ -596,13 +1358,16 @@ const Auth = {
     });
     if (!r.ok) return r;
     const user = this._saveSession(r.token, r.user);
-    await DataSync.syncOnLogin();   // 서버 데이터 pull(또는 게스트 데이터 이관)
-    return { ok: true, user };
+    if (!user) {
+      await this._revokeUnstoredSession(r.token);
+      return { ok: false, error: '이 브라우저에 로그인 정보를 저장할 수 없습니다. 저장 공간·개인정보 보호 설정을 확인해 주세요.' };
+    }
+    const sync = await DataSync.syncOnLogin({ promptGuest: true });   // 서버 data pull + 익명자료 명시적 이관
+    return { ok: true, user, syncWarning: sync.ok ? '' : sync.error };
   },
 
-  // agree = 이용약관·개인정보처리방침 동의 + 만 14세 이상 확인(화면 체크박스 하나로 받는다).
-  // 서버가 이 값을 필수로 요구하고 동의 시각·버전을 저장한다 — 화면에서만 검사하면
-  // 동의 사실을 남길 방법이 없고, API 직접 호출로 우회된다.
+  // 만 14세 이상 확인·이용약관·개인정보 수집이용 동의는 서로 다른 체크박스로 받고,
+  // 서버가 세 값을 모두 필수로 요구한다. 화면 검사만으로는 API 직접 호출을 막을 수 없다.
   // 가입 이메일 인증 — 코드 발송·확인. 계정은 확인을 마친 뒤 signup()에서 만들어진다.
   // Turnstile 토큰은 메일이 실제로 나가는 발송 단계에서만 쓴다.
   async sendSignupCode(email, turnstileToken) {
@@ -617,14 +1382,29 @@ const Auth = {
     });
   },
 
-  async signup(name, email, password, agree) {
+  async signup(name, email, password, consents = {}) {
     const r = await this._api('/api/auth/signup', {
-      body: { name: name.trim(), email: email.toLowerCase().trim(), password, agree: agree === true },
+      body: {
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
+        password,
+        ageConfirmed: consents.ageConfirmed === true,
+        termsAgreed: consents.termsAgreed === true,
+        privacyAgreed: consents.privacyAgreed === true,
+        consentFormVersion: 'signup-consent-v1',
+        // 이전 Worker가 새 분리동의 화면과 함께 동작하는 전환 배포용 호환 필드다.
+        // 새 Worker는 이 값만으로 가입을 허용하지 않고 위 세 항목과 form version을 모두 검증한다.
+        agree: true,
+      },
     });
     if (!r.ok) return r;
     const user = this._saveSession(r.token, r.user);
-    await DataSync.syncOnLogin();   // 새 계정: 게스트로 만든 로컬데이터를 계정으로 이관
-    return { ok: true, user };
+    if (!user) {
+      await this._revokeUnstoredSession(r.token);
+      return { ok: false, error: '계정은 생성됐지만 이 브라우저에 로그인 정보를 저장할 수 없습니다. 저장 공간·개인정보 보호 설정을 확인한 뒤 다시 로그인해 주세요.' };
+    }
+    const sync = await DataSync.syncOnLogin({ promptGuest: true });   // 새 계정: 익명자료 이관 여부를 명시적으로 확인
+    return { ok: true, user, syncWarning: sync.ok ? '' : sync.error };
   },
 
   // 이메일 인증 상태를 서버에서 다시 받아 세션 캐시에 반영(배너 판정용).
@@ -685,33 +1465,91 @@ const Auth = {
 
   // 회원탈퇴 — 서버 계정·데이터 삭제 후 이 브라우저에 남은 데이터도 함께 지운다.
   async deleteAccount(password) {
+    const s = this.getSession();
     const r = await this._api('/api/auth/delete-account', { auth: true, body: { password } });
     if (!r.ok) return r;
-    DataSync.cancelPending();            // 삭제 후 재업로드되는 것 방지
-    DataSync._clearLocal();              // 진단·체크리스트 등 로컬 사본 삭제
-    try { localStorage.removeItem(this._KS); } catch {}
-    return { ok: true };
+    const pendingCleared = DataSync.cancelPending(s && s.email); // 삭제 후 재업로드되는 것 방지
+    // 다른 사람이 이 브라우저에서 사용한 별도 계정 namespace는 건드리지 않는다.
+    const accountCleared = !s || !s.email || Storage.clearUser(s.email);
+    const guestCleared = Storage._clearAt(Storage.GUEST_PREFIX);
+    let sessionCleared = false;
+    try {
+      localStorage.removeItem(this._KS);
+      sessionCleared = localStorage.getItem(this._KS) === null;
+    } catch (e) {}
+    if (sessionCleared) Storage.bumpScopeEpoch();
+    return { ok: true, localCleared: pendingCleared && accountCleared && guestCleared && sessionCleared };
   },
 
-  // 로그아웃 시 지우는 이용권 캐시 키(cdg_ 접두사 제외).
-  // 남겨 두면 공용 PC에서 다음 사용자에게 "○○ 패키지 이용 중"이 계속 보인다.
-  // ⚠️ Storage.remove()를 쓰면 안 된다 — DataSync가 서버 user_data에서도 지워
-  //    handleGetData의 plan_packages가 비어 정상 구매자가 잠긴다. 로컬만 지운다.
-  _PLAN_CACHE: ['plan', 'plan_type', 'plan_package', 'plan_package_name', 'plan_packages', 'plan_expires_at', 'entitlements', 'content_access'],
-
-  logout() {
-    const s = this.getSession();
-    try { localStorage.removeItem(this._KS); } catch {}
-    // 다음 로그인 때 syncOnLogin이 서버에서 다시 받아오므로 캐시만 비우면 된다
-    for (const k of this._PLAN_CACHE) {
-      try { localStorage.removeItem('cdg_' + k); } catch {}
+  async logout(force = false) {
+    // 만료 확인이 인증 캐시를 지우기 전에 raw identity를 잡아 둔다. 사용자가 명시적으로 누른
+    // 로그아웃은 만료 직후라도 해당 계정 cache·journal과 현재 탭 guest를 정리해야 한다.
+    const raw = this._rawSession();
+    const active = this.getSession();
+    const s = active || raw;
+    if (!s) {
+      const guestCleared = Storage._clearAt(Storage.GUEST_PREFIX);
+      if (guestCleared) Storage.bumpScopeEpoch();
+      return guestCleared
+        ? { ok: true, localCleared: true }
+        : { ok: false, canForce: false, error: '이 탭의 익명 자료를 지우지 못했습니다. 브라우저 저장 공간 설정을 확인해 주세요.' };
     }
+
+    if (!force && active) {
+      if (DataSync.hasLoginSyncPending(s.email)) {
+        const reconciled = await DataSync.syncOnLogin();
+        if (!reconciled.ok) {
+          return { ok: false, canForce: true, error: '아직 계정과 확인하지 못한 진행 내용이 있습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.' };
+        }
+      }
+      const synced = await DataSync.drain();
+      if (!synced.ok) {
+        return { ok: false, canForce: true, error: '아직 계정에 저장하지 못한 진행 내용이 있습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.' };
+      }
+    }
+
+    const pendingCleared = DataSync.cancelPending(s.email);
+    if (!pendingCleared && active) {
+      return { ok: false, canForce: false, error: '이 기기의 동기화 재시도 기록을 지우지 못해 로그아웃을 중단했습니다. 브라우저 저장 공간 설정을 확인해 주세요.' };
+    }
+
+    // 세션 제거가 실패했는데 cache부터 지우면 로그인된 화면만 남고 자료가 사라진다. 먼저 세션을
+    // 지우고 확인한 뒤 계정 cache를 지우며, cache 삭제 실패 시 가능한 한 세션을 복원한다.
+    const serializedSession = JSON.stringify(s);
+    let sessionCleared = false;
+    try {
+      localStorage.removeItem(this._KS);
+      sessionCleared = localStorage.getItem(this._KS) === null;
+    } catch (e) {}
+    if (!sessionCleared) {
+      return { ok: false, canForce: false, error: '이 기기의 로그인 정보를 지우지 못해 로그아웃을 완료하지 않았습니다. 브라우저 저장 공간 설정을 확인해 주세요.' };
+    }
+    Storage._migrateAccountNamespace(s.email);
+    const accountCleared = Storage._clearAt(Storage._userPrefix(s.email));
+    const guestCleared = Storage._clearAt(Storage.GUEST_PREFIX);
+    if (!accountCleared || !guestCleared) {
+      let restored = false;
+      try {
+        localStorage.setItem(this._KS, serializedSession);
+        restored = localStorage.getItem(this._KS) === serializedSession;
+      } catch (e) {}
+      return {
+        ok: false,
+        canForce: false,
+        error: restored
+          ? '이 기기의 계정 자료를 모두 지우지 못해 로그아웃을 중단했습니다. 브라우저 저장 공간 설정을 확인해 주세요.'
+          : '로그인은 종료됐지만 이 기기의 일부 계정 자료를 지우지 못했습니다. 브라우저 설정에서 chamroad.com 사이트 데이터를 삭제해 주세요.',
+      };
+    }
+    Storage.bumpScopeEpoch();
     // 서버 세션 무효화는 백그라운드로 (실패해도 로컬 로그아웃은 완료)
-    if (s && s.token) {
+    if (s.token) {
       fetch(API_BASE + '/api/auth/logout', {
         method: 'POST', headers: { 'Authorization': 'Bearer ' + s.token },
+        keepalive: true,
       }).catch(() => {});
     }
+    return { ok: true, localCleared: pendingCleared && Storage._legacyArtifacts(s.email).length === 0 };
   },
 
   requireLogin() {
@@ -741,6 +1579,14 @@ window.addEventListener('storage', (e) => {
 
 /* ── Toast ── */
 function showToast(msg, type = 'info') {
+  // 진단 저장은 여러 키를 연속 기록한다. 일부만 실패해도 마지막 작은 키 저장이
+  // 성공할 수 있으므로, 호출부가 곧바로 띄우는 완료 메시지를 오류로 바꾼다.
+  if (type === 'success' && String(msg).includes('진단을 완료')
+    && ['diagnosis_data', 'diagnosis_repay', 'diagnosis_date']
+      .some(key => Storage.hasSaveFailure(key))) {
+    msg = '진단 결과를 저장하지 못했습니다. 브라우저 저장 공간·개인정보 보호 설정을 확인한 뒤 다시 시도해 주세요.';
+    type = 'error';
+  }
   let t = document.getElementById('toast');
   if (!t) {
     t = document.createElement('div');
@@ -750,6 +1596,9 @@ function showToast(msg, type = 'info') {
   const colors = { info: 'bg-blue-700', success: 'bg-green-600', error: 'bg-red-600', warn: 'bg-amber-600' };
   t.className = (colors[type] || colors.info) + ' show';
   t.textContent = msg;
+  t.setAttribute('role', type === 'error' || type === 'warn' ? 'alert' : 'status');
+  t.setAttribute('aria-live', type === 'error' || type === 'warn' ? 'assertive' : 'polite');
+  t.setAttribute('aria-atomic', 'true');
   clearTimeout(t._timer);
   t._timer = setTimeout(() => t.classList.remove('show'), 2800);
 }
@@ -772,10 +1621,11 @@ function formatWon(n) {
   return (parts.length ? parts.join(' ') : '0') + '원';
 }
 
-/* ── 관할법원 찾기 (개인회생·파산 공용) ──
-   기준: 채무자의 보통재판적(=주민등록상 주소) 소재지 관할 지방법원 본원·회생법원 전속(채무자회생법 제3조).
-   지원(支院)은 접수하지 않음 — 춘천지법 강릉지원만 예외. 회생법원 6곳(2026. 3. 대전·대구·광주 추가 개원) 기준.
-   alt = 본래 관할 외에 선택적으로 신청할 수 있는 회생법원(제3조 특례). */
+/* ── 주소 기준 관할법원 후보 찾기 (개인회생·파산 공용) ──
+   이 표는 주소만으로 첫 후보를 좁히는 보조도구다. 실제 관할은 주소 외 법정 관할 근거와
+   관련 사건에 따라 달라질 수 있으므로 '확정 관할'이라고 표시하지 않는다.
+   지원(支院)은 원칙적으로 접수하지 않음 — 춘천지법 강릉지원만 예외. 회생법원 6곳
+   (2026. 3. 대전·대구·광주 추가 개원) 기준. alt는 파산사건에만 표시한다. */
 const COURT_FINDER_DATA = {
   '서울특별시': { court: '서울회생법원' },
   '부산광역시': { court: '부산회생법원' },
@@ -806,14 +1656,15 @@ const COURT_FINDER_DATA = {
   '제주특별자치도': { court: '제주지방법원', alt: '광주회생법원' },
 };
 
-function initCourtFinder(containerId) {
+function initCourtFinder(containerId, procedure) {
   const el = document.getElementById(containerId);
   if (!el) return;
+  const isBankruptcy = procedure === 'bankrupt';
   const regions = Object.keys(COURT_FINDER_DATA);
   el.innerHTML = `
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-      <h3 class="font-bold text-slate-800 mb-0.5 text-sm">🏛️ 내 관할법원 찾기</h3>
-      <p class="text-xs text-slate-500 mb-3">개인회생·파산은 <strong>주민등록상 주소지</strong> 관할 법원(지방법원 본원·회생법원)에만 신청할 수 있습니다. 거주 지역을 선택하세요.</p>
+      <h3 class="font-bold text-slate-800 mb-0.5 text-sm">🏛️ 주소 기준 접수법원 후보 찾기</h3>
+      <p class="text-xs text-slate-500 mb-3">주소를 기준으로 먼저 확인할 법원을 찾습니다. 실제 관할은 주소 외 법정 관할 근거와 관련 사건에 따라 달라질 수 있으므로 최종 확인이 필요합니다.</p>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
         <select id="cf-region" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white">
           <option value="">시·도 선택</option>
@@ -825,8 +1676,8 @@ function initCourtFinder(containerId) {
       </div>
       <div id="cf-result"></div>
       <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">
-        ※ 2026. 3. 기준(회생법원 6곳). 실거주지가 주민등록상 주소와 다르면 전입신고부터 정리하세요. 전자소송으로 접수하면 관할 법원이 자동 안내되며,
-        최종 확인은 <a href="https://www.scourt.go.kr/region/location/RegionSearchListAction.work" target="_blank" rel="noopener" class="text-blue-600 hover:underline">대법원 관할법원 찾기 ↗</a>에서 할 수 있습니다.
+        ※ 2026. 3. 기준(회생법원 6곳). 주소 이전을 관할 선택 수단으로 안내하지 않습니다. 신청 전
+        <a href="https://www.scourt.go.kr/region/popup/list_search.jsp" target="_blank" rel="noopener" class="text-blue-600 hover:underline">대한민국 법원 관할 조회 ↗</a>와 접수 예정 법원에서 확인하세요.
       </p>
     </div>`;
 
@@ -838,9 +1689,10 @@ function initCourtFinder(containerId) {
     if (!entry) { result.innerHTML = ''; return; }
     result.innerHTML = `
       <div class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
-        <p class="text-sm text-slate-700">관할법원: <strong class="text-blue-700">${entry.court}</strong></p>
-        ${entry.alt ? `<p class="text-xs text-slate-500 mt-1">본래 관할 외에 <strong>${entry.alt}</strong>에도 신청할 수 있습니다(채무자회생법 제3조 특례 — 원하는 쪽 선택 가능).</p>` : ''}
+        <p class="text-sm text-slate-700">주소 기준 후보: <strong class="text-blue-700">${entry.court}</strong></p>
+        ${isBankruptcy && entry.alt ? `<p class="text-xs text-slate-500 mt-1">파산사건은 법 제3조가 정한 범위에서 <strong>${entry.alt}</strong>도 후보가 될 수 있습니다. 개인회생에는 이 선택지를 적용하지 않습니다.</p>` : ''}
         ${entry.note ? `<p class="text-xs text-slate-500 mt-1">${entry.note}</p>` : ''}
+        <p class="text-[11px] text-slate-500 mt-2">이 결과만으로 관할이 확정되지는 않습니다. 접수 전 법원에 사건 종류와 현재 사정을 알려 확인하세요.</p>
       </div>`;
   }
 
@@ -881,6 +1733,12 @@ function initTempSave(getStatus) {
   btn.onclick = () => {
     let s = null;
     try { s = (typeof getStatus === 'function') ? getStatus() : null; } catch (e) {}
+    if (Storage.hasSaveFailure()) {
+      btn.classList.remove('saved');
+      setLabel('!', '저장 안 됨');
+      showToast('저장되지 않은 변경사항이 있습니다. 브라우저 저장 공간·개인정보 보호 설정을 확인한 뒤 항목을 다시 선택해 주세요.', 'error');
+      return;
+    }
     // 데이터는 이미 자동 저장됨 — 저장 시각 기록 + 확인 표시
     let stamp = '';
     try {
@@ -923,7 +1781,7 @@ const GLOSSARY = {
   '청산가치':   '지금 당장 파산했을 때 재산을 팔아 채권자에게 돌아갈 금액입니다.',
   '가용소득':   '소득에서 세금·보험료와 법이 인정하는 생계비를 뺀, 빚 갚는 데 쓸 수 있는 돈입니다.',
   '가처분소득': '월 소득에서 생활비를 뺀 금액. 채무조정에서 실제 변제 여력을 나타내는 용어로 사용됩니다.',
-  '표준생계비': '법원이 인정하는 생활비. 기준중위소득의 60%가 원칙이며 사정에 따라 늘거나 줄 수 있습니다.',
+  '표준생계비': '개인회생 생계비 산정에서 기준중위소득의 60%를 출발점으로 참고합니다. 실제 인정액은 증빙과 개별 사정에 따라 달라질 수 있습니다.',
   '기준중위소득': '정부가 매년 고시하는 가구소득의 중간값. 가구원 수별로 정해집니다.',
   '변제기간':   '변제계획에 따라 돈을 갚아 나가는 기간. 보통 3년, 최대 5년입니다.',
   '안분':       '채권 금액의 비율대로 나누어 배분하는 것입니다.',
@@ -1105,7 +1963,10 @@ async function requirePackage(allowed, pkgName) {
     const serverPkgs = (j && j.ok && j.data && j.data.plan_packages) || [];
     // 이 패키지의 제공이 이미 개시됐는지 — 사전 고지를 다시 띄우지 않기 위한 판단 근거
     const opened = (j && j.ok && j.data && j.data.content_access) || [];
-    _accessOpenedBefore = Array.isArray(opened) && opened.some(p => allowed.includes(p));
+    // 과거에 소비했지만 이미 만료된 상품의 기록으로, 새로 산 다른 허용 상품의 고지를
+    // 건너뛰면 안 된다. 현재 활성 이용권이면서 이 페이지를 열 수 있는 상품만 재사용한다.
+    _accessOpenedBefore = Array.isArray(opened)
+      && opened.some(p => allowed.includes(p) && serverPkgs.includes(p));
     if (has(serverPkgs)) unlockContent(allowed);  // 실제 보유 확정 → 전체 공개
     else enterPreview(pkgName, true);             // 미보유 확정 → 미리보기(로컬 위조도 여기서 걸림)
   } catch (e) {
@@ -1118,8 +1979,6 @@ async function requirePackage(allowed, pkgName) {
 // 각 유료 페이지는 렌더 후 isPreview()를 확인해 lockSection()으로 뒷부분을 잠근다.
 // 판정이 서버 응답 뒤에 바뀔 수 있으므로 'chamroad:gate' 이벤트로 다시 그린다.
 let _preview = { on: false, pkgName: '', loggedIn: false };
-let _gatePackages = [];        // 이 페이지가 요구하는 패키지 키 — 이용 개시 기록에 쓴다
-let _accessNoted = false;      // 페이지당 1회만 서버로 보낸다
 
 function isPreview() { return _preview.on; }
 
@@ -1133,12 +1992,11 @@ function enterPreview(pkgName, loggedIn) {
 function unlockContent(allowed) {
   const wasPreview = _preview.on;
   _preview = { on: false, pkgName: '', loggedIn: true };
-  _gatePackages = allowed;
   document.body.classList.remove('preview-mode');
   if (wasPreview) document.dispatchEvent(new CustomEvent('chamroad:gate'));
   // ⚠️ 여기서 이용 개시를 기록하지 않는다. 결제 직후 자동 이동으로 이 함수가 호출되므로,
   //    여기서 기록하면 소비자가 아무것도 열지 않았는데 청약철회가 막힌다.
-  //    실제로 잠긴 콘텐츠를 여는 행위에서 noteContentOpened()를 호출한다.
+  //    실제 기록은 각 페이지의 명시적 POST /api/content/open에서만 처리한다.
 }
 
 // 잠금 안내 카드. 미리보기 경계에 삽입된다.
@@ -1171,19 +2029,6 @@ function lockSection(container, keep, note) {
   return true;
 }
 
-// 구매자가 '미리보기 범위를 넘어선 콘텐츠를 실제로 연' 시각을 서버에 남긴다.
-// 전자상거래법 제17조 제2항 제5호의 '제공 개시' 시점 = 청약철회 가능 여부의 기준.
-//
-// ⚠️ 페이지 진입·잠금 해제만으로는 절대 호출하지 말 것.
-// 결제 후 진행센터로 자동 이동하므로, 진입 시점에 기록하면 소비자가 아무것도 열지 않았는데
-// 청약철회가 막혀 약관 제6조 ①(결제일부터 14일 전액 환불)이 사실상 작동하지 않게 된다.
-// 호출 지점: 2단계 이상으로 이동, 항목 '자세히' 펼치기, 서식 작성예시 열기 등 명시적 열람 행위.
-function noteContentOpened() {
-  if (_accessNoted || isPreview()) return;   // 미리보기 상태의 열람은 '제공 개시'가 아니다
-  _accessNoted = true;
-  markContentAccess(_gatePackages);
-}
-
 /* ── 제공 개시 전 사전 고지 ──
    구매자가 잠긴 콘텐츠를 '처음' 열기 직전에 환불 제한을 알리고 확인을 받는다.
    법 제17조 제6항 단서는 청약철회 제한이 유효하려면 '청약철회 불가 사실의 표시'를
@@ -1196,11 +2041,10 @@ let _accessOpenedBefore = false;   // 서버에 first_access_at이 이미 있는
 
 async function confirmContentOpen() {
   if (isPreview()) return true;                       // 미리보기는 제공 개시가 아니다
-  if (_accessNoted || _accessOpenedBefore) return true;  // 이미 개시된 뒤 — 다시 묻지 않는다
-  const ok = await openNoticeModal();
-  if (!ok) return false;
-  noteContentOpened();
-  return true;
+  if (_accessOpenedBefore) return true;               // 이미 개시된 뒤 — 다시 묻지 않는다
+  // 동의 뒤 각 페이지의 POST /api/content/open이 D1 기록과 본문 반환을 한 트랜잭션으로
+  // 처리한다. 여기서 별도 beacon을 보내면 기록 경로가 둘로 갈리고 실패 순서도 모호해진다.
+  return openNoticeModal();
 }
 
 // 사전 고지 모달 — 브라우저 기본 confirm 대신 직접 그린다(내용이 길고, 법적 고지라 읽혀야 한다).
@@ -1234,21 +2078,6 @@ function openNoticeModal() {
     document.addEventListener('keydown', onKey);
     wrap.querySelector('#oc-yes').focus();
   });
-}
-
-function markContentAccess(allowed) {
-  if (typeof Auth === 'undefined' || !Auth.isLoggedIn()) return;
-  if (!Array.isArray(allowed) || !allowed.length) return;
-  const pkg = (Storage.load('plan_packages') || []).find(p => allowed.includes(p)) || allowed[0];
-  if (!pkg) return;
-  try {
-    fetch(API_BASE + '/api/content/access', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.getSession().token },
-      body: JSON.stringify({ package: pkg }),
-      keepalive: true,
-    }).catch(() => {});
-  } catch (e) {}
 }
 
 // 미인증 이용자에게 이메일 인증을 권하는 슬림 배너(소프트 — 이용을 막지 않는다).
@@ -1294,13 +2123,81 @@ function renderVerifyBanner() {
   else paint();
 }
 
+// 2026-08 계정별 저장소 도입 전의 cdg_<key> 자료는 소유자를 증명할 수 없다. 새 계정에
+// 자동 귀속하거나 자동 삭제하지 않고, 비로그인 상태에서 이용자가 직접 복구/삭제를 고른다.
+function renderLegacyRecoveryBanner() {
+  if (Storage._activeSession() || !Storage.hasUnownedLegacy()) return;
+  try { if (sessionStorage.getItem('cdg_legacy_recovery_hide') === '1') return; } catch (e) {}
+  if (document.getElementById('legacy-recovery-banner')) return;
+
+  const bar = document.createElement('section');
+  bar.id = 'legacy-recovery-banner';
+  bar.setAttribute('role', 'region');
+  bar.setAttribute('aria-labelledby', 'legacy-recovery-title');
+  bar.style.cssText = 'background:#fff7ed;border-bottom:1px solid #fdba74;color:#7c2d12';
+  bar.innerHTML = `
+    <div style="max-width:72rem;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px">
+      <div style="flex:1;min-width:240px;line-height:1.55">
+        <strong id="legacy-recovery-title" style="display:block">이 기기에서 구버전 익명 자료를 발견했습니다</strong>
+        본인이 작성한 자료가 확실한 개인 기기에서만 복구하세요. 공용기기이거나 소유자가 확실하지 않으면 삭제하세요.
+      </div>
+      <button type="button" id="legacy-recovery-import" style="background:#c2410c;color:white;border:0;border-radius:7px;padding:7px 12px;font-weight:700;cursor:pointer">내 자료로 복구</button>
+      <button type="button" id="legacy-recovery-delete" style="background:white;color:#9a3412;border:1px solid #fdba74;border-radius:7px;padding:7px 12px;font-weight:700;cursor:pointer">이 기기에서 삭제</button>
+      <button type="button" id="legacy-recovery-later" aria-label="나중에 결정" style="background:none;color:#9a3412;border:0;padding:7px;cursor:pointer;text-decoration:underline">나중에</button>
+    </div>`;
+  const ph = document.getElementById('header-placeholder');
+  if (ph && ph.parentNode) ph.parentNode.insertBefore(bar, ph.nextSibling);
+  else document.body.insertBefore(bar, document.body.firstChild);
+
+  bar.querySelector('#legacy-recovery-import').onclick = () => {
+    if (!confirm('이 자료가 본인이 작성한 것이 확실합니까? 복구 후 현재 탭에서만 보이며, 로그인할 때 계정으로 가져올지 다시 확인합니다.')) return;
+    if (!Storage.importUnownedLegacyToGuest()) {
+      showToast('현재 탭에 이미 다른 자료가 있거나 저장 공간을 사용할 수 없어 복구하지 못했습니다. 기존 자료를 확인한 뒤 다시 시도해 주세요.', 'error');
+      return;
+    }
+    showToast('구버전 익명 자료를 현재 탭에 복구했습니다.', 'success');
+    setTimeout(() => location.reload(), 300);
+  };
+  bar.querySelector('#legacy-recovery-delete').onclick = () => {
+    if (!confirm('구버전 익명 자료를 이 기기에서 영구 삭제할까요? 삭제 후에는 복구할 수 없습니다.')) return;
+    if (!Storage.deleteUnownedLegacy()) {
+      showToast('구버전 자료를 모두 삭제하지 못했습니다. 브라우저 저장 공간 설정을 확인해 주세요.', 'error');
+      return;
+    }
+    bar.remove();
+    showToast('구버전 익명 자료를 이 기기에서 삭제했습니다.', 'info');
+  };
+  bar.querySelector('#legacy-recovery-later').onclick = () => {
+    try { sessionStorage.setItem('cdg_legacy_recovery_hide', '1'); } catch (e) {}
+    bar.remove();
+  };
+}
+
+function installAccountScopeGuard() {
+  // BFCache는 로그아웃 뒤 '뒤로'를 눌렀을 때 이전 계정의 완성된 DOM을 네트워크 요청 없이
+  // 되살릴 수 있다. 같은 탭의 localStorage 변경은 storage 이벤트도 발생하지 않으므로,
+  // 페이지가 처음 그려진 계정 scope와 인증 전환 세대를 함께 비교한다. guest→계정→guest처럼
+  // prefix가 다시 같아지는 왕복도 epoch가 달라져 이전 민감 DOM을 복원하지 못한다.
+  const initialScope = Storage.scopeFingerprint();
+  window.addEventListener('pageshow', () => {
+    if (Storage.scopeFingerprint() === initialScope) return;
+    // 리다이렉트가 끝나기 전 한 프레임이라도 민감 화면이 보이지 않게 즉시 가린다.
+    if (document.body) document.body.replaceChildren();
+    if (typeof location.replace === 'function') location.replace('index.html');
+    else location.href = 'index.html';
+  });
+}
+
 function initPage(activePage) {
+  installAccountScopeGuard();       // 로그아웃·계정전환 뒤 BFCache로 이전 자료가 보이지 않게 함
+  DataSync.resume();                 // 새로고침 뒤에도 실패한 계정 동기화를 이어서 시도
   renderHeader(activePage);
   renderFooter();
   initScrollTop();
   initGlossary();                  // 어려운 용어에 설명 툴팁 자동 부착
   track('pageview', activePage);   // 페이지별 조회 수(익명)
   renderVerifyBanner();            // 미인증 이용자 안내 배너(소프트)
+  renderLegacyRecoveryBanner();    // 소유 불명 구버전 자료는 명시적으로만 복구/삭제
   document.addEventListener('click', (e) => {
     const d = document.getElementById('user-dropdown');
     if (d && !d.classList.contains('hidden') && !d.parentElement.contains(e.target)) {

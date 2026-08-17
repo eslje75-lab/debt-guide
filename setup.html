@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
-  <title>맞춤 준비 진단 | 챔로드</title>
+  <title>준비 항목 확인 | 챔로드</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="icon" href="favicon.ico" sizes="32x32">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -19,8 +19,8 @@
 <!-- 히어로 -->
 <section class="bg-blue-700 text-white py-8">
   <div class="max-w-3xl mx-auto px-4 text-center">
-    <h1 class="text-2xl md:text-3xl font-bold mb-1">맞춤 준비 진단</h1>
-    <p class="text-blue-100 text-sm" id="hero-sub">내 상황에 맞는 서류와 할 일만 골라서 안내해 드립니다 (약 1분)</p>
+    <h1 class="text-2xl md:text-3xl font-bold mb-1">준비 항목 확인</h1>
+    <p class="text-blue-100 text-sm" id="hero-sub">답변을 바탕으로 직접 확인할 서류와 절차 항목을 정리합니다 (약 1분)</p>
   </div>
 </section>
 
@@ -46,7 +46,7 @@
 
     <div id="q-employed-card" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 q-card">
       <p class="text-sm font-semibold text-slate-800 mb-1"><span class="q-num">2.</span> 현재 재직 중인가요? (퇴직금이 쌓이는 직장)</p>
-      <p class="text-xs text-slate-400 mb-3">재직 중이면 예상 퇴직금의 절반이 재산(청산가치)으로 계산됩니다.</p>
+      <p class="text-xs text-slate-400 mb-3">재직 중이면 퇴직급여 제도와 예상액을 확인하세요. 종류별 보호 범위가 달라 일률적으로 절반을 재산에 더하지 않습니다.</p>
       <div class="flex gap-2">
         <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-employed" value="yes" class="accent-blue-700"> 예</label>
         <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-employed" value="no" class="accent-blue-700"> 아니요</label>
@@ -66,7 +66,7 @@
 
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 q-card">
       <p class="text-sm font-semibold text-slate-800 mb-1"><span class="q-num">4.</span> 지인·가족·사채 등 개인 간 채무가 있나요?</p>
-      <p class="text-xs text-slate-400 mb-3">개인 간 채무도 채권자목록에 반드시 포함해야 면책 효력을 받습니다.</p>
+      <p class="text-xs text-slate-400 mb-3">개인 간 채무를 포함해 모든 채권자를 빠짐없이 적어야 합니다. 악의로 채권자목록에 누락한 청구권은 면책되지 않을 수 있습니다.</p>
       <div class="flex gap-2">
         <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-personal" value="yes" class="accent-blue-700"> 예</label>
         <label class="flex-1 flex items-center gap-2 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm"><input type="radio" name="q-personal" value="no" class="accent-blue-700"> 아니요</label>
@@ -113,10 +113,10 @@
       </div>
     </div>
 
-    <button onclick="saveProfile()" class="w-full bg-blue-700 text-white py-3.5 rounded-xl font-semibold text-sm hover:bg-blue-800 transition-colors">저장하고 맞춤 결과 보기</button>
+    <button onclick="saveProfile()" class="w-full bg-blue-700 text-white py-3.5 rounded-xl font-semibold text-sm hover:bg-blue-800 transition-colors">저장하고 확인 항목 보기</button>
   </div>
 
-  <!-- 맞춤 결과 -->
+  <!-- 답변 기반 확인 결과 -->
   <div id="result-area" class="hidden mt-8"></div>
 
   <!-- 관할법원 찾기 -->
@@ -124,7 +124,7 @@
 
   <div class="disclaimer-box mt-6">
     <strong>⚠️ 참고용 안내</strong><br>
-    이 진단은 입력하신 답변을 기준으로 일반적인 필요 서류를 규칙에 따라 골라내는 참고용 기능입니다.
+      이 기능은 입력하신 답변을 기준으로 일반적인 확인 후보를 정리하는 참고용 기능입니다.
     실제 요구 서류는 법원·담당 재판부에 따라 달라질 수 있으며, 법률상담·법률대리·결과 보장을 제공하지 않습니다.
   </div>
 </div>
@@ -143,10 +143,10 @@
     : (PKG_PROC[Storage.load('plan_package')] || 'rehab');
   const TYPE_LABEL = TYPE === 'bankrupt' ? '개인파산·면책' : '개인회생';
   const CENTER_URL = TYPE === 'bankrupt' ? 'bankruptcy.html' : 'rehabilitation.html';
-  document.getElementById('hero-sub').textContent = TYPE_LABEL + ' 준비에 필요한 서류와 할 일만 골라서 안내해 드립니다 (약 1분)';
+  document.getElementById('hero-sub').textContent = TYPE_LABEL + ' 준비에서 직접 확인할 서류와 절차 항목을 답변에 따라 정리합니다 (약 1분)';
   if (TYPE === 'bankrupt') document.querySelectorAll('.bankrupt-only').forEach(el => el.classList.remove('hidden'));
 
-  // ── '해당없음' 자동 처리 대상 이름표 ──
+  // ── 답변상 '해당없음'일 수 있어 이용자가 직접 확인할 항목 이름표 ──
   const NA_LABELS = {
     'd-i1': '근로소득원천징수영수증', 'd-i2': '최근 3개월 급여명세서', 'd-i3': '소득금액증명원',
     'd-i4': '고용보험 피보험자격 이력', 'd-a2': '부동산 등기사항전부증명서', 'd-a3': '차량등록증 사본',
@@ -155,7 +155,8 @@
     'b3-3': '담보 채무·담보목적물 정리',
   };
 
-  // ── 답변 → 해당없음 매핑 (규칙 기반 — 정확성이 보장되는 결정 로직) ──
+  // ── 답변 → 확인 후보 매핑 ──
+  // 법원·재판부와 실제 소득·재산 이력에 따라 요구가 달라질 수 있으므로 자동 제외 근거로 쓰지 않는다.
   function computeNA(p) {
     const docs = [], rehab = [], bankrupt = [];
     if (p.income === 'employed_insured' || p.income === 'employed_uninsured') docs.push('d-i3');
@@ -172,15 +173,12 @@
     return { docs, rehab, bankrupt };
   }
 
-  // ── 자동 반영: 미처리 항목만 'na'로. 이전 자동 처리분 중 이번에 해당하게 된 것은 해제.
-  //    사용자가 직접 체크(true)했거나 직접 해당없음 처리한 항목은 건드리지 않음. ──
-  function applyNA(storageKey, ids, prevIds) {
+  // 옛 버전이 자동으로 넣었던 'na'만 제거한다. 새 버전은 어떤 항목도 자동 제외하지 않는다.
+  // 직접 확인하기 전에 누락될 위험보다, 이용자가 체크리스트에서 한 번 더 확인하는 편이 안전하다.
+  function clearLegacyAutoNA(storageKey, ids) {
     const saved = Storage.load(storageKey) || {};
-    (prevIds || []).forEach(id => {
-      if (!ids.includes(id) && saved[id] === 'na') delete saved[id];
-    });
-    ids.forEach(id => { if (saved[id] === undefined) saved[id] = 'na'; });
-    Storage.save(storageKey, saved);
+    (ids || []).forEach(id => { if (saved[id] === 'na') delete saved[id]; });
+    return Storage.save(storageKey, saved);
   }
 
   function radioVal(name) { const el = document.querySelector(`input[name="${name}"]:checked`); return el ? el.value : ''; }
@@ -242,14 +240,19 @@
     }
     const prev = Storage.load('profile');
     const na = computeNA(p);
-    applyNA('docs_checks', na.docs, prev && prev.autoNA ? prev.autoNA.docs : []);
-    applyNA('rehab_checks', na.rehab, prev && prev.autoNA ? prev.autoNA.rehab : []);
-    applyNA('bankrupt_checks', na.bankrupt, prev && prev.autoNA ? prev.autoNA.bankrupt : []);
-    p.autoNA = na;
+    const oldAuto = prev && prev.autoNA ? prev.autoNA : { docs: [], rehab: [], bankrupt: [] };
+    const relatedSaved = [
+      clearLegacyAutoNA('docs_checks', oldAuto.docs),
+      clearLegacyAutoNA('rehab_checks', oldAuto.rehab),
+      clearLegacyAutoNA('bankrupt_checks', oldAuto.bankrupt),
+    ].every(Boolean);
+    p.suggestedNA = na;
+    p.autoNA = { docs: [], rehab: [], bankrupt: [] }; // 구버전 자동 제외 재실행 방지용 호환 필드
     p.savedAt = new Date().toLocaleDateString('ko-KR');
-    Storage.save('profile', p);
+    const profileSaved = Storage.save('profile', p);
+    if (!relatedSaved || !profileSaved) return;
     renderResult(p, na);
-    showToast('맞춤 진단이 저장되었습니다.', 'success');
+    showToast('확인 항목을 저장했습니다.', 'success');
   }
 
   function incomeLabel(v) {
@@ -257,23 +260,23 @@
   }
 
   function renderResult(p, na) {
-    const naIds = [...na.docs, ...(TYPE === 'bankrupt' ? na.bankrupt : na.rehab)];
-    const naList = naIds.map(id => NA_LABELS[id] || id);
+    const candidateIds = [...na.docs, ...(TYPE === 'bankrupt' ? na.bankrupt : na.rehab)];
+    const candidateList = candidateIds.map(id => NA_LABELS[id] || id);
 
     const extra = [];
-    if (p.legalAction) extra.push('압류·법적 조치 진행 중 — 신청서와 함께 <strong>중지·금지명령 신청</strong>을 준비하면 추심·강제집행을 빨리 멈출 수 있습니다. 급여 압류 중이라도 급여의 1/2(최저 월 250만원, 단 급여가 많으면 상한이 있어 실제 보호액은 절반보다 적을 수 있음)은 압류금지이고, 생활이 어려우면 <strong>압류금지채권 범위변경 신청</strong>으로 생계비를 확보할 수 있습니다(FAQ "급여·통장 압류" 참고).');
+    if (p.legalAction) extra.push('압류·법적 조치가 진행 중이라고 답하셨습니다. 개인회생의 <strong>중지·금지명령</strong>은 신청과 동시에 자동 발령되는 것이 아니고 대상·시점이 사건마다 다릅니다. 현재 집행 종류와 사건번호를 확인한 뒤 법원 공식 안내 또는 대한법률구조공단(132)에서 신청 방법을 확인하세요.');
     if (p.personalDebt) extra.push('개인 간 채무는 채권자목록에 <strong>반드시 포함</strong>하세요 — 이체내역·대화 기록으로 금액과 경위를 정리해 두면 됩니다.');
-    if (p.employed) extra.push('재직 중이므로 <strong>예상 퇴직금의 절반</strong>이 재산(청산가치)으로 계산됩니다 — 회사에 예상 퇴직금을 확인해 두세요.');
+    if (p.employed) extra.push('재직 중이면 회사 또는 퇴직연금사업자에게 <strong>퇴직급여 제도 종류와 예상액</strong>을 확인하세요. 퇴직금채권·퇴직연금 수급권 등 종류별 보호 범위가 달라 이 화면이 일률적인 비율을 청산가치에 적용하지 않습니다.');
     if (p.income === 'pension') extra.push('연금·기타 소득은 <strong>수급증명서·입금내역</strong> 등으로 소득을 증빙합니다.');
     if (p.income === 'self') extra.push('자영업·프리랜서는 <strong>소득금액증명원(홈택스)</strong> 기준으로 소득을 증빙하고, 신고 소득과 실수입이 다르면 매출 입금내역으로 보완합니다.');
     if (TYPE === 'bankrupt' && p.closedBiz) extra.push('폐업 이력이 있으므로 <strong>폐업사실증명원(홈택스 발급)</strong>을 진술서 증빙으로 준비하세요.');
-    if (TYPE === 'bankrupt' && p.disposed) extra.push('최근 2년 내 재산 처분 이력은 <strong>처분 시기·상대방·금액·대금 사용처</strong>를 표로 정리해 두세요 — 심문·보정에서 반드시 확인됩니다.');
+    if (TYPE === 'bankrupt' && p.disposed) extra.push('최근 2년 내 재산 처분 이력은 <strong>처분 시기·상대방·금액·대금 사용처</strong>를 표와 증빙으로 정리해 두세요. 법원이나 파산관재인이 관련 사실을 확인할 수 있습니다.');
     if (p.securedDebt) extra.push('담보 채무는 채권자목록에 <strong>담보물·설정액</strong>을 함께 표시해야 합니다.');
 
     document.getElementById('result-area').classList.remove('hidden');
     document.getElementById('result-area').innerHTML = `
       <div class="bg-white rounded-2xl border-2 border-blue-500 shadow-md p-6">
-        <h2 class="font-bold text-slate-800 text-lg mb-1">🎯 ${TYPE_LABEL} 맞춤 준비 결과</h2>
+        <h2 class="font-bold text-slate-800 text-lg mb-1">🧭 ${TYPE_LABEL} 준비 확인 결과</h2>
         <div class="flex flex-wrap gap-1.5 mb-4 mt-2">
           <span class="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-medium">${incomeLabel(p.income)}</span>
           <span class="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-medium">${p.assets.length ? '재산 ' + p.assets.length + '종 보유' : '주요 재산 없음'}</span>
@@ -281,11 +284,11 @@
           ${p.personalDebt ? '<span class="text-xs bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full font-medium">개인 간 채무 있음</span>' : ''}
         </div>
 
-        ${naList.length ? `
+        ${candidateList.length ? `
         <div class="bg-slate-50 rounded-xl p-4 mb-4">
-          <p class="text-sm font-semibold text-slate-700 mb-2">내 상황에서 준비하지 않아도 되는 항목 <span class="text-blue-700">${naList.length}건</span> — 자동으로 '해당없음' 처리했습니다</p>
-          <ul class="text-xs text-slate-500 space-y-1">${naList.map(n => `<li>· ${n}</li>`).join('')}</ul>
-          <p class="text-xs text-slate-400 mt-2">서류 체크센터와 진행센터 체크리스트에 반영되어, 남은 항목만 체크하면 100%가 됩니다.</p>
+          <p class="text-sm font-semibold text-slate-700 mb-2">답변상 해당 없을 수 있어 직접 확인할 항목 <span class="text-blue-700">${candidateList.length}건</span></p>
+          <ul class="text-xs text-slate-500 space-y-1">${candidateList.map(n => `<li>· ${n}</li>`).join('')}</ul>
+          <p class="text-xs text-slate-400 mt-2">자동으로 제외하지 않았습니다. 서류 체크센터와 진행센터에서 실제 이력과 법원 요구를 확인한 뒤 직접 ‘해당없음’으로 표시하세요.</p>
         </div>` : ''}
 
         ${extra.length ? `
@@ -317,7 +320,24 @@
       if (saved.closedBiz !== undefined) setRadio('q-closed', saved.closedBiz ? 'yes' : 'no');
       if (saved.disposed !== undefined) setRadio('q-disposed', saved.disposed ? 'yes' : 'no');
       syncConditionalQuestions();
-      renderResult(saved, saved.autoNA || computeNA(saved));
+      const oldAuto = saved.autoNA || { docs: [], rehab: [], bankrupt: [] };
+      const oldDocs = Array.isArray(oldAuto.docs) ? oldAuto.docs : [];
+      const oldRehab = Array.isArray(oldAuto.rehab) ? oldAuto.rehab : [];
+      const oldBankrupt = Array.isArray(oldAuto.bankrupt) ? oldAuto.bankrupt : [];
+      const hadLegacyAuto = [...oldDocs, ...oldRehab, ...oldBankrupt].length > 0;
+      if (hadLegacyAuto) {
+        const cleared = [
+          clearLegacyAutoNA('docs_checks', oldDocs),
+          clearLegacyAutoNA('rehab_checks', oldRehab),
+          clearLegacyAutoNA('bankrupt_checks', oldBankrupt),
+        ].every(Boolean);
+        if (cleared) {
+          saved.suggestedNA = saved.suggestedNA || oldAuto;
+          saved.autoNA = { docs: [], rehab: [], bankrupt: [] };
+          Storage.save('profile', saved);
+        }
+      }
+      renderResult(saved, saved.suggestedNA || computeNA(saved));
       return;
     }
     const d = Storage.load('diagnosis_data');
@@ -335,7 +355,7 @@
     syncConditionalQuestions();
   })();
 
-  initCourtFinder('court-finder');
+  initCourtFinder('court-finder', TYPE);
 
   // '해당 없음' 선택 시 다른 재산 체크 해제, 반대도 동일
   document.querySelectorAll('input[name="q-asset"]').forEach(el => {

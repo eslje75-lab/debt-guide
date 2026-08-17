@@ -95,7 +95,7 @@ const AiContext = (function () {
       // === true로 엄격 비교한다. 느슨하게 보면 'yes' 같은 문자열이 통과해 **화면에 보여 준 목록과
       // 서버가 실제로 받아들이는 것이 어긋난다**(서버 sanitizeContext는 true만 통과시킨다).
       // 전송 목록을 정확히 고지하는 것이 이 파일의 존재 이유이므로 여기서 막는다.
-      if (p.employed     === true) ctx.employed = true;      // 재직 중 → 예상 퇴직금의 1/2이 재산에 산입
+      if (p.employed     === true) ctx.employed = true;      // 재직 중 → 퇴직급여 종류·예상액 반영 여부 확인
       if (p.personalDebt === true) ctx.personalDebt = true;  // 지인·사채 → 목록 누락이 잦다
       if (p.securedDebt  === true) ctx.securedDebt = true;
       if (p.closedBiz    === true) ctx.closedBiz = true;     // 폐업 → 경위와 폐업사실증명

@@ -6,7 +6,7 @@
   <title>채무진단 | 챔로드</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/styles.css">
-  <meta name="description" content="4단계 무료 채무진단으로 개인회생·파산 중 내게 맞는 절차와 예상 변제금을 확인해 보세요.">
+  <meta name="description" content="4단계 입력을 통해 개인회생·파산의 법정요건과 추가 확인사항, 기준중위소득 60% 숫자 참고를 확인해 보세요.">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="icon" href="favicon.ico" sizes="32x32">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -19,7 +19,7 @@
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <meta property="og:title" content="무료 채무진단 | 챔로드">
-  <meta property="og:description" content="4단계 무료 채무진단으로 개인회생·파산 중 내게 맞는 절차와 예상 변제금을 확인해 보세요.">
+  <meta property="og:description" content="4단계 입력을 통해 개인회생·파산의 법정요건과 추가 확인사항, 기준중위소득 60% 숫자 참고를 확인해 보세요.">
   <meta property="og:url" content="https://chamroad.com/diagnosis.html">
 </head>
 <body class="bg-slate-50">
@@ -30,7 +30,7 @@
 <section class="bg-blue-700 text-white py-8">
   <div class="max-w-3xl mx-auto px-4 text-center">
     <h1 class="text-2xl md:text-3xl font-bold mb-2">무료 채무 진단</h1>
-    <p class="text-blue-100 text-sm">본 진단은 개인회생, 파산·면책만을 판단하기 위함이며, 절대 외부에 제공되지 않습니다.</p>
+    <p class="text-blue-100 text-sm">입력값에서 개인회생·파산의 법정요건과 추가 확인사항을 정리합니다. 법률판단이나 절차 추천은 하지 않습니다.</p>
   </div>
 </section>
 
@@ -50,7 +50,7 @@
       <div id="line-2" class="step-line pending" style="margin-top:16px"></div>
       <div class="flex flex-col items-center flex-shrink-0">
         <div id="dot-3" class="step-dot pending">3</div>
-        <span class="step-label text-xs text-slate-400 mt-1.5 text-center">소득·생활비</span>
+        <span class="step-label text-xs text-slate-400 mt-1.5 text-center">소득·가구</span>
       </div>
       <div id="line-3" class="step-line pending" style="margin-top:16px"></div>
       <div class="flex flex-col items-center flex-shrink-0">
@@ -111,7 +111,7 @@
           <label class="block text-sm font-medium text-slate-700 mb-1.5">
             최근 1년 이내에 새로 받은 대출이 있나요? <span class="text-red-500">*</span>
           </label>
-          <p class="text-[13px] text-slate-500 font-medium mb-2">개인회생·파산 모두 최근 대출은 법원 심사에서 불리하게 작용할 수 있습니다. 파산은 선고 전 1년 이내 신용거래가 면책불허가 사유가 될 수 있으며, 3개월 이내는 더 엄격히 심사됩니다.</p>
+          <p class="text-[13px] text-slate-500 font-medium mb-2">최근 대출 자체가 곧 기각·면책불허가 사유가 되는 것은 아닙니다. 대출 당시 지급불능 인식, 설명 내용, 상환의사와 사용처 등 법정요건과 관련 사실을 확인할 수 있어 시점과 사용처를 사실대로 정리해야 합니다.</p>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <label class="flex items-center gap-2.5 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 text-sm transition-colors">
               <input type="radio" name="recent-loan" value="within-3m" class="accent-blue-700"> 3개월 이내
@@ -133,7 +133,7 @@
   <div id="step-2" class="form-step">
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
       <h2 class="text-xl font-bold text-slate-800 mb-1">2단계 · 연체·법적 현황</h2>
-      <p class="text-slate-400 text-sm mb-6">연체 기간과 법적 조치 여부는 적합한 제도를 결정하는 핵심 기준입니다.</p>
+      <p class="text-slate-400 text-sm mb-6">연체 기간과 법적 조치 여부는 각 절차에서 확인할 사실과 긴급 조치를 파악하는 자료입니다.</p>
 
       <div class="space-y-6">
 
@@ -204,11 +204,11 @@
     </div>
   </div>
 
-  <!-- ══ STEP 3: 소득·생활비 ══ -->
+  <!-- ══ STEP 3: 소득·가구 ══ -->
   <div id="step-3" class="form-step">
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
-      <h2 class="text-xl font-bold text-slate-800 mb-1">3단계 · 소득·생활비</h2>
-      <p class="text-slate-400 text-sm mb-6">소득 유무와 월 필수 지출을 입력해 주세요. 개인회생 신청의 핵심 조건입니다.</p>
+      <h2 class="text-xl font-bold text-slate-800 mb-1">3단계 · 소득·가구</h2>
+      <p class="text-slate-400 text-sm mb-6">계속적 소득 여부와 실제 부양관계를 확인할 기본 정보를 입력해 주세요.</p>
 
       <div class="space-y-6">
 
@@ -267,21 +267,6 @@
           <input id="dependents" type="text" inputmode="numeric" placeholder="0"
             class="w-20 border border-slate-200 rounded-lg px-3 py-2.5 text-sm">
           <p class="text-sm text-slate-500 mt-1">본인 제외 (배우자·자녀·부모 등 실제 부양 중인 가족 수)</p>
-        </div>
-
-        <!-- 월 필수 생활비 -->
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1.5">
-            월 필수 생활비 합계 <span class="text-red-500">*</span>
-          </label>
-          <div class="relative max-w-xs">
-            <input id="monthly-living" type="text" inputmode="numeric" placeholder="예: 1,500,000"
-              oninput="formatInput(this)"
-              class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm pr-10 text-right">
-            <span class="absolute right-3 top-2.5 text-slate-400 text-sm">원</span>
-          </div>
-          <p class="text-sm text-slate-500 mt-1">주거비(월세·관리비) + 식비 + 교통비 + 의료비 등 실생활 필수 지출 합산 (원 단위)</p>
-          <p class="text-xs text-amber-600 mt-0.5">※ 대출이자·원금 상환액은 포함하지 마세요 — 기존 대출 상환은 개인회생에서 변제계획으로 대체되므로 생활비에 넣지 않습니다</p>
         </div>
 
       </div>
@@ -439,7 +424,7 @@
                 </label>
                 <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
                   <input type="checkbox" name="prior-adj" value="rehab-done-ok" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="uncheckPriorNone(this)">
-                  <span class="text-sm text-slate-700">면책 확정 후 5년 이상 경과 <span class="text-xs text-green-600 ml-1">(재신청 가능)</span></span>
+                  <span class="text-sm text-slate-700">면책 확정 후 5년 이상 경과 <span class="text-xs text-slate-500 ml-1">(다른 요건 별도 확인)</span></span>
                 </label>
                 <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
                   <input type="checkbox" name="prior-adj" value="rehab-cancel" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="uncheckPriorNone(this)">
@@ -462,11 +447,11 @@
                 </label>
                 <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
                   <input type="checkbox" name="prior-adj" value="bankrupt-done-ok" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="uncheckPriorNone(this)">
-                  <span class="text-sm text-slate-700">면책 확정 후 7년 이상 경과 <span class="text-xs text-green-600 ml-1">(재신청 가능)</span></span>
+                  <span class="text-sm text-slate-700">면책 확정 후 7년 이상 경과 <span class="text-xs text-slate-500 ml-1">(다른 요건 별도 확인)</span></span>
                 </label>
                 <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
                   <input type="checkbox" name="prior-adj" value="bankrupt-denied" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="uncheckPriorNone(this)">
-                  <span class="text-sm text-slate-700">면책불허가 결정 <span class="text-xs text-amber-600 ml-1">(재신청은 가능하나 불리)</span></span>
+                  <span class="text-sm text-slate-700">면책불허가 결정 <span class="text-xs text-amber-600 ml-1">(이전 불허가 사유 재확인 필요)</span></span>
                 </label>
                 <label class="flex items-center gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors">
                   <input type="checkbox" name="prior-adj" value="bankrupt-cancel" class="prior-adj-cb w-4 h-4 accent-blue-600" onchange="uncheckPriorNone(this)">
@@ -481,7 +466,7 @@
             </div><!-- /prior-detail-sections -->
 
           </div>
-          <p class="text-xs text-slate-400 mt-2">해당되는 항목을 모두 선택해 주세요. 재신청 가능 여부에 따라 적합한 절차가 달라집니다.</p>
+          <p class="text-xs text-slate-400 mt-2">해당되는 항목을 모두 선택해 주세요. 과거 절차와 면책 확정일에 따라 적용 조문과 추가 확인사항이 달라집니다.</p>
         </div>
 
         <div class="disclaimer-box flex gap-2">

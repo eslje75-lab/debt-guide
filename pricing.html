@@ -129,7 +129,7 @@
         <div class="flex items-start gap-3">
           <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</div>
           <div>
-            <div class="text-xs text-blue-500 font-medium mb-0.5">서류 준비 → 인가 완료 (전 과정)</div>
+            <div class="text-xs text-blue-500 font-medium mb-0.5">서류 준비 → 인가 결정 단계 안내</div>
             <h3 class="font-bold text-slate-800 text-base">회생 완주 패키지</h3>
             <ul class="mt-2 space-y-1 text-xs text-slate-700">
               <li>· 개인회생 전체 서류 체크리스트</li>
@@ -284,7 +284,7 @@
         <div class="flex items-start gap-3">
           <div class="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">1</div>
           <div>
-            <div class="text-xs text-slate-700 font-medium mb-0.5">서류 준비 → 면책 완료 (전 과정)</div>
+            <div class="text-xs text-slate-700 font-medium mb-0.5">서류 준비 → 면책 결정 단계 안내</div>
             <h3 class="font-bold text-slate-800 text-base">파산 완주 패키지</h3>
             <ul class="mt-2 space-y-1 text-xs text-slate-700">
               <li>· 개인파산 전체 서류 체크리스트</li>
@@ -477,35 +477,15 @@
     });
   }
 
-  // 구매 전 자격 확인 가드 — 통과하면 true (실제 결제 진행)
+  // 구매 전 범위 확인 — 진단 점수로 절차를 추천하거나 구매를 막지 않는다.
+  // 내부 점수는 법정요건 전체를 확인하지 못하므로 상품 선택에 적용하면 개인별 법률판단처럼 보이고,
+  // 잘못된 오구매 방지 안내가 될 수 있다. 이용자가 양 절차의 공식 요건을 직접 확인하도록 한다.
   function passesPurchaseGuards(pkg) {
-    // ① 하드블록(신청 자체 불가) 사유 우선 확인 — result.html applyHardBlocks와 동일 규칙
-    //    (maintain·correction-*는 이미 진행 중인 사용자가 사는 상품이므로 ongoing을 차단 사유로 쓰지 않음)
-    const data = Storage.load('diagnosis_data');
-    if (data && pkg === 'rehab-full') {
-      const priors = data.priorAdjustments || [];
-      const blocked = priors.includes('rehab-done-recent') || priors.includes('rehab-ongoing') ||
-        (data.unsecuredDebt || 0) > 1_000_000_000 || (data.securedDebt || 0) > 1_500_000_000;
-      if (blocked && !confirm('무료 진단 입력 기준, 현재는 개인회생 신청 자체가 어려운 상태로 확인됩니다(면책 후 5년 미경과, 진행 중인 사건, 채무 한도 초과 등).\n\n진단 결과 페이지에서 사유를 먼저 확인해 보세요. 그래도 이 패키지를 선택하시겠습니까?')) return false;
-    }
-    if (data && pkg === 'bankrupt-full') {
-      const priors = data.priorAdjustments || [];
-      const blocked = priors.includes('bankrupt-done-recent') || priors.includes('bankrupt-ongoing');
-      if (blocked && !confirm('무료 진단 입력 기준, 파산 면책 후 7년 미경과 또는 진행 중인 사건이 있어 면책 받기 어려울 수 있습니다.\n\n진단 결과 페이지에서 사유를 먼저 확인해 보세요. 그래도 이 패키지를 선택하시겠습니까?')) return false;
-    }
-    // ② 진단 결과와 반대 절차의 패키지 선택 시 오구매 방지 확인
-    const scores = Storage.load('diagnosis_scores');
-    if (scores) {
-      const isRehabPkg    = ['rehab-full', 'maintain', 'correction-rehab'].includes(pkg);
-      const isBankruptPkg = ['bankrupt-full', 'correction-bankrupt'].includes(pkg);
-      if (isRehabPkg && scores.rehab < 30 && scores.bankrupt > scores.rehab) {
-        if (!confirm('무료 진단 결과, 현재 상황에서는 개인회생 신청이 어려운 것으로 나타났습니다(예: 소득 없음·한도 초과 등).\n\n개인파산·면책 패키지가 더 적합할 수 있습니다. 그래도 이 패키지를 선택하시겠습니까?')) return false;
-      }
-      if (isBankruptPkg && scores.bankrupt < 30 && scores.rehab > scores.bankrupt) {
-        if (!confirm('무료 진단 결과, 현재 상황에서는 개인회생이 더 적합한 것으로 나타났습니다.\n\n개인회생 패키지를 먼저 확인해 보시겠습니까? 그래도 이 패키지를 선택하시려면 확인을 누르세요.')) return false;
-      }
-    }
-    return true;
+    const procedure = ['rehab-full', 'maintain', 'correction-rehab'].includes(pkg) ? '개인회생' : '개인파산·면책';
+    return confirm(
+      `${procedure} 절차안내 상품입니다.\n\n` +
+      '이 상품은 신청 가능성·면책 여부·유리한 절차를 판정하지 않습니다. 무료 진단 점수와 무관하게, 법원 공식 안내의 요건과 본인의 사건 상태를 직접 확인하셨나요?'
+    );
   }
 
   let _payBusy = false;

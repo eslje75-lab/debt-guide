@@ -171,10 +171,10 @@
           단, 결제가 완료된 거래의 주문번호·금액·결제일시·이메일은 「전자상거래 등에서의 소비자보호에 관한 법률」에 따라 5년간 별도 보관됩니다.
         </p>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1.5">확인을 위해 비밀번호를 입력하세요</label>
-          <input id="del-password" type="password" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm" autocomplete="current-password">
+          <label for="del-password" class="block text-sm font-medium text-slate-700 mb-1.5">확인을 위해 비밀번호를 입력하세요</label>
+          <input id="del-password" type="password" class="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm" autocomplete="current-password" aria-describedby="del-err" aria-invalid="false">
         </div>
-        <p id="del-err" class="text-xs text-red-500 hidden"></p>
+        <p id="del-err" class="text-xs text-red-500 hidden" role="alert" aria-live="assertive"></p>
         <button id="del-submit-btn" onclick="doDeleteAccount()" class="bg-red-600 text-white px-5 py-2.5 rounded-xl text-sm hover:bg-red-700 transition-colors">탈퇴하고 모든 데이터 삭제</button>
       </div>
     </div>
@@ -182,7 +182,7 @@
 
   <!-- 데이터 초기화 -->
   <div class="text-center">
-    <button onclick="confirmReset()" class="text-xs text-slate-400 hover:text-red-500 transition-colors">
+    <button id="reset-data-btn" onclick="confirmReset()" class="text-xs text-slate-400 hover:text-red-500 transition-colors">
       저장된 데이터 전체 초기화
     </button>
   </div>
@@ -211,49 +211,26 @@
 
   function renderPage() {
     // ── 진단 결과 ──
-    const levels = Storage.load('diagnosis_levels');
     const data   = Storage.load('diagnosis_data');
     const repay  = Storage.load('diagnosis_repay');
     const date   = Storage.load('diagnosis_date');
-    const scores = Storage.load('diagnosis_scores');
-    // 파산 우세 사용자에게 '개인회생 월 변제액 0원'을 노출하지 않도록 분기
-    const rehabTrack = !scores || (scores.rehab >= scores.bankrupt);
 
-    if (levels && data && (data.totalDebt || 0) < 10_000_000) {
-      // 소액 채무(1,000만원 미만) — result.html LOW_DEBT_THRESHOLD와 동일 기준: 적합도 배지 대신 신복위 우선 안내
+    if (data) {
       document.getElementById('diag-content').innerHTML = `
-        <div class="text-xs text-slate-400 mb-3">진단일: ${date || '-'}</div>
-        <div class="bg-slate-50 rounded-xl p-4 mb-3">
-          <div class="text-xs text-slate-500 mb-1">총 채무</div>
-          <div class="text-lg font-bold text-slate-800">${formatWon(data.totalDebt || 0)}</div>
-        </div>
-        <p class="text-sm text-slate-600 leading-relaxed">채무 규모가 크지 않은 편이라, 법원 절차(개인회생·파산)보다 <strong>신용회복위원회 채무조정</strong>(<a href="https://www.ccrs.or.kr" target="_blank" rel="noopener" class="text-blue-600 hover:underline">ccrs.or.kr</a> · 1600-5500)을 우선 안내드립니다.</p>
-        <a href="result.html" class="mt-3 inline-block text-blue-600 text-sm hover:underline">결과 상세 보기 →</a>
-      `;
-    } else if (levels && data) {
-      const LEVEL_LABEL = { high: '검토 가능성 높음', medium: '검토 가능성 보통', low: '검토 가능성 낮음' };
-      const LEVEL_COLOR = { high: 'badge-high', medium: 'badge-medium', low: 'badge-low' };
-
-      document.getElementById('diag-content').innerHTML = `
-        <div class="text-xs text-slate-400 mb-3">진단일: ${date || '-'}</div>
+        <div class="text-xs text-slate-400 mb-3">진단일: ${esc(date || '-')}</div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           ${['rehab', 'bankrupt'].map((k, i) => {
             const titles = ['개인회생', '개인파산·면책'];
             return `<div class="p-3 bg-slate-50 rounded-xl text-center">
               <div class="text-xs text-slate-500 mb-1">${titles[i]}</div>
-              <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${LEVEL_COLOR[levels[k]]}">${LEVEL_LABEL[levels[k]] || '-'}</span>
+              <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">법정요건 별도 확인</span>
             </div>`;
           }).join('')}
         </div>
-        ${repay && rehabTrack ? `<div class="bg-blue-50 rounded-xl p-3 text-sm">
-          <span class="text-slate-600">개인회생 예상 월 변제액:</span>
+        ${repay ? `<div class="bg-blue-50 rounded-xl p-3 text-sm">
+          <span class="text-slate-600">60% 기준 월 잔여소득:</span>
           <strong class="text-blue-700 ml-2">${formatWon(repay.monthly)}</strong>
-          <span class="text-slate-400 text-xs ml-2">(참고용)</span>
-        </div>` : ''}
-        ${data && !rehabTrack ? `<div class="bg-blue-50 rounded-xl p-3 text-sm">
-          <span class="text-slate-600">총 채무:</span>
-          <strong class="text-blue-700 ml-2">${formatWon(data.totalDebt || 0)}</strong>
-          <span class="text-slate-400 text-xs ml-2">· 채권자 ${data.creditorCount || 0}곳 (면책 범위는 법원이 결정)</span>
+          <span class="text-slate-400 text-xs ml-2">(법원 인정 가용소득 아님)</span>
         </div>` : ''}
         <a href="result.html" class="mt-3 inline-block text-blue-600 text-sm hover:underline">결과 상세 보기 →</a>
       `;
@@ -366,7 +343,7 @@
       ? ownedPkgs.map(pk => `
         <div class="flex items-center justify-between gap-2 flex-wrap mb-1.5 last:mb-0">
           <span class="flex items-center gap-2 flex-wrap">
-            <span class="inline-block bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full">${PACKAGE_NAMES[pk] || Storage.load('plan_package_name') || '프리미엄'} 이용 중</span>
+            <span class="inline-block bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full">${esc(PACKAGE_NAMES[pk] || Storage.load('plan_package_name') || '프리미엄')} 이용 중</span>
             <span class="text-xs text-slate-400" data-exp="${pk}"></span>
           </span>
           ${PACKAGE_PAGES[pk] ? `<a href="${PACKAGE_PAGES[pk]}" class="text-sm text-blue-600 font-medium hover:underline">전용 안내 바로가기 →</a>` : ''}
@@ -735,20 +712,27 @@
   }
 
   let _delBusy = false;
+  let _resetBusy = false;
 
   function toggleDeleteForm() {
     const f = document.getElementById('delete-form');
     f.classList.toggle('hidden');
-    if (!f.classList.contains('hidden')) document.getElementById('del-password').focus();
+    const input = document.getElementById('del-password');
+    input.setAttribute('aria-invalid', 'false');
+    if (!f.classList.contains('hidden')) input.focus();
   }
 
   async function doDeleteAccount() {
     const errEl = document.getElementById('del-err');
     errEl.classList.add('hidden');
-    const pw = document.getElementById('del-password').value;
+    const input = document.getElementById('del-password');
+    input.setAttribute('aria-invalid', 'false');
+    const pw = input.value;
     if (!pw) {
       errEl.textContent = '비밀번호를 입력해주세요.';
       errEl.classList.remove('hidden');
+      input.setAttribute('aria-invalid', 'true');
+      input.focus();
       return;
     }
     if (!confirm('정말 탈퇴하시겠습니까? 저장된 진단결과와 진행 기록이 모두 삭제되며 복구할 수 없습니다.')) return;
@@ -762,24 +746,47 @@
     if (!r.ok) {
       errEl.textContent = r.error;
       errEl.classList.remove('hidden');
+      input.setAttribute('aria-invalid', 'true');
+      input.focus();
       return;
     }
-    alert('탈퇴가 완료되었습니다. 그동안 이용해주셔서 감사합니다.');
+    if (r.localCleared === false) {
+      alert('계정과 서버 데이터는 삭제되었지만 이 기기의 저장 데이터를 모두 지우지 못했습니다. 브라우저 설정에서 chamroad.com의 사이트 데이터를 직접 삭제해 주세요.');
+    } else {
+      alert('탈퇴가 완료되었습니다. 그동안 이용해주셔서 감사합니다.');
+    }
     location.href = 'index.html';
   }
 
-  function confirmReset() {
-    if (confirm('저장된 모든 데이터를 삭제합니다.\n\n· 진단결과, 절차 진행률, 서류 체크 상태, AI 검토 기록\n\n로그인 상태라면 서버에 저장된 데이터도 함께 삭제되며, 되돌릴 수 없습니다.\n\n결제하신 패키지의 이용권은 삭제되지 않습니다 — 다시 로그인하면 이용기간·잔여 회수가 그대로 복원됩니다.\n\n계속하시겠습니까?')) {
-      // ⚠️ 캐시 키까지 전부 지운다(로그아웃 시 지우는 _PLAN_CACHE와 같은 범위로 맞출 것 —
-      //    적게 지우면 만료일·잔여 회수 같은 유령 데이터가 화면에 남는다).
-      //    이용권 자체는 서버 entitlements가 원본이라 여기서 지워도 재로그인 시 복원된다.
-      ['diagnosis_data','diagnosis_scores','diagnosis_levels','diagnosis_repay','diagnosis_date',
-       'rehab_checks','bankrupt_checks','docs_checks','ai_records','ai_reviewed','plan','plan_type',
-       'plan_package','plan_package_name','plan_packages','plan_expires_at','entitlements','content_access',
-       'maintain_checks','supplement_checks_rehab','supplement_checks_bankrupt','profile'].forEach(k => Storage.remove(k));
-      DataSync.clearServer();   // 로그인 상태면 서버 데이터도 전체 삭제
+  async function confirmReset() {
+    if (_resetBusy || !confirm('저장된 모든 데이터를 삭제합니다.\n\n· 이 브라우저에 남은 모든 챔로드 계정·익명 자료\n· 현재 로그인 계정의 서버 진단결과, 절차 진행률, 서류 체크 상태, AI 검토 기록\n\n다른 계정의 서버 자료는 삭제하지 않지만, 이 브라우저에 남은 그 계정의 로컬 사본은 함께 삭제되며 되돌릴 수 없습니다.\n\n결제하신 패키지의 이용권은 삭제되지 않습니다 — 다시 로그인하면 이용기간·잔여 회수가 그대로 복원됩니다.\n\n계속하시겠습니까?')) return;
+
+    const btn = document.getElementById('reset-data-btn');
+    const originalLabel = btn.textContent;
+    _resetBusy = true;
+    btn.disabled = true;
+    btn.textContent = '삭제 중…';
+    try {
+      if (Auth.getSession()) {
+        const serverResult = await DataSync.clearServer();
+        if (!serverResult.ok && !serverResult.serverCleared) {
+          showToast((serverResult.error || '서버의 저장 데이터를 삭제하지 못했습니다.') + ' 이 기기의 데이터는 유지했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.', 'error');
+          return;
+        }
+      }
+
+      // 확인창의 약속대로 이 브라우저의 모든 계정·익명·격리 legacy·재시도 사본을 지운다.
+      // 인증 세션과 결제 원장은 대상이 아니므로 로그인과 이용권은 유지된다.
+      if (!Storage.clearAllAppData()) {
+        showToast('서버 데이터는 삭제했지만 이 기기의 저장 데이터를 모두 지우지 못했습니다. 브라우저의 사이트 데이터 삭제 기능을 이용해 주세요.', 'error');
+        return;
+      }
+      renderPage();
       showToast('모든 데이터가 초기화되었습니다.', 'info');
-      setTimeout(() => renderPage(), 500);
+    } finally {
+      _resetBusy = false;
+      btn.disabled = false;
+      btn.textContent = originalLabel;
     }
   }
 

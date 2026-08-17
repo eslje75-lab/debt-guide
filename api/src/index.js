@@ -23,9 +23,12 @@
  */
 
 // 유료 본문(회생·파산 완주 패키지의 2단계 이후). 정적 HTML에 두면 결제 없이 읽히므로 여기로 옮겼다.
-// 콘텐츠를 고치면 화면이 아니라 Worker가 배포돼야 반영된다 — 자세한 것은 handleContentSteps 주석.
+// 콘텐츠를 고치면 화면이 아니라 Worker가 배포돼야 반영된다 — 자세한 것은 handleContentOpen 주석.
 import * as REHAB_CONTENT from './content/rehab-steps.js';
 import * as BANKRUPT_CONTENT from './content/bankrupt-steps.js';
+import * as MAINTAIN_CONTENT from './content/maintain-steps.js';
+import * as SUPPLEMENT_REHAB_CONTENT from './content/supplement-rehab-steps.js';
+import * as SUPPLEMENT_BANKRUPT_CONTENT from './content/supplement-bankrupt-steps.js';
 
 // 로그인 무차별 대입 방어 — 윈도우 내 실패 한도 초과 시 잠금.
 const LOGIN_MAX_FAILS = 5;
@@ -37,6 +40,9 @@ const SALT_BYTES = 16;
 const TOKEN_BYTES = 32;
 const DAY_MS = 86400000;
 const MAX_BODY_BYTES = 10 * 1024;
+const MAX_EMAIL_LEN = 254;
+const MAX_BEARER_TOKEN_LEN = 128;
+const MAX_OPAQUE_TOKEN_LEN = 256;
 
 // 이메일 인프라(Phase 5) — 발송(Resend) + 일회성 토큰.
 const EMAIL_FROM = '챔로드 <no-reply@chamroad.com>';   // Resend에서 chamroad.com 루트 도메인 인증 필요
@@ -70,6 +76,9 @@ const BUSINESS_INFO = {
   email:       'eslje75@gmail.com',
 };
 const REFUND_WINDOW_MS = 14 * DAY_MS;   // 청약철회 기간: 결제일부터 14일(약관 제6조)
+// 유료 본문을 처음 열기 전에 화면이 받아야 하는 명시적 동의 계약 버전.
+// 단순 페이지 진입/자동 preload는 이 값과 consent:true를 보낼 수 없게 해야 한다.
+const CONTENT_OPEN_CONSENT_VERSION = 'content-open-v1';
 
 // 결제 시 SMS 번호 인증(솔라피). 성인 '검증'은 하지 않고(자기신고), 유료 고객 연락처 진위만 확인.
 const OTP_TTL_MS = 3 * 60 * 1000;       // 인증코드 유효 3분(화면 카운트다운과 같은 값이어야 함)
@@ -83,10 +92,32 @@ const PHONE_WINDOW_MS = 24 * 60 * 60 * 1000;
 const PHONE_MAX_PER_NUMBER = 10;
 const OTP_MAX_ATTEMPTS = 5;             // 코드 검증 최대 시도
 
-// 사용자 데이터 동기화(Phase 2) 한도
-const MAX_KEY_LEN = 64;
-const MAX_VALUE_BYTES = 100 * 1024;   // 값 1개(JSON 문자열) 최대
-const MAX_SYNC_KEYS = 60;             // 한 요청당 처리 키 수
+// 사용자 데이터 동기화(Phase 2) 한도. 클라이언트가 임의 키를 D1에 만들 수 있으면
+// 계정 하나로도 저장공간·쓰기 한도를 소진할 수 있으므로 실제 화면이 쓰는 키만 허용한다.
+// plan*은 여기에 없다 — 결제 검증을 통과한 서버 코드만 쓴다.
+const SYNC_KEY_RULES = new Map([
+  ['diagnosis_data',              { type: 'object', maxBytes: 64 * 1024 }],
+  ['diagnosis_scores',            { type: 'object', maxBytes: 8 * 1024 }],
+  ['diagnosis_levels',            { type: 'object', maxBytes: 8 * 1024 }],
+  ['diagnosis_repay',             { type: 'object', maxBytes: 16 * 1024 }],
+  ['diagnosis_date',              { type: 'string', maxBytes: 256 }],
+  ['rehab_checks',                { type: 'object', maxBytes: 64 * 1024 }],
+  ['bankrupt_checks',             { type: 'object', maxBytes: 64 * 1024 }],
+  ['docs_checks',                 { type: 'object', maxBytes: 64 * 1024 }],
+  ['maintain_checks',             { type: 'object', maxBytes: 64 * 1024 }],
+  ['supplement_checks_rehab',     { type: 'object', maxBytes: 64 * 1024 }],
+  ['supplement_checks_bankrupt',  { type: 'object', maxBytes: 64 * 1024 }],
+  ['profile',                     { type: 'object', maxBytes: 32 * 1024 }],
+  ['ai_reviewed',                 { type: 'object', maxBytes: 32 * 1024 }],
+  ['ai_records',                  { type: 'array',  maxBytes: 64 * 1024 }],
+]);
+// 구버전 호환을 위해 요청 자체는 받아들이되 더 이상 저장·반환하지 않는 판정 데이터.
+// 새 화면은 점수·등급을 만들지 않으며, 옛 화면이 잠깐 함께 떠 있어도 서버에서 즉시 삭제한다.
+const DEPRECATED_SYNC_KEYS = new Set(['diagnosis_scores', 'diagnosis_levels']);
+const FORBIDDEN_SYNC_FIELDS = new Set([
+  'hashealthissues', 'debtcauses', 'proto', 'prototype', 'constructor',
+]);
+const MAX_SYNC_KEYS = 60;             // 한 요청당 put+del 항목 수
 const DATA_BODY_BYTES = 512 * 1024;   // /api/data/sync 본문 최대
 
 // AI 서류검토(Phase 3)
@@ -243,6 +274,15 @@ function corsHeaders(origin) {
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
+    // API에는 세션·진단·결제 정보가 있으므로 브라우저·중간 캐시에 남기지 않는다.
+    'Cache-Control': 'no-store, max-age=0',
+    'Pragma': 'no-cache',
+    'Vary': 'Origin',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'no-referrer',
+    'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   };
   if (origin && ALLOWED_ORIGINS.has(origin)) h['Access-Control-Allow-Origin'] = origin;
   return h;
@@ -272,22 +312,31 @@ async function readJson(request, maxBytes = MAX_BODY_BYTES) {
 
 /* ── 세션 ── */
 
+// 발급 토큰은 base64url 43자다. 비정상적으로 긴 Authorization 값을 그대로 해시하지 않는다.
+function bearerToken(request) {
+  const auth = request.headers.get('Authorization') || '';
+  if (!auth.startsWith('Bearer ')) return '';
+  const token = auth.slice(7).trim();
+  if (token.length < 32 || token.length > MAX_BEARER_TOKEN_LEN) return '';
+  return /^[A-Za-z0-9_-]+$/.test(token) ? token : '';
+}
+
 async function createSession(db, userId, remember) {
   const token = b64url(crypto.getRandomValues(new Uint8Array(TOKEN_BYTES)));
   const tokenHash = await sha256hex(token);
   const expiresAt = Date.now() + (remember ? 30 : 1) * DAY_MS;
-  // 만료된 세션 행은 재접속이 없으면 남는다 — 새 세션을 만들 때 이 사용자 것부터 정리.
-  await db.prepare('DELETE FROM sessions WHERE user_id = ? AND expires_at < ?')
-    .bind(userId, Date.now()).run();
-  await db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)')
-    .bind(tokenHash, userId, expiresAt).run();
+  // 삭제와 발급이 서로 다른 D1 요청이면 동시 로그인 둘이 모두 DELETE를 마친 뒤 각각
+  // INSERT해 '세션 1개' 불변식이 깨질 수 있다. 한 batch 트랜잭션에서 교체한다.
+  await db.batch([
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').bind(userId),
+    db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)')
+      .bind(tokenHash, userId, expiresAt),
+  ]);
   return { token, expiresAt };
 }
 
 async function getSessionUser(db, request) {
-  const auth = request.headers.get('Authorization') || '';
-  if (!auth.startsWith('Bearer ')) return null;
-  const token = auth.slice(7).trim();
+  const token = bearerToken(request);
   if (!token) return null;
   const tokenHash = await sha256hex(token);
   const row = await db.prepare(
@@ -308,7 +357,7 @@ async function getSessionUser(db, request) {
 
 // Resend HTTP API로 트랜잭션 메일 발송. 키 미설정·실패 시 false를 반환하되
 // 가입·요청 흐름을 막지 않는다(메일 실패로 회원가입이 실패하면 안 된다).
-async function sendEmail(env, to, subject, html) {
+async function sendEmail(env, to, subject, html, { usageReserved = false } = {}) {
   if (!env.RESEND_API_KEY) { console.error('email: RESEND_API_KEY 미설정'); return false; }
   try {
     const res = await fetch('https://api.resend.com/emails', {
@@ -332,12 +381,14 @@ async function sendEmail(env, to, subject, html) {
     }
     // 발송 수 집계 — Resend 무료 한도(일 100통)를 관리자 화면에서 감시하기 위한 것.
     // ⚠️ 집계 실패가 메일 발송을 깨면 안 되므로 통째로 삼킨다(표가 없어도 메일은 나간다).
-    try {
-      await env.DB.prepare(
-        `INSERT INTO email_usage (day, count) VALUES (?1, 1)
-         ON CONFLICT(day) DO UPDATE SET count = count + 1`
-      ).bind(new Date().toISOString().slice(0, 10)).run();
-    } catch (e) { console.error('email usage count skipped', e.message); }
+    if (!usageReserved) {
+      try {
+        await env.DB.prepare(
+          `INSERT INTO email_usage (day, count) VALUES (?1, 1)
+           ON CONFLICT(day) DO UPDATE SET count = count + 1`
+        ).bind(new Date().toISOString().slice(0, 10)).run();
+      } catch (e) { console.error('email usage count skipped', e.message); }
+    }
     return true;
   } catch (e) { console.error('email send error', e); return false; }
 }
@@ -350,7 +401,7 @@ async function createEmailToken(db, userId, purpose, ttlMs) {
   await db.prepare(
     'INSERT INTO email_tokens (token_hash, user_id, purpose, expires_at, created_at) VALUES (?,?,?,?,?)'
   ).bind(tokenHash, userId, purpose, now + ttlMs, now).run();
-  return token;
+  return { token, tokenHash };
 }
 
 // 오늘 나간 메일 수. 조회 실패 시 0을 돌려준다(집계가 안 된다고 가입을 막지는 않는다 — fail-open).
@@ -362,12 +413,50 @@ async function todayEmailCount(env) {
   } catch (e) { console.error('email usage read skipped', e.message); return 0; }
 }
 
-// 같은 사용자·목적의 토큰을 최근 EMAIL_COOLDOWN_MS 내 발급했으면 true(재발송 억제).
-async function recentlySent(db, userId, purpose, now) {
-  const row = await db.prepare(
-    'SELECT created_at FROM email_tokens WHERE user_id = ? AND purpose = ? ORDER BY created_at DESC LIMIT 1'
-  ).bind(userId, purpose).first();
-  return !!(row && (now - row.created_at) < EMAIL_COOLDOWN_MS);
+// 가입 메일은 보내기 전에 일일 몫을 원자적으로 선점한다. 단순 SELECT 후 발송이면
+// 동시 요청이 모두 같은 count를 읽고 SIGNUP_EMAIL_DAILY_CAP을 한꺼번에 넘는다.
+async function reserveEmailUsage(env, cap) {
+  const day = new Date().toISOString().slice(0, 10);
+  try {
+    const r = await env.DB.prepare(
+      `INSERT INTO email_usage (day, count) VALUES (?1, 1)
+       ON CONFLICT(day) DO UPDATE SET count = count + 1 WHERE email_usage.count < ?2`
+    ).bind(day, cap).run();
+    return { allowed: r.meta.changes === 1, reserved: r.meta.changes === 1, day };
+  } catch (e) {
+    // 마이그레이션 직후처럼 표가 잠시 없을 때 가입 전체를 막지는 않는다. 이 경우 sendEmail이 사후 집계한다.
+    console.error('email usage reserve skipped', e.message);
+    return { allowed: (await todayEmailCount(env)) < cap, reserved: false, day };
+  }
+}
+
+async function releaseEmailUsage(env, reservation) {
+  if (!reservation || !reservation.reserved) return;
+  try {
+    await env.DB.prepare('UPDATE email_usage SET count = count - 1 WHERE day = ? AND count > 0')
+      .bind(reservation.day).run();
+  } catch (e) { console.error('email usage release skipped', e.message); }
+}
+
+// 사용자·목적별 고정 PK 행을 조건부 UPSERT해 메일 쿨다운을 원자적으로 선점한다.
+// 실제 reset/verify 토큰과 purpose가 달라 토큰 검증 쿼리에는 절대 매치되지 않는다.
+async function claimEmailCooldown(db, userId, purpose, now) {
+  const tokenHash = await sha256hex(`email-rate:${userId}:${purpose}`);
+  const marker = crypto.getRandomValues(new Uint32Array(1))[0] + 1;
+  const r = await db.prepare(
+    `INSERT INTO email_tokens (token_hash, user_id, purpose, expires_at, created_at, used_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+     ON CONFLICT(token_hash) DO UPDATE SET expires_at=?4, created_at=?5, used_at=?6
+       WHERE email_tokens.created_at <= ?7`
+  ).bind(tokenHash, userId, `rate:${purpose}`, now + EMAIL_COOLDOWN_MS, now, marker,
+    now - EMAIL_COOLDOWN_MS).run();
+  return r.meta.changes === 1 ? { tokenHash, marker } : null;
+}
+
+async function releaseEmailCooldown(db, claim) {
+  if (!claim) return;
+  await db.prepare('DELETE FROM email_tokens WHERE token_hash = ? AND used_at = ?')
+    .bind(claim.tokenHash, claim.marker).run();
 }
 
 // 메일에 삽입하는 사용자 값(이름 등) HTML 이스케이프 — 메일 클라이언트 XSS 방지.
@@ -395,14 +484,21 @@ function emailButton(label, url) {
   <p style="font-size:13px;color:#6b7280;word-break:break-all">버튼이 안 되면 이 주소를 브라우저에 붙여넣으세요:<br>${url}</p>`;
 }
 
-// 가입 이메일 인증 메일 발송(가입·재발송 공용). 쿨다운 확인은 호출부에서.
+// 가입 이메일 인증 메일 발송(가입·재발송 공용). 쿨다운 선점도 이 함수가 맡는다.
 async function sendVerifyEmail(env, userId, email, name) {
-  const token = await createEmailToken(env.DB, userId, 'verify', VERIFY_TTL_MS);
-  const url = `${SITE_URL}/verify-email.html?token=${token}`;
-  return sendEmail(env, email, '[챔로드] 이메일 주소를 인증해주세요',
+  const claim = await claimEmailCooldown(env.DB, userId, 'verify', Date.now());
+  if (!claim) return true; // 쿨다운 중 재요청은 기존과 같이 조용히 성공 처리
+  const created = await createEmailToken(env.DB, userId, 'verify', VERIFY_TTL_MS);
+  const url = `${SITE_URL}/verify-email.html?token=${created.token}`;
+  const sent = await sendEmail(env, email, '[챔로드] 이메일 주소를 인증해주세요',
     emailShell('이메일 인증', `<p>${escHtml(name)}님, 챔로드 가입을 환영합니다.</p>
     <p>아래 버튼을 눌러 이메일 주소를 인증해주세요. (3일 내 유효)</p>
     ${emailButton('이메일 인증하기', url)}`));
+  if (!sent) {
+    await env.DB.prepare('DELETE FROM email_tokens WHERE token_hash = ?').bind(created.tokenHash).run();
+    await releaseEmailCooldown(env.DB, claim);
+  }
+  return sent;
 }
 
 /* ── SMS 발송(솔라피) ── */
@@ -502,9 +598,22 @@ async function sendOrderConfirmation(env, toEmail, toName, order, paidAt) {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function normalizeEmail(value) {
+  return typeof value === 'string' ? value.toLowerCase().trim() : '';
+}
+
+function validEmail(email) {
+  return email.length <= MAX_EMAIL_LEN && EMAIL_RE.test(email);
+}
+
+function validOpaqueToken(value) {
+  return typeof value === 'string' && value.length >= 32 && value.length <= MAX_OPAQUE_TOKEN_LEN
+    && /^[A-Za-z0-9_-]+$/.test(value);
+}
+
 // 비밀번호 정책: 8자 이상 + 영문·숫자·특수문자 포함. 위반 시 사유 문자열, 통과 시 null.
 function passwordError(pw) {
-  pw = pw || '';
+  if (typeof pw !== 'string') return '비밀번호 형식이 올바르지 않습니다.';
   if (pw.length < 8) return '비밀번호는 8자 이상이어야 합니다.';
   if (pw.length > 128) return '비밀번호는 128자 이하로 입력해주세요.';
   if (!/[A-Za-z]/.test(pw)) return '비밀번호에 영문자를 포함해주세요.';
@@ -519,24 +628,26 @@ function passwordError(pw) {
 // ⚠️ 유료 판매 개시 전까지는 준비 과정의 문구 정비를 개별 개정 이력으로 남기지 않기로 했다(2026-08-13, 사용자).
 //    정식 개시 시점에 두 문서의 시행일을 새로 정하고 이 값도 함께 올린 뒤, 그때부터 부칙에 이력을 기록한다.
 const CONSENT_VERSION = 'terms-2026-08-13/privacy-2026-08-13';
+const SIGNUP_CONSENT_FORM_VERSION = 'signup-consent-v1';
 
 function validateSignup(body) {
-  const name = (body.name || '').trim();
-  const email = (body.email || '').toLowerCase().trim();
-  const password = body.password || '';
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
+  const email = normalizeEmail(body.email);
+  const password = body.password;
   if (!name) return { error: '이름을 입력해주세요.' };
   if (name.length > 50) return { error: '이름은 50자 이하로 입력해주세요.' };
-  if (!EMAIL_RE.test(email) || email.length > 254) return { error: '올바른 이메일 주소를 입력해주세요.' };
+  if (!validEmail(email)) return { error: '올바른 이메일 주소를 입력해주세요.' };
   const pwErr = passwordError(password);
   if (pwErr) return { error: pwErr };
-  // 동의는 서버에서 필수로 확인한다. 화면 체크박스만 두면 ①동의 사실이 어디에도 남지 않고
-  // ②API를 직접 호출해 동의 없이 가입할 수 있다.
+  // 세 필수 항목은 화면에서 분리해 표시하고 서버에서도 각각 확인한다. 화면 체크만 검사하면
+  // API 직접 호출로 우회할 수 있으므로 정확한 form version과 세 boolean을 모두 요구한다.
   // 「개인정보 보호법」 제22조 제3항은 동의 없이 처리할 수 있는 개인정보라는 입증책임을
   // 개인정보처리자에게 지우고, 제22조의2 제1항은 만 14세 미만 아동의 개인정보 처리에
   // 법정대리인 동의를 요구한다 — 만 14세 이상 확인 기록이 없으면 이를 다툴 근거가 없다.
-  if (body.agree !== true)
-    return { error: '이용약관·개인정보처리방침 동의와 만 14세 이상 확인이 필요합니다.' };
-  return { name, email, password };
+  if (body.consentFormVersion !== SIGNUP_CONSENT_FORM_VERSION
+      || body.ageConfirmed !== true || body.termsAgreed !== true || body.privacyAgreed !== true)
+    return { error: '만 14세 이상 확인, 이용약관 동의, 개인정보 수집·이용 동의가 모두 필요합니다.' };
+  return { name, email, password, consentFormVersion: SIGNUP_CONSENT_FORM_VERSION };
 }
 
 /* ── 라우트 핸들러 ── */
@@ -546,8 +657,8 @@ function validateSignup(body) {
 // 확인된 코드가 없으면 통과하지 못하므로, 캡차를 두 번 풀게 하지 않는다).
 async function handleSendSignupCode(request, env, origin) {
   const body = await readJson(request);
-  const email = (body && typeof body.email === 'string' ? body.email : '').toLowerCase().trim();
-  if (!EMAIL_RE.test(email) || email.length > 254)
+  const email = normalizeEmail(body && body.email);
+  if (!validEmail(email))
     return err(400, '올바른 이메일 주소를 입력해주세요.', origin);
 
   const human = await verifyTurnstile(env, body && body.turnstileToken, request.headers.get('CF-Connecting-IP'));
@@ -557,11 +668,6 @@ async function handleSendSignupCode(request, env, origin) {
   // 코드가 오지 않는 이유를 모른 채 기다리게 하는 편이 더 나쁘다(Turnstile 뒤라 자동 열거는 어렵다).
   const exists = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
   if (exists) return err(409, '이미 가입된 이메일입니다.', origin);
-
-  // 하루 총 발송량이 차단선을 넘으면 가입 메일만 끊는다(재설정·주문확인 몫을 남긴다).
-  // 주소별 제한만으로는 서로 다른 주소를 쓰는 대량 요청을 못 막는다 — SIGNUP_EMAIL_DAILY_CAP 주석 참조.
-  if (await todayEmailCount(env) >= SIGNUP_EMAIL_DAILY_CAP)
-    return err(429, `오늘 가입 인증 메일 발송이 많아 잠시 제한되었습니다. 내일 다시 시도해주시거나 ${BUSINESS_INFO.email}로 문의해주세요.`, origin);
 
   const now = Date.now();
   const prev = await env.DB.prepare('SELECT * FROM email_otp WHERE email = ?').bind(email).first();
@@ -576,20 +682,39 @@ async function handleSendSignupCode(request, env, origin) {
     }
   }
 
+  // 하루 총 발송량과 주소별 OTP 행을 **보내기 전에** 선점한다. 둘 중 하나라도 실패하면 메일은 안 나간다.
+  const usageReservation = await reserveEmailUsage(env, SIGNUP_EMAIL_DAILY_CAP);
+  if (!usageReservation.allowed)
+    return err(429, `오늘 가입 인증 메일 발송이 많아 잠시 제한되었습니다. 내일 다시 시도해주시거나 ${BUSINESS_INFO.email}로 문의해주세요.`, origin);
+
   const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
   const codeHash = await sha256hex(code);
-  const sent = await sendEmail(env, email, '[챔로드] 가입 인증번호',
-    emailShell('가입 인증번호', `<p>아래 인증번호를 가입 화면에 입력해주세요. <strong>${Math.floor(OTP_TTL_MS / 60000)}분</strong> 안에 입력하셔야 합니다.</p>
-    <p style="font-size:30px;font-weight:700;letter-spacing:6px;color:#533afd;margin:20px 0">${code}</p>
-    <p style="font-size:13px;color:#6b7280">본인이 요청하지 않았다면 이 메일을 무시하세요. 인증번호를 타인에게 알려주지 마세요.</p>`));
-  if (!sent) return err(502, '인증 메일 발송에 실패했습니다. 주소를 확인하고 잠시 후 다시 시도해주세요.', origin);
-
-  await env.DB.prepare(
+  const otpReservation = await env.DB.prepare(
     `INSERT INTO email_otp (email, code_hash, expires_at, attempts, last_sent, window_start, send_count, verified_at)
      VALUES (?1, ?2, ?3, 0, ?4, ?5, ?6, NULL)
      ON CONFLICT(email) DO UPDATE SET code_hash=?2, expires_at=?3, attempts=0, last_sent=?4,
-       window_start=?5, send_count=?6, verified_at=NULL`
-  ).bind(email, codeHash, now + OTP_TTL_MS, now, windowStart, sendCount + 1).run();
+       window_start=?5, send_count=?6, verified_at=NULL
+       WHERE email_otp.last_sent <= ?7
+         AND (email_otp.window_start <= ?8 OR email_otp.send_count < ?9)`
+  ).bind(email, codeHash, now + OTP_TTL_MS, now, windowStart, sendCount + 1,
+    now - OTP_COOLDOWN_MS, now - OTP_WINDOW_MS, OTP_MAX_SENDS).run();
+  if (otpReservation.meta.changes !== 1) {
+    await releaseEmailUsage(env, usageReservation);
+    return err(429, '인증 요청이 많습니다. 잠시 후 다시 시도해주세요.', origin);
+  }
+
+  const sent = await sendEmail(env, email, '[챔로드] 가입 인증번호',
+    emailShell('가입 인증번호', `<p>아래 인증번호를 가입 화면에 입력해주세요. <strong>${Math.floor(OTP_TTL_MS / 60000)}분</strong> 안에 입력하셔야 합니다.</p>
+    <p style="font-size:30px;font-weight:700;letter-spacing:6px;color:#533afd;margin:20px 0">${code}</p>
+    <p style="font-size:13px;color:#6b7280">본인이 요청하지 않았다면 이 메일을 무시하세요. 인증번호를 타인에게 알려주지 마세요.</p>`),
+    { usageReserved: usageReservation.reserved });
+  if (!sent) {
+    // 방금 선점한 코드만 지운다. 다른 요청이 새 코드를 만든 경우에는 건드리지 않는다.
+    await env.DB.prepare('DELETE FROM email_otp WHERE email = ? AND code_hash = ? AND last_sent = ?')
+      .bind(email, codeHash, now).run();
+    await releaseEmailUsage(env, usageReservation);
+    return err(502, '인증 메일 발송에 실패했습니다. 주소를 확인하고 잠시 후 다시 시도해주세요.', origin);
+  }
 
   return ok({ sent: true, expiresIn: Math.floor(OTP_TTL_MS / 1000) }, origin);
 }
@@ -597,23 +722,33 @@ async function handleSendSignupCode(request, env, origin) {
 // 가입 인증코드 확인 — 성공하면 verified_at을 남긴다. 실제 계정 생성은 signup에서.
 async function handleVerifySignupCode(request, env, origin) {
   const body = await readJson(request);
-  const email = (body && typeof body.email === 'string' ? body.email : '').toLowerCase().trim();
+  const email = normalizeEmail(body && body.email);
   const code = (body && typeof body.code === 'string' ? body.code : '').replace(/\D/g, '');
-  if (!email || !code) return err(400, '인증번호를 입력해주세요.', origin);
+  if (!validEmail(email) || !/^\d{6}$/.test(code)) return err(400, '인증번호를 입력해주세요.', origin);
 
   const row = await env.DB.prepare('SELECT * FROM email_otp WHERE email = ?').bind(email).first();
   if (!row) return err(400, '인증번호를 먼저 요청해주세요.', origin);
   const now = Date.now();
   if (now > row.expires_at) return err(400, '인증번호가 만료되었습니다. 재발송을 눌러주세요.', origin);
+  if (row.verified_at) return ok({ verified: true }, origin);
   if (row.attempts >= OTP_MAX_ATTEMPTS)
     return err(429, '입력 시도가 많습니다. 재발송 후 다시 시도해주세요.', origin);
 
+  // 정답 여부를 보기 전에 시도 1회를 원자적으로 선점한다. code_hash를 WHERE에 넣어
+  // 재발송과 경합할 때 예전 코드를 새 OTP 행에 적용하는 것도 막는다.
+  const reserved = await env.DB.prepare(
+    `UPDATE email_otp SET attempts = attempts + 1
+     WHERE email = ? AND code_hash = ? AND verified_at IS NULL AND expires_at >= ? AND attempts < ?`
+  ).bind(email, row.code_hash, now, OTP_MAX_ATTEMPTS).run();
+  if (reserved.meta.changes !== 1)
+    return err(429, '입력 시도가 많거나 인증번호가 변경되었습니다. 재발송 후 다시 시도해주세요.', origin);
+
   if (await sha256hex(code) !== row.code_hash) {
-    await env.DB.prepare('UPDATE email_otp SET attempts = attempts + 1 WHERE email = ?').bind(email).run();
     return err(400, '인증번호가 올바르지 않습니다.', origin);
   }
 
-  await env.DB.prepare('UPDATE email_otp SET verified_at = ? WHERE email = ?').bind(now, email).run();
+  await env.DB.prepare('UPDATE email_otp SET verified_at = ? WHERE email = ? AND code_hash = ? AND verified_at IS NULL')
+    .bind(now, email, row.code_hash).run();
   return ok({ verified: true }, origin);
 }
 
@@ -639,9 +774,10 @@ async function handleSignup(request, env, origin) {
   // 코드 확인을 마친 주소로만 계정이 생기므로 email_verified를 1로 시작한다.
   // 가입 후 인증 메일을 따로 보내지 않는다(이미 인증된 상태다).
   const res = await env.DB.prepare(
-    `INSERT INTO users (email, name, password_hash, agreed_at, consent_version, email_verified)
-     VALUES (?, ?, ?, ?, ?, 1)`
-  ).bind(v.email, v.name, passwordHash, Date.now(), CONSENT_VERSION).run();
+    `INSERT INTO users
+       (email, name, password_hash, agreed_at, consent_version, consent_form_version, email_verified)
+     VALUES (?, ?, ?, ?, ?, ?, 1)`
+  ).bind(v.email, v.name, passwordHash, Date.now(), CONSENT_VERSION, v.consentFormVersion).run();
 
   const userId = res.meta.last_row_id;
   // 쓴 코드는 지운다 — 남겨 두면 같은 인증으로 다른 계정을 또 만들 수 있다.
@@ -702,28 +838,33 @@ async function verifyTurnstile(env, token, ip) {
   return true;
 }
 
-async function recordLoginFail(env, email, att, now) {
-  let failCount, windowStart;
-  if (att && att.window_start && (now - att.window_start) < LOGIN_WINDOW_MS) {
-    failCount = att.fail_count + 1;
-    windowStart = att.window_start;
-  } else {
-    failCount = 1;
-    windowStart = now;
-  }
-  const lockedUntil = failCount >= LOGIN_MAX_FAILS ? now + LOGIN_LOCK_MS : null;
+async function recordLoginFail(env, email, now) {
+  // 읽은 fail_count를 계산해 덮어쓰면 동시 요청이 전부 같은 값으로 저장된다.
+  // 증가·윈도우 리셋·잠금을 한 UPSERT 안에서 계산해 D1 쓰기 자체를 원자화한다.
   await env.DB.prepare(
-    `INSERT INTO login_attempts (email, fail_count, window_start, locked_until) VALUES (?1, ?2, ?3, ?4)
-     ON CONFLICT(email) DO UPDATE SET fail_count = ?2, window_start = ?3, locked_until = ?4`
-  ).bind(email, failCount, windowStart, lockedUntil).run();
+    `INSERT INTO login_attempts (email, fail_count, window_start, locked_until) VALUES (?1, 1, ?2, NULL)
+     ON CONFLICT(email) DO UPDATE SET
+       fail_count = CASE WHEN (?2 - login_attempts.window_start) < ${LOGIN_WINDOW_MS}
+                         THEN login_attempts.fail_count + 1 ELSE 1 END,
+       window_start = CASE WHEN (?2 - login_attempts.window_start) < ${LOGIN_WINDOW_MS}
+                           THEN login_attempts.window_start ELSE ?2 END,
+       locked_until = CASE WHEN
+         (CASE WHEN (?2 - login_attempts.window_start) < ${LOGIN_WINDOW_MS}
+               THEN login_attempts.fail_count + 1 ELSE 1 END) >= ${LOGIN_MAX_FAILS}
+         THEN ?2 + ${LOGIN_LOCK_MS} ELSE NULL END`
+  ).bind(email, now).run();
 }
 
 async function handleLogin(request, env, origin) {
   const body = await readJson(request);
   if (!body) return err(400, '잘못된 요청입니다.', origin);
-  const email = (body.email || '').toLowerCase().trim();
-  const password = body.password || '';
+  const email = normalizeEmail(body.email);
+  const password = typeof body.password === 'string' && body.password.length <= 128 ? body.password : null;
   const remember = !!body.remember;
+
+  // 형식이 틀린 임의 문자열을 login_attempts의 영구 PK로 만들지 않는다.
+  const FAIL = '이메일 또는 비밀번호가 올바르지 않습니다.';
+  if (!validEmail(email)) return err(401, FAIL, origin);
 
   const now = Date.now();
   // 존재하지 않는 이메일도 카운트 대상 — 잠금 여부로 계정 존재가 새지 않게 한다.
@@ -745,19 +886,18 @@ async function handleLogin(request, env, origin) {
   ).bind(email).first();
 
   // 사용자 없음/비밀번호 불일치를 같은 메시지로 — 이메일 존재 여부 노출 방지
-  const FAIL = '이메일 또는 비밀번호가 올바르지 않습니다.';
-  const valid = user && await verifyPassword(password, user.password_hash, env.PEPPER);
+  const valid = !!(password !== null && user && await verifyPassword(password, user.password_hash, env.PEPPER));
   if (!valid) {
-    await recordLoginFail(env, email, att, now);
+    await recordLoginFail(env, email, now);
     return err(401, FAIL, origin);
   }
 
-  // 성공 — 실패 기록 리셋
+  // 성공 — 실패 기록 리셋. createSession이 기존 세션 삭제와 새 토큰 삽입을 한 트랜잭션으로
+  // 처리하므로 병렬 로그인에서도 마지막으로 발급된 세션 하나만 남는다.
   await env.DB.prepare('DELETE FROM login_attempts WHERE email = ?').bind(email).run();
-  // 동시 세션 1개 — 기존 세션을 모두 끊는다. 계정을 여러 명이 돌려쓰면 서로 로그아웃되어
+  // 동시 세션 1개 — 계정을 여러 명이 돌려쓰면 서로 로그아웃되어
   // 실질적으로 공유가 성가셔진다. IP·기기 정보를 수집하지 않으므로 개인정보 방침은 그대로 유지된다.
   // (시간을 나눠 쓰는 순차 양도까지는 막지 못한다 — 그건 본인확인 없이는 불가능하다.)
-  await env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(user.id).run();
   const session = await createSession(env.DB, user.id, remember);
   return ok({
     token: session.token,
@@ -766,9 +906,9 @@ async function handleLogin(request, env, origin) {
 }
 
 async function handleLogout(request, env, origin) {
-  const auth = request.headers.get('Authorization') || '';
-  if (auth.startsWith('Bearer ')) {
-    const tokenHash = await sha256hex(auth.slice(7).trim());
+  const token = bearerToken(request);
+  if (token) {
+    const tokenHash = await sha256hex(token);
     await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(tokenHash).run();
   }
   return ok({}, origin);
@@ -857,7 +997,7 @@ async function handleVerifyCode(request, env, origin) {
   if (!session) return err(401, '로그인이 필요합니다.', origin);
   const body = await readJson(request);
   const code = (body && typeof body.code === 'string' ? body.code : '').replace(/\D/g, '');
-  if (!code) return err(400, '인증번호를 입력해주세요.', origin);
+  if (!/^\d{6}$/.test(code)) return err(400, '인증번호를 입력해주세요.', origin);
 
   const row = await env.DB.prepare('SELECT phone, code_hash, expires_at, attempts FROM phone_otp WHERE user_id = ?')
     .bind(session.id).first();
@@ -868,8 +1008,14 @@ async function handleVerifyCode(request, env, origin) {
     return err(429, '인증 시도가 많습니다. 인증번호를 다시 요청해주세요.', origin);
 
   const codeHash = await sha256hex(code);
+  const reserved = await env.DB.prepare(
+    `UPDATE phone_otp SET attempts = attempts + 1
+     WHERE user_id = ? AND code_hash = ? AND expires_at >= ? AND attempts < ?`
+  ).bind(session.id, row.code_hash, now, OTP_MAX_ATTEMPTS).run();
+  if (reserved.meta.changes !== 1)
+    return err(429, '인증 시도가 많거나 인증번호가 변경되었습니다. 다시 요청해주세요.', origin);
+
   if (codeHash !== row.code_hash) {
-    await env.DB.prepare('UPDATE phone_otp SET attempts = attempts + 1 WHERE user_id = ?').bind(session.id).run();
     return err(400, '인증번호가 올바르지 않습니다.', origin);
   }
 
@@ -885,8 +1031,9 @@ async function handleChangePassword(request, env, origin) {
   if (!session) return err(401, '로그인이 필요합니다.', origin);
   const body = await readJson(request);
   if (!body) return err(400, '잘못된 요청입니다.', origin);
-  const current = body.currentPassword || '';
-  const next = body.newPassword || '';
+  const current = typeof body.currentPassword === 'string' && body.currentPassword.length <= 128
+    ? body.currentPassword : '';
+  const next = body.newPassword;
   const pwErr = passwordError(next);
   if (pwErr) return err(400, pwErr, origin);
 
@@ -896,11 +1043,15 @@ async function handleChangePassword(request, env, origin) {
   if (!valid) return err(401, '현재 비밀번호가 올바르지 않습니다.', origin);
 
   const newHash = await hashPassword(next, env.PEPPER);
-  await env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?')
-    .bind(newHash, session.id).run();
-  // 다른 기기 세션 전부 무효화 (현재 세션만 유지)
-  await env.DB.prepare('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?')
-    .bind(session.id, session.token_hash).run();
+  await env.DB.batch([
+    env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(newHash, session.id),
+    // 다른 기기 세션 전부 무효화 (현재 세션만 유지)
+    env.DB.prepare('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?')
+      .bind(session.id, session.token_hash),
+    // 비밀번호를 직접 바꾼 뒤에도 예전에 발급된 재설정 링크가 살아 있으면 다시 탈취될 수 있다.
+    env.DB.prepare("UPDATE email_tokens SET used_at = ? WHERE user_id = ? AND purpose = 'reset' AND used_at IS NULL")
+      .bind(Date.now(), session.id),
+  ]);
   return ok({}, origin);
 }
 
@@ -917,7 +1068,7 @@ async function handleDeleteAccount(request, env, origin) {
   if (!session) return err(401, '로그인이 필요합니다.', origin);
   const body = await readJson(request);
   if (!body) return err(400, '잘못된 요청입니다.', origin);
-  const password = body.password || '';
+  const password = typeof body.password === 'string' && body.password.length <= 128 ? body.password : '';
   if (!password) return err(400, '탈퇴하려면 비밀번호를 입력해주세요.', origin);
 
   const user = await env.DB.prepare('SELECT password_hash FROM users WHERE id = ?')
@@ -952,20 +1103,30 @@ async function handleDeleteAccount(request, env, origin) {
 async function handleRequestReset(request, env, origin) {
   const body = await readJson(request);
   if (!body) return err(400, '잘못된 요청입니다.', origin);
-  const email = (body.email || '').toLowerCase().trim();
+  const email = normalizeEmail(body.email);
   const DONE = { message: '입력하신 주소로 가입된 계정이 있으면 재설정 메일을 보냈습니다. 메일함을 확인해주세요.' };
-  if (!EMAIL_RE.test(email)) return ok(DONE, origin);   // 형식 불량도 동일 응답(계정 열거 방지)
+  if (!validEmail(email)) return ok(DONE, origin);   // 형식 불량도 동일 응답(계정 열거 방지)
 
   const user = await env.DB.prepare('SELECT id, name FROM users WHERE email = ?').bind(email).first();
   if (user) {
     const now = Date.now();
-    if (!(await recentlySent(env.DB, user.id, 'reset', now))) {
-      const token = await createEmailToken(env.DB, user.id, 'reset', RESET_TTL_MS);
-      const url = `${SITE_URL}/reset-password.html?token=${token}`;
-      await sendEmail(env, email, '[챔로드] 비밀번호 재설정 안내',
+    const claim = await claimEmailCooldown(env.DB, user.id, 'reset', now);
+    if (claim) {
+      const created = await createEmailToken(env.DB, user.id, 'reset', RESET_TTL_MS);
+      const url = `${SITE_URL}/reset-password.html?token=${created.token}`;
+      const sent = await sendEmail(env, email, '[챔로드] 비밀번호 재설정 안내',
         emailShell('비밀번호 재설정', `<p>${escHtml(user.name)}님, 비밀번호를 재설정하려면 아래 버튼을 눌러주세요. (30분 내 유효)</p>
     ${emailButton('비밀번호 재설정', url)}
     <p style="font-size:13px;color:#6b7280">본인이 요청하지 않았다면 이 메일을 무시하세요. 비밀번호는 변경되지 않습니다.</p>`));
+      if (sent) {
+        // 최신 메일 하나만 유효하게 한다. 오래된 링크가 나중에 사용되는 경로를 닫는다.
+        await env.DB.prepare(
+          "UPDATE email_tokens SET used_at = ? WHERE user_id = ? AND purpose = 'reset' AND token_hash != ? AND used_at IS NULL"
+        ).bind(now, user.id, created.tokenHash).run();
+      } else {
+        await env.DB.prepare('DELETE FROM email_tokens WHERE token_hash = ?').bind(created.tokenHash).run();
+        await releaseEmailCooldown(env.DB, claim);
+      }
     }
   }
   return ok(DONE, origin);
@@ -975,9 +1136,9 @@ async function handleRequestReset(request, env, origin) {
 async function handleResetPassword(request, env, origin) {
   const body = await readJson(request);
   if (!body) return err(400, '잘못된 요청입니다.', origin);
-  const token = (body.token || '').trim();
-  const next = body.password || '';
-  if (!token) return err(400, '유효하지 않은 링크입니다.', origin);
+  const token = typeof body.token === 'string' ? body.token.trim() : '';
+  const next = body.password;
+  if (!validOpaqueToken(token)) return err(400, '유효하지 않은 링크입니다.', origin);
   const pwErr = passwordError(next);
   if (pwErr) return err(400, pwErr, origin);
 
@@ -992,13 +1153,26 @@ async function handleResetPassword(request, env, origin) {
 
   const newHash = await hashPassword(next, env.PEPPER);
   const urow = await env.DB.prepare('SELECT email FROM users WHERE id = ?').bind(row.user_id).first();
-  await env.DB.batch([
-    env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(newHash, row.user_id),
-    // 이 사용자의 미사용 재설정 토큰 전부 소진(방금 쓴 것 포함)
-    env.DB.prepare("UPDATE email_tokens SET used_at = ? WHERE user_id = ? AND purpose = 'reset' AND used_at IS NULL").bind(now, row.user_id),
-    // 비번이 바뀌었으니 기존 세션 전부 종료 → 재로그인 유도
-    env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(row.user_id),
-  ]);
+  // 같은 링크를 병렬로 보내도 이 조건부 UPDATE에 성공한 한 요청만 비밀번호를 바꿀 수 있다.
+  const claimed = await env.DB.prepare(
+    "UPDATE email_tokens SET used_at = ? WHERE token_hash = ? AND purpose = 'reset' AND used_at IS NULL AND expires_at >= ?"
+  ).bind(now, tokenHash, now).run();
+  if (claimed.meta.changes !== 1)
+    return err(400, '링크가 만료되었거나 이미 사용되었습니다. 재설정을 다시 요청해주세요.', origin);
+
+  try {
+    await env.DB.batch([
+      env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(newHash, row.user_id),
+      // 이 사용자의 다른 미사용 재설정 토큰도 전부 소진
+      env.DB.prepare("UPDATE email_tokens SET used_at = ? WHERE user_id = ? AND purpose = 'reset' AND used_at IS NULL").bind(now, row.user_id),
+      // 비번이 바뀌었으니 기존 세션 전부 종료 → 재로그인 유도
+      env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(row.user_id),
+    ]);
+  } catch (e) {
+    // 토큰은 이미 소진됐으므로 재사용시키지 않는다. 이용자는 새 링크를 요청하면 된다.
+    console.error('reset finalize failed', e.message);
+    return err(500, '비밀번호 변경을 완료하지 못했습니다. 재설정 메일을 다시 요청해주세요.', origin);
+  }
   // 재설정 성공 = 이메일 통제 입증 → 로그인 실패 잠금도 해제
   if (urow) await env.DB.prepare('DELETE FROM login_attempts WHERE email = ?').bind(urow.email).run();
   return ok({ message: '비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요.' }, origin);
@@ -1008,8 +1182,8 @@ async function handleResetPassword(request, env, origin) {
 async function handleVerifyEmail(request, env, origin) {
   const body = await readJson(request);
   if (!body) return err(400, '잘못된 요청입니다.', origin);
-  const token = (body.token || '').trim();
-  if (!token) return err(400, '유효하지 않은 링크입니다.', origin);
+  const token = typeof body.token === 'string' ? body.token.trim() : '';
+  if (!validOpaqueToken(token)) return err(400, '유효하지 않은 링크입니다.', origin);
   const tokenHash = await sha256hex(token);
   const row = await env.DB.prepare(
     "SELECT user_id, expires_at FROM email_tokens WHERE token_hash = ? AND purpose = 'verify'"
@@ -1030,10 +1204,7 @@ async function handleResendVerification(request, env, origin) {
   const session = await getSessionUser(env.DB, request);
   if (!session) return err(401, '로그인이 필요합니다.', origin);
   if (session.email_verified) return ok({ message: '이미 인증된 계정입니다.', alreadyVerified: true }, origin);
-  const now = Date.now();
-  if (!(await recentlySent(env.DB, session.id, 'verify', now))) {
-    await sendVerifyEmail(env, session.id, session.email, session.name);
-  }
+  await sendVerifyEmail(env, session.id, session.email, session.name);
   return ok({ message: '인증 메일을 보냈습니다. 메일함을 확인해주세요.' }, origin);
 }
 
@@ -1047,11 +1218,22 @@ async function handleGetData(request, env, origin) {
   const rows = await env.DB.prepare('SELECT key, value FROM user_data WHERE user_id = ?')
     .bind(session.id).all();
   const data = {};
+  const deprecated = [];
   for (const r of (rows.results || [])) {
+    if (DEPRECATED_SYNC_KEYS.has(r.key)) { deprecated.push(r.key); continue; }
     try { data[r.key] = JSON.parse(r.value); } catch { /* 손상 값은 건너뜀 */ }
   }
+  if (deprecated.length) {
+    // 응답에서는 이미 제외했다. 정리용 쓰기 실패가 정상적인 데이터 조회까지 막지 않게 한다.
+    try {
+      await env.DB.batch(deprecated.map(key =>
+        env.DB.prepare('DELETE FROM user_data WHERE user_id = ? AND key = ?').bind(session.id, key)));
+    } catch (e) {
+      console.error('deprecated sync-key cleanup failed');
+    }
+  }
 
-  // ⚠️ plan_packages를 만료되지 않은 이용권으로 덮어쓴다.
+  // ⚠️ plan_packages를 주문 원장의 만료되지 않은 이용권으로 덮어쓴다.
   //    프론트 requirePackage()가 이 값으로 유료 콘텐츠 접근을 판정하므로, 여기서 거르지 않으면
   //    이용기간이 지나도 계속 열린다. user_data의 원본은 건드리지 않고 응답만 필터링한다.
   const ents = await activeEntitlements(env.DB, session.id);
@@ -1062,7 +1244,7 @@ async function handleGetData(request, env, origin) {
   // ⚠️ **유효한 이용권(activeKeys)은 user_data에 무엇이 남아 있든 항상 합집합으로 넣는다.**
   //    마이페이지의 '저장된 데이터 삭제'가 user_data의 plan_* 키까지 지워 버리면
   //    정상 구매자가 유료 콘텐츠에서 잠기는데(결제는 살아 있는데 화면만 닫힌다),
-  //    entitlements가 진짜 원본이므로 여기서 되살린다.
+  //    entitlement_grants가 진짜 원본이므로 여기서 되살린다.
   data.plan_packages = [...new Set([
     ...owned.filter(k => !known.has(k) || activeKeys.includes(k)),
     ...activeKeys,
@@ -1086,6 +1268,33 @@ async function handleGetData(request, env, origin) {
   return ok({ data }, origin);
 }
 
+function syncValueHasType(value, type) {
+  if (type === 'array') return Array.isArray(value);
+  if (type === 'object') return !!value && typeof value === 'object' && !Array.isArray(value);
+  return typeof value === type;
+}
+
+// 민감·prototype 관련 필드는 깊이에 관계없이 제거한다. 프런트의 top-level 제거만 믿으면
+// API 직접 호출이나 이전 버전 클라이언트가 건강·채무원인을 D1에 남길 수 있다.
+function sanitizeSyncTree(value, state, depth = 0) {
+  if (depth > 20 || ++state.nodes > 5000) throw new Error('sync value too complex');
+  if (Array.isArray(value)) return value.map(v => sanitizeSyncTree(v, state, depth + 1));
+  // 문자열 leaf 상태에서 먼저 가려야 실제 줄바꿈이 JSON.stringify 후 "\\n"으로 바뀌어
+  // 정규식 경계를 우회하는 것을 막을 수 있다. 직렬화 뒤에도 한 번 더 마스킹한다.
+  if (!value || typeof value !== 'object') return typeof value === 'string' ? maskIdNumbers(value) : value;
+
+  const out = Object.create(null);
+  for (const [key, child] of Object.entries(value)) {
+    const normalized = key.toLowerCase().replace(/[^a-z]/g, '');
+    if (FORBIDDEN_SYNC_FIELDS.has(normalized)) {
+      state.dropped++;
+      continue;
+    }
+    out[key] = sanitizeSyncTree(child, state, depth + 1);
+  }
+  return out;
+}
+
 async function handleSyncData(request, env, origin) {
   const session = await getSessionUser(env.DB, request);
   if (!session) return err(401, '로그인이 필요합니다.', origin);
@@ -1102,41 +1311,66 @@ async function handleSyncData(request, env, origin) {
 
   const now = Date.now();
   const stmts = [];
+  let droppedSensitiveFields = 0;
 
   if (clearAll) {
-    stmts.push(env.DB.prepare('DELETE FROM user_data WHERE user_id = ?').bind(session.id));
+    // 결제로 만든 plan* 캐시만 보존하고 나머지를 모두 지운다. 허용목록 도입 전에 저장된
+    // 임의/민감 키도 이때 함께 없어져야 '전체 초기화'라는 이용자 기대와 일치한다.
+    const planKeys = [...PLAN_KEYS];
+    const placeholders = planKeys.map(() => '?').join(',');
+    stmts.push(env.DB.prepare(`DELETE FROM user_data WHERE user_id = ? AND key NOT IN (${placeholders})`)
+      .bind(session.id, ...planKeys));
     // '저장된 데이터 전체 초기화'는 AI 검토 이용 이력까지 지운다 — 방침상 삭제 요청 대상.
     stmts.push(env.DB.prepare('DELETE FROM ai_usage WHERE user_id = ?').bind(session.id));
   }
   for (const k of putKeys) {
-    if (typeof k !== 'string' || k.length === 0 || k.length > MAX_KEY_LEN) continue;
-    // 이용권(plan*) 키는 결제 검증을 거친 서버(grantPackage/revokePackage)만 쓸 수 있다.
+    // 이용권(plan*) 키는 결제 검증을 거친 서버 원장 코드만 쓸 수 있다.
     // 클라이언트가 localStorage에 심어 올려도 무시 — 결제 없이 프리미엄 위조 차단.
     if (PLAN_KEYS.has(k)) continue;
+    const rule = SYNC_KEY_RULES.get(k);
+    if (!rule) return err(400, '저장할 수 없는 데이터 항목이 포함되어 있습니다.', origin);
+    if (DEPRECATED_SYNC_KEYS.has(k)) {
+      stmts.push(env.DB.prepare('DELETE FROM user_data WHERE user_id = ? AND key = ?')
+        .bind(session.id, k));
+      continue;
+    }
+    if (!syncValueHasType(put[k], rule.type))
+      return err(400, `${k} 데이터 형식이 올바르지 않습니다.`, origin);
+
+    const state = { nodes: 0, dropped: 0 };
+    let safeValue;
+    try { safeValue = sanitizeSyncTree(put[k], state); }
+    catch { return err(400, `${k} 데이터 구조가 너무 복잡합니다.`, origin); }
+    droppedSensitiveFields += state.dropped;
+
     let serialized;
-    try { serialized = JSON.stringify(put[k]); } catch { continue; }
-    if (serialized == null) continue;                      // undefined 값은 스킵
+    try { serialized = JSON.stringify(safeValue); }
+    catch { return err(400, `${k} 데이터를 저장할 수 없습니다.`, origin); }
+    if (serialized == null) return err(400, `${k} 데이터를 저장할 수 없습니다.`, origin);
     // 주민등록번호는 어떤 경로로도 서버에 남지 않게 한다(개인정보 보호법 제24조의2 — 동의로도 처리 불가).
     // 여기는 모든 앱데이터가 지나가는 길목이라, 앞으로 새 기능이 추가돼도 자동으로 보호된다.
     serialized = maskIdNumbers(serialized);
-    if (serialized.length > MAX_VALUE_BYTES)
-      return err(413, '저장 용량이 초과되었습니다.', origin);
+    if (new TextEncoder().encode(serialized).length > rule.maxBytes)
+      return err(413, `${k} 저장 용량이 초과되었습니다.`, origin);
     stmts.push(env.DB.prepare(
       `INSERT INTO user_data (user_id, key, value, updated_at) VALUES (?1, ?2, ?3, ?4)
        ON CONFLICT(user_id, key) DO UPDATE SET value = ?3, updated_at = ?4`
     ).bind(session.id, k, serialized, now));
   }
   for (const k of del) {
-    if (typeof k !== 'string' || !k) continue;
+    if (typeof k !== 'string' || !k)
+      return err(400, '삭제할 데이터 항목이 올바르지 않습니다.', origin);
     // put 루프와 같은 이유로 이용권 키는 클라이언트가 지울 수 없다 —
     // 지우게 두면 '저장된 데이터 삭제'가 결제한 접근권까지 없앤다.
     if (PLAN_KEYS.has(k)) continue;
+    if (!SYNC_KEY_RULES.has(k))
+      return err(400, '삭제할 수 없는 데이터 항목이 포함되어 있습니다.', origin);
     stmts.push(env.DB.prepare('DELETE FROM user_data WHERE user_id = ? AND key = ?')
       .bind(session.id, k));
   }
 
   if (stmts.length) await env.DB.batch(stmts);   // D1 batch = 트랜잭션
-  return ok({}, origin);
+  return ok({ droppedSensitiveFields }, origin);
 }
 
 /* ── 주민등록번호 자동 가리기 (진짜 경계선) ──
@@ -1149,19 +1383,49 @@ async function handleSyncData(request, env, origin) {
       정상 경로가 곧 우회 경로였다. 전각 숫자(０~９)도 같은 이유로 함께 본다.
    ⚠️ 뒤 7자리 첫 글자는 [1-8]을 유지한다(1~4 내국인 / 5~8 외국인등록번호). 9·0은 1900년 이전 출생이라
       사실상 없는데, 넣으면 6자리+7자리 형식의 계좌번호를 잘못 가린다.
-   ⚠️ 구분자 주위에 공백을 허용하지 말 것. 한 번 `\s{0,2}`로 넓혔다가 서류가 깨졌다(2026-08-15 반박검증):
-      `잔액 500000 - 1234567`(뺄셈), `원금 500000\n- 1234567원`(개행을 건너뛴 불릿 두 줄),
-      `이자 500000 −1234567`(음수 표기)가 전부 주민번호로 잡혔다. 마침표도 같은 이유로 뺐다(`123456.1234567`).
-      대시가 숫자에 붙어 있거나 구분자가 아예 없을 때만 가린다.
-   ⚠️ 남은 한계 두 가지를 알고 쓸 것: ①공백 구분(`901010 1234567`)은 못 잡는다 — 잡으면 표에서 떨어진
-      두 금액(`500000 1200000`)까지 가려진다. ②반대로 6자리-7자리 형식의 계좌번호·법인등록번호는
-      과하게 가린다(원래부터 그랬다). 둘 다 형식만으로는 못 가르는 문제라, 정확히 하려면
-      라벨 근접("주민등록번호" 뒤 20자 이내) 판정을 더해야 한다. */
+   하이픈류·붙여쓴 형식은 형식 자체가 강한 신호라 항상 가린다. 공백·점·줄바꿈 형식은 금액 목록을
+   잘못 가릴 수 있으므로 생년월일과 뒷자리 구분자가 그럴듯한 경우에 가린다. OCR 오류로 검증번호가
+   틀린 식별번호도 남기지 않는 쪽을 택한다. 이 규칙은 화면과 서버가 같아야 하며 최종 신뢰 경계는 서버다. */
 const RRN_MASK = '○○○○○○-○○○○○○○';
 const RRN_RE = /(?<![0-9０-９])[0-9０-９]{6}[-­‐-―−－]?[1-8１-８][0-9０-９]{6}(?![0-9０-９])/g;
+const RRN_FLEX_RE = /(?<![0-9０-９])([0-9０-９]{6})([ \t.\r\n]{1,8})([1-8１-８][0-9０-９]{6})(?![0-9０-９])/g;
+
+function idAsciiDigits(value) {
+  return String(value || '').replace(/[０-９]/g, ch => String(ch.charCodeAt(0) - 0xFF10));
+}
+function idDatePlausible(digits) {
+  const month = Number(digits.slice(2, 4));
+  const day = Number(digits.slice(4, 6));
+  const max = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month] || 0;
+  return day >= 1 && day <= max;
+}
+function idChecksumValid(value) {
+  const digits = idAsciiDigits(value).replace(/\D/g, '');
+  if (digits.length !== 13 || !idDatePlausible(digits.slice(0, 6))) return false;
+  const weights = [2, 3, 4, 5, 6, 7, 8, 9, 2, 3, 4, 5];
+  const sum = weights.reduce((total, weight, i) => total + Number(digits[i]) * weight, 0);
+  const base = (11 - (sum % 11)) % 10;
+  const expected = Number(digits[6]) >= 5 ? (base + 2) % 10 : base;
+  return expected === Number(digits[12]);
+}
+function idShapePlausible(value) {
+  const digits = idAsciiDigits(value).replace(/\D/g, '');
+  return digits.length === 13
+    && idDatePlausible(digits.slice(0, 6))
+    && /^[1-8]$/.test(digits[6]);
+}
+function idLabelNearby(text, offset, length) {
+  const around = text.slice(Math.max(0, offset - 48), Math.min(text.length, offset + length + 24));
+  return /주민\s*(?:등록\s*)?번호|외국인\s*등록\s*번호/.test(around);
+}
 
 function maskIdNumbers(text) {
-  return typeof text === 'string' ? text.replace(RRN_RE, RRN_MASK) : text;
+  if (typeof text !== 'string') return text;
+  const strictMasked = text.replace(RRN_RE, RRN_MASK);
+  return strictMasked.replace(RRN_FLEX_RE, (match, first, separator, second, offset, whole) =>
+    (idChecksumValid(first + second) || idShapePlausible(first + second)
+      || idLabelNearby(whole, offset, match.length)) ? RRN_MASK : match
+  );
 }
 
 /* ── AI 서류검토 (Phase 3) ── */
@@ -1303,7 +1567,7 @@ const CTX_RECENT_LOAN = {
   'within-1y': '최근 1년 이내에 새로 대출을 받음',
 };
 const CTX_FLAGS = {
-  employed:     '현재 재직 중(예상 퇴직금의 1/2이 재산에 산입된다)',
+  employed:     '현재 재직 중(퇴직급여 제도 종류와 예상액의 반영 여부를 확인할 필요가 있다)',
   sideIncome:   '부수입이 있음',
   personalDebt: '지인·개인 간 채무가 있음',
   securedDebt:  '담보가 있는 채무가 있음',
@@ -1465,6 +1729,15 @@ async function handleAiReview(request, env, origin) {
     return err(502, 'AI 검토 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', origin);
   }
 
+  try {
+    // 결과를 보내기 전에 유료 서비스 제공 개시를 기록한다. 기록 실패 시 결과도 보내지 않는다.
+    await recordPackageConsumption(env.DB, session.id, gate.ent.package);
+  } catch (e) {
+    await gate.rollback();
+    console.error('ai consumption record failed', e.message);
+    return err(503, '이용 기록을 저장하지 못해 검토 결과를 제공하지 않았습니다. 잠시 후 다시 시도해주세요.', origin);
+  }
+
   return ok({ review, ...gate.spent }, origin);
 }
 
@@ -1477,7 +1750,10 @@ async function handleAiReview(request, env, origin) {
    제대로 쓸 수 없어 검토가 의미를 잃는다. 그래서 **동의를 제대로 받고 있는 그대로 받는다.**
 
    ⚠️ 주민등록번호는 이 동의로도 처리할 수 없다(제24조의2) — 그쪽은 maskIdNumbers가 지운다.
-   ⚠️ 동의 사실의 입증책임은 처리자에게 있으므로(제22조 제3항) 화면 체크만으로는 부족하다.
+   ⚠️ 동의 사실의 입증책임은 처리자에게 있으므로(제23조 제1항 제1호의 '별도 동의' 요건 + 제22조 제1항 제5호)
+      화면 체크만으로는 부족하다. 🔴제22조 **제3항**을 이 근거로 인용하지 말 것 — 그 항의 입증책임은
+      "**동의 없이** 처리할 수 있는 개인정보라는 것"에 대한 입증책임이지 동의 취득의 입증책임이 아니다
+      (2026-08-12 반박 검증에서 정정. CLAUDE.md「개인정보」②와 같은 내용이다).
       users.sensitive_consent_at에 시각을 남기고, 이용자는 언제든 철회할 수 있다. */
 async function requireSensitiveConsent(env, session, body, origin) {
   if (session.sensitive_consent_at) return null;           // 이미 동의함
@@ -1519,15 +1795,23 @@ async function handleSensitiveConsent(request, env, origin) {
    ⚠️ `DAILY_AI_LIMIT`은 **이용자 1인당**이다. 앱 전체 상한(전역 백스톱)은 존재하지 않는다 —
    OPERATIONS-COST.md가 "앱 전체 일 30회"라고 적은 것은 사실과 다르다. 비용 상한을 계산할 때 주의. */
 async function reserveAiQuota(env, session, origin) {
-  // 유효한 이용권의 잔여 회수(패키지 총량제)만 인정한다. 여러 패키지를 보유하면 잔여가 많은 쪽부터 쓴다.
-  // 미구매자 체험 1회는 폐지됨(위 PACKAGES 아래 주석 참조) — 이용권이 없으면 여기서 끝난다.
+  // 주문별 원장에서만 차감한다. 이미 제공이 개시된 상품을 먼저, 그 안에서는 만료 임박순으로
+  // 소진해 새 주문의 회수가 오래된/만료된 주문과 섞이거나 재구매 때 부활하지 않게 한다.
   const now = Date.now();
   const ents = await activeEntitlements(env.DB, session.id, now);
-  const usable = ents.filter(e => e.ai_quota - e.ai_used > 0)
-    .sort((a, b) => (b.ai_quota - b.ai_used) - (a.ai_quota - a.ai_used));
-  const ent = usable[0] || null;
+  const candidates = await env.DB.prepare(
+    `SELECT g.id, g.package, g.expires_at, g.ai_quota, g.ai_used
+       FROM entitlement_grants g
+       WHERE g.user_id=? AND g.status='active' AND g.granted_at<=? AND g.expires_at>?
+        AND g.ai_used<g.ai_quota
+      ORDER BY CASE WHEN EXISTS (
+                 SELECT 1 FROM content_access c
+                  WHERE c.user_id=g.user_id AND c.package=g.package
+               ) THEN 0 ELSE 1 END,
+               g.expires_at ASC, g.granted_at ASC, g.id ASC`
+  ).bind(session.id, now, now).all();
 
-  if (!ent) {
+  if (!(candidates.results || []).length) {
     return { error: err(403, ents.length
       ? '보유하신 패키지의 서류검토 AI 회수를 모두 사용했습니다. 추가 회수는 요금제에서 구매하실 수 있습니다.'
       : '서류검토 AI는 패키지를 구매하신 회원만 이용할 수 있습니다.', origin) };
@@ -1549,11 +1833,17 @@ async function reserveAiQuota(env, session, origin) {
     .bind(session.id, day).first();
   const usedToday = after ? after.count : 1;
 
-  // 패키지 총량도 같은 방식으로 선점한다. 여기서 밀리면 방금 올린 일일 카운트를 되돌린다.
-  const taken = await env.DB.prepare(
-    'UPDATE entitlements SET ai_used = ai_used + 1 WHERE user_id = ? AND package = ? AND ai_used < ai_quota'
-  ).bind(session.id, ent.package).run();
-  if (taken.meta.changes !== 1) {
+  // 조회 뒤 다른 요청이 선점할 수 있으므로 후보를 순서대로 조건부 UPDATE한다.
+  let ent = null;
+  for (const candidate of (candidates.results || [])) {
+    const taken = await env.DB.prepare(
+      `UPDATE entitlement_grants SET ai_used=ai_used+1
+        WHERE id=? AND user_id=? AND status='active' AND granted_at<=? AND expires_at>?
+          AND ai_used<ai_quota`
+    ).bind(candidate.id, session.id, now, now).run();
+    if (d1Changes(taken) === 1) { ent = candidate; break; }
+  }
+  if (!ent) {
     await releaseDaily(env, session.id, day);
     return { error: err(403, '보유하신 패키지의 서류검토 AI 회수를 모두 사용했습니다. 추가 회수는 요금제에서 구매하실 수 있습니다.', origin) };
   }
@@ -1571,8 +1861,8 @@ async function reserveAiQuota(env, session, origin) {
         await env.DB.batch([
           env.DB.prepare('UPDATE ai_usage SET count = count - 1 WHERE user_id = ? AND day = ? AND count > 0')
             .bind(session.id, day),
-          env.DB.prepare('UPDATE entitlements SET ai_used = ai_used - 1 WHERE user_id = ? AND package = ? AND ai_used > 0')
-            .bind(session.id, ent.package),
+          env.DB.prepare('UPDATE entitlement_grants SET ai_used=ai_used-1 WHERE id=? AND user_id=? AND ai_used>0')
+            .bind(ent.id, session.id),
         ]);
       } catch (e) {
         // 환원 실패는 이용자에게 알리지 않는다(원 오류가 더 중요하다). 회수 1회를 손해 보는 쪽이 안전하다.
@@ -1789,6 +2079,14 @@ async function handleAiCrosscheck(request, env, origin) {
     return err(502, 'AI 대조 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', origin);
   }
 
+  try {
+    await recordPackageConsumption(env.DB, session.id, gate.ent.package);
+  } catch (e) {
+    await gate.rollback();
+    console.error('ai consumption record failed', e.message);
+    return err(503, '이용 기록을 저장하지 못해 대조 결과를 제공하지 않았습니다. 잠시 후 다시 시도해주세요.', origin);
+  }
+
   return ok({ result, ...gate.spent }, origin);
 }
 
@@ -1912,45 +2210,163 @@ async function handlePaymentPrepare(request, env, origin) {
 // 만료되지 않은 이용권만 반환. 접근 판정의 최종 근거.
 async function activeEntitlements(db, userId, now = Date.now()) {
   const rows = await db.prepare(
-    'SELECT package, expires_at, ai_quota, ai_used FROM entitlements WHERE user_id = ? AND expires_at > ?'
-  ).bind(userId, now).all();
+    `SELECT package, MAX(expires_at) AS expires_at,
+            SUM(ai_quota) AS ai_quota, SUM(ai_used) AS ai_used
+       FROM entitlement_grants
+      WHERE user_id = ? AND status = 'active' AND granted_at <= ? AND expires_at > ?
+      GROUP BY package`
+  ).bind(userId, now, now).all();
   return rows.results || [];
 }
 
-// 이용권 부여(또는 연장). 같은 패키지를 다시 사면 기간은 남은 기간에 이어 붙이고 회수는 더한다.
-// 보정 추가 대응처럼 여러 번 사는 상품이 있으므로 덮어쓰기가 아니라 누적이어야 한다.
-async function grantEntitlement(db, userId, pkgKey, now = Date.now()) {
-  const term = PACKAGE_TERMS[pkgKey];
-  if (!term) return null;
-  const cur = await db.prepare(
-    'SELECT expires_at, ai_quota FROM entitlements WHERE user_id = ? AND package = ?'
-  ).bind(userId, pkgKey).first();
+const FULFILLMENT_LEASE_MS = 60_000;
 
-  // 아직 유효하면 남은 기간 끝에서 연장, 만료됐거나 처음이면 지금부터
-  const base = cur && cur.expires_at > now ? cur.expires_at : now;
-  const expiresAt = addMonths(base, term.months);
-  const quota = (cur ? cur.ai_quota : 0) + term.aiQuota;
-
-  await db.prepare(
-    `INSERT INTO entitlements (user_id, package, granted_at, expires_at, ai_quota, ai_used)
-     VALUES (?1, ?2, ?3, ?4, ?5, 0)
-     ON CONFLICT(user_id, package) DO UPDATE SET expires_at = ?4, ai_quota = ?5`
-  ).bind(userId, pkgKey, now, expiresAt, quota).run();
-  return { package: pkgKey, expiresAt, aiQuota: quota };
+function d1Changes(result) {
+  return Number(result && result.meta && result.meta.changes) || 0;
 }
 
-// 검증된 결제 후 패키지를 user_data(plan*)에 부여. 부가옵션(correction-*)은 대표 패키지를 덮지 않음.
-async function grantPackage(env, userId, pkgKey) {
-  const info = PACKAGES[pkgKey];
+// 결제별 claim. INSERT/조건부 UPSERT 한 문장이라 같은 paymentId의 병렬 요청 중 하나만 임대를 얻는다.
+// Worker가 중간 종료되면 lease 만료 후 retry/processing 행을 다른 요청이 이어받는다.
+async function claimPaymentFulfillment(db, paymentId, now = Date.now()) {
+  const token = crypto.randomUUID();
+  const claimed = await db.prepare(
+    `INSERT INTO payment_fulfillments
+       (payment_id, state, claim_token, claim_expires_at, attempts, last_error, updated_at)
+     VALUES (?1, 'processing', ?2, ?3, 1, NULL, ?4)
+     ON CONFLICT(payment_id) DO UPDATE SET
+       state='processing', claim_token=?2, claim_expires_at=?3,
+       attempts=payment_fulfillments.attempts+1, last_error=NULL, updated_at=?4
+     WHERE payment_fulfillments.state='retry'
+        OR (payment_fulfillments.state='processing' AND payment_fulfillments.claim_expires_at < ?4)`
+  ).bind(paymentId, token, now + FULFILLMENT_LEASE_MS, now).run();
+  if (d1Changes(claimed) === 1) return { claimed: true, token };
+  const state = await db.prepare(
+    'SELECT state, fulfilled_at FROM payment_fulfillments WHERE payment_id = ?'
+  ).bind(paymentId).first();
+  return { claimed: false, state: state && state.state, fulfilledAt: state && state.fulfilled_at };
+}
+
+async function markFulfillmentRetry(db, paymentId, token, error, now = Date.now()) {
+  await db.prepare(
+    `UPDATE payment_fulfillments
+        SET state='retry', claim_token=NULL, claim_expires_at=NULL, last_error=?, updated_at=?
+      WHERE payment_id=? AND state='processing' AND claim_token=?`
+  ).bind(String(error || 'fulfillment failed').slice(0, 500), now, paymentId, token).run();
+}
+
+async function claimEntitlementLock(db, userId, pkgKey, token, now = Date.now()) {
+  const result = await db.prepare(
+    `INSERT INTO entitlement_locks (user_id, package, claim_token, claim_expires_at)
+     VALUES (?1, ?2, ?3, ?4)
+     ON CONFLICT(user_id, package) DO UPDATE SET claim_token=?3, claim_expires_at=?4
+     WHERE entitlement_locks.claim_expires_at < ?5`
+  ).bind(userId, pkgKey, token, now + FULFILLMENT_LEASE_MS, now).run();
+  return d1Changes(result) === 1;
+}
+
+async function releaseEntitlementLock(db, userId, pkgKey, token) {
+  await db.prepare(
+    'DELETE FROM entitlement_locks WHERE user_id=? AND package=? AND claim_token=?'
+  ).bind(userId, pkgKey, token).run();
+}
+
+// 주문 한 건을 기간·AI 회수 한 덩어리로 확정한다. payment_id UNIQUE와 D1 batch가 최종
+// 중복 방어선이다. 서로 다른 동시 주문은 패키지 잠금으로 기간이 같은 시작점에서 겹치지 않는다.
+async function fulfillOrderGrant(env, order, targetStatus = 'paid', now = Date.now()) {
+  const term = PACKAGE_TERMS[order.package];
+  if (!term) throw new Error('unknown package term');
+
+  const existing = await env.DB.prepare(
+    'SELECT starts_at, expires_at, ai_quota FROM entitlement_grants WHERE payment_id = ?'
+  ).bind(order.payment_id).first();
+  if (existing) {
+    return { newlyFulfilled: false, entitlement: existing };
+  }
+
+  const claim = await claimPaymentFulfillment(env.DB, order.payment_id, now);
+  if (!claim.claimed) {
+    if (claim.state === 'fulfilled' || claim.state === 'legacy') {
+      return { newlyFulfilled: false, legacy: claim.state === 'legacy' };
+    }
+    const busy = new Error('payment fulfillment is already processing');
+    busy.code = 'FULFILLMENT_BUSY';
+    throw busy;
+  }
+
+  let locked = false;
+  try {
+    locked = await claimEntitlementLock(env.DB, order.user_id, order.package, claim.token, now);
+    if (!locked) {
+      await markFulfillmentRetry(env.DB, order.payment_id, claim.token, 'package grant lock busy', now);
+      const busy = new Error('package grant is already processing');
+      busy.code = 'FULFILLMENT_BUSY';
+      throw busy;
+    }
+
+    const tail = await env.DB.prepare(
+      `SELECT MAX(expires_at) AS expires_at FROM entitlement_grants
+        WHERE user_id=? AND package=? AND status='active' AND expires_at>?`
+    ).bind(order.user_id, order.package, now).first();
+    const startsAt = tail && Number(tail.expires_at) > now ? Number(tail.expires_at) : now;
+    const expiresAt = addMonths(startsAt, term.months);
+    const source = targetStatus === 'test' ? 'test' : 'order';
+
+    const results = await env.DB.batch([
+      env.DB.prepare(
+        `INSERT OR IGNORE INTO entitlement_grants
+          (payment_id,user_id,package,source,status,granted_at,starts_at,expires_at,ai_quota,ai_used)
+         SELECT ?1,?2,?3,?4,'active',?5,?6,?7,?8,0
+          WHERE EXISTS (SELECT 1 FROM payment_fulfillments
+                         WHERE payment_id=?1 AND state='processing' AND claim_token=?9)`
+      ).bind(order.payment_id, order.user_id, order.package, source, now, startsAt, expiresAt, term.aiQuota, claim.token),
+      env.DB.prepare(
+        `UPDATE payments SET status=?, paid_at=COALESCE(paid_at,?)
+          WHERE payment_id=? AND user_id=? AND status IN ('pending','failed',?)`
+      ).bind(targetStatus, now, order.payment_id, order.user_id, targetStatus),
+      env.DB.prepare(
+        `UPDATE payment_fulfillments
+            SET state='fulfilled', claim_token=NULL, claim_expires_at=NULL,
+                fulfilled_at=?, updated_at=?, last_error=NULL
+          WHERE payment_id=? AND state='processing' AND claim_token=?`
+      ).bind(now, now, order.payment_id, claim.token),
+      env.DB.prepare(
+        'DELETE FROM entitlement_locks WHERE user_id=? AND package=? AND claim_token=?'
+      ).bind(order.user_id, order.package, claim.token),
+    ]);
+    locked = false;
+    if (d1Changes(results[0]) !== 1 || d1Changes(results[2]) !== 1)
+      throw new Error('order grant finalization lost its claim');
+    return {
+      newlyFulfilled: true,
+      entitlement: { starts_at: startsAt, expires_at: expiresAt, ai_quota: term.aiQuota },
+    };
+  } catch (error) {
+    // batch 실패는 D1에서 전체 롤백된다. claim을 retry로 바꾸면 동일 주문 재요청으로 복구 가능하다.
+    try { await markFulfillmentRetry(env.DB, order.payment_id, claim.token, error.message, Date.now()); } catch {}
+    if (locked) { try { await releaseEntitlementLock(env.DB, order.user_id, order.package, claim.token); } catch {} }
+    throw error;
+  }
+}
+
+// user_data의 plan_*는 하위호환 캐시일 뿐이다. 주문 원장에서 현재 활성 상품을 재구성한다.
+async function syncPlanCache(env, userId, preferredPackage) {
+  const ents = await activeEntitlements(env.DB, userId);
+  const owned = ents.map(e => e.package);
   const rows = await env.DB.prepare(
     "SELECT key, value FROM user_data WHERE user_id = ? AND key IN ('plan_packages','plan_package')"
   ).bind(userId).all();
   const cur = {};
   for (const r of (rows.results || [])) { try { cur[r.key] = JSON.parse(r.value); } catch {} }
 
-  const owned = Array.isArray(cur.plan_packages) ? cur.plan_packages.slice() : [];
-  if (!owned.includes(pkgKey)) owned.push(pkgKey);
+  if (owned.length === 0) {
+    await env.DB.batch([...PLAN_KEYS].map(k =>
+      env.DB.prepare('DELETE FROM user_data WHERE user_id = ? AND key = ?').bind(userId, k)));
+    return { plan_packages: [] };
+  }
 
+  const pkgKey = owned.includes(preferredPackage) ? preferredPackage
+    : (owned.find(k => !k.startsWith('correction-')) || owned[0]);
+  const info = PACKAGES[pkgKey] || {};
   const isAddon = pkgKey.startsWith('correction-');
   const prevIsMain = cur.plan_package && !String(cur.plan_package).startsWith('correction-');
 
@@ -1962,11 +2378,8 @@ async function grantPackage(env, userId, pkgKey) {
   }
   const now = Date.now();
 
-  // 이용기간·AI 회수 부여. plan_packages는 캐시일 뿐이고 실제 판정 근거는 entitlements다.
-  // 만료일도 서버가 함께 저장한다 — 클라이언트가 쓰게 두면 PLAN_KEYS 보호를 못 받아
-  // 위조가 가능하고, 환불 시 revokePackage가 지우지도 못한 채 남는다(2026-08-10 수정).
-  const ent = await grantEntitlement(env.DB, userId, pkgKey, now);
-  if (ent) puts.plan_expires_at = ent.expiresAt;
+  const ent = ents.find(e => e.package === pkgKey);
+  if (ent) puts.plan_expires_at = ent.expires_at;
 
   const stmts = Object.entries(puts).map(([k, v]) =>
     env.DB.prepare(
@@ -2001,9 +2414,24 @@ async function handlePaymentHistory(request, env, origin) {
   return ok({ payments: rows.results || [] }, origin);
 }
 
-// 유료 콘텐츠를 처음 연 시각을 기록한다(최초 1회만).
-// 전자상거래법 제17조 제2항 제5호의 '제공 개시' 시점 = 청약철회 가능 여부의 기준.
-// 프론트(main.js markContentAccess)가 잠금 해제 직후 호출한다.
+// 유료 콘텐츠 또는 AI 서비스를 처음 제공한 시각을 기록한다(패키지별 최초 1회).
+// 프런트 이벤트는 유실될 수 있으므로 **서버가 결과를 반환하기 전에** 반드시 이 함수를 끝낸다.
+async function recordPackageConsumption(db, userId, pkgKey, now = Date.now()) {
+  // D1 batch는 한 트랜잭션으로 실행된다. INSERT와 확인 SELECT 중 하나라도 실패하면
+  // 본문/AI 결과를 반환하지 않아 '기록 없는 제공' 상태가 생기지 않는다.
+  const results = await db.batch([
+    db.prepare(
+      'INSERT OR IGNORE INTO content_access (user_id, package, first_access_at) VALUES (?,?,?)'
+    ).bind(userId, pkgKey, now),
+    db.prepare(
+      'SELECT first_access_at FROM content_access WHERE user_id = ? AND package = ?'
+    ).bind(userId, pkgKey),
+  ]);
+  const row = results[1] && results[1].results && results[1].results[0];
+  if (!row || !row.first_access_at) throw new Error('content access record missing after insert');
+  return row.first_access_at;
+}
+
 /* ── 유료 본문 내려주기 (2026-08-16 신설) ──
    🔴 종전에는 `rehabilitation.html`·`bankruptcy.html`의 스크립트 안에 8단계 본문이 **평문으로 전부**
    들어 있었고 잠금은 클라이언트 렌더 분기뿐이었다. `curl https://chamroad.com/rehabilitation.html`
@@ -2014,26 +2442,83 @@ async function handlePaymentHistory(request, env, origin) {
    전상법 시행령 제21조의2 제1호의 '일부 이용 허용'에 해당해 환불 제한의 근거이기 때문이다.
    경계를 옮기려면 약관·pricing의 환불 문구를 함께 봐야 한다.
 
-   ⚠️ 판정은 `activeEntitlements`(기간이 살아 있는 이용권)로 한다 — 환불 시 revokePackage가
-   entitlements를 지우므로 환불 즉시 본문도 닫힌다. payments 행으로 보면 그 연동이 끊긴다. */
+   ⚠️ 판정은 `activeEntitlements`(기간이 살아 있는 주문별 grant)로 한다 — 환불 시 해당 주문
+   grant가 revoked가 되므로, 다른 유효 주문이 없으면 본문도 즉시 닫힌다. */
 const CONTENT_SETS = {
-  rehab: { pkg: 'rehab-full', mod: REHAB_CONTENT },
-  bankrupt: { pkg: 'bankrupt-full', mod: BANKRUPT_CONTENT },
+  rehab: { packages: ['rehab-full'], mod: REHAB_CONTENT },
+  bankrupt: { packages: ['bankrupt-full'], mod: BANKRUPT_CONTENT },
+  maintain: { packages: ['maintain'], mod: MAINTAIN_CONTENT },
+  'supplement-rehab': {
+    packages: ['rehab-full', 'correction-rehab'],
+    mod: SUPPLEMENT_REHAB_CONTENT,
+  },
+  'supplement-bankrupt': {
+    packages: ['bankrupt-full', 'correction-bankrupt'],
+    mod: SUPPLEMENT_BANKRUPT_CONTENT,
+  },
 };
 
-async function handleContentSteps(request, env, origin) {
+// 이전 GET은 페이지 진입 시 자동 호출되던 경로라, 여기서 기록하면 이용자가 사전 고지를
+// 확인하거나 '열기'를 누르기도 전에 환불 제한 근거가 생긴다. 본문은 절대 반환하지 않고
+// 새 명시적-open 계약만 안내한다.
+async function handleContentSteps(_request, _env, origin) {
+  return json({
+    ok: false,
+    error: '유료 콘텐츠는 환불 제한 안내를 확인하고 직접 열어야 합니다.',
+    code: 'EXPLICIT_CONTENT_OPEN_REQUIRED',
+    requiredEndpoint: '/api/content/open',
+    consentVersion: CONTENT_OPEN_CONSENT_VERSION,
+  }, 409, origin);
+}
+
+// 사전 고지 뒤 이용자가 명시적으로 열기를 선택한 요청만 소비 기록과 본문 반환을 수행한다.
+// 프런트 계약: POST JSON { type, consent: true, consentVersion: 'content-open-v1' }.
+async function handleContentOpen(request, env, origin) {
   const session = await getSessionUser(env.DB, request);
   if (!session) return err(401, '로그인이 필요합니다.', origin);
 
-  const type = new URL(request.url).searchParams.get('type') || '';
+  const body = await readJson(request);
+  if (!body) return err(400, '잘못된 요청입니다.', origin);
+  const type = typeof body.type === 'string' ? body.type : '';
   const set = CONTENT_SETS[type];
   if (!set) return err(400, '알 수 없는 콘텐츠입니다.', origin);
+  if (body.consent !== true || body.consentVersion !== CONTENT_OPEN_CONSENT_VERSION) {
+    return json({
+      ok: false,
+      error: '환불 제한 안내에 동의한 뒤 콘텐츠를 열 수 있습니다.',
+      code: 'CONTENT_OPEN_CONSENT_REQUIRED',
+      consentVersion: CONTENT_OPEN_CONSENT_VERSION,
+    }, 400, origin);
+  }
 
   const ents = await activeEntitlements(env.DB, session.id);
-  if (!ents.some(e => e.package === set.pkg))
+  const activePackages = new Set(ents.map(e => e.package));
+  const eligiblePackages = set.packages.filter(pkg => activePackages.has(pkg));
+  if (!eligiblePackages.length)
     return err(403, '이 내용은 패키지를 구매하신 회원만 이용할 수 있습니다.', origin);
 
-  return ok({ steps: set.mod.STEPS, docExamples: set.mod.DOC_EXAMPLES }, origin);
+  // 보정 대응은 완주 패키지와 추가 대응 상품 중 어느 쪽으로도 열 수 있다. 둘 다 가진 경우
+  // 이미 소비기록이 있는 상품을 우선해, 다른 상품의 환불권까지 새로 소진하지 않는다.
+  let consumedPackage = eligiblePackages[0];
+  if (eligiblePackages.length > 1) {
+    const accessed = await env.DB.prepare(
+      'SELECT package FROM content_access WHERE user_id = ?'
+    ).bind(session.id).all();
+    const accessedPackages = new Set((accessed.results || []).map(row => row.package));
+    consumedPackage = eligiblePackages.find(pkg => accessedPackages.has(pkg)) || consumedPackage;
+  }
+
+  // 이 트랜잭션이 실패하면 아래 본문 Response를 만들지 않는다. 직접 API 호출도
+  // 제공 개시 기록을 피할 수 없고, 반대로 자동 GET만으로 기록되는 일도 없다.
+  const firstAccessAt = await recordPackageConsumption(env.DB, session.id, consumedPackage);
+  return ok({
+    steps: set.mod.STEPS,
+    docExamples: set.mod.DOC_EXAMPLES,
+    firstAccessAt,
+    consumedPackage,
+    contentType: type,
+    consentVersion: CONTENT_OPEN_CONSENT_VERSION,
+  }, origin);
 }
 
 async function handleContentAccess(request, env, origin) {
@@ -2043,27 +2528,24 @@ async function handleContentAccess(request, env, origin) {
   const pkgKey = body && typeof body.package === 'string' ? body.package : '';
   if (!PACKAGES[pkgKey]) return err(400, '알 수 없는 패키지입니다.', origin);
 
-  // 보유자만 기록한다 — 미구매자의 미리보기는 '제공 개시'가 아니다.
-  const owned = await env.DB.prepare(
-    `SELECT 1 FROM payments WHERE user_id = ? AND package = ? AND status IN ('paid','test') LIMIT 1`
-  ).bind(session.id, pkgKey).first();
-  if (!owned) return ok({ recorded: false }, origin);
-
-  await env.DB.prepare(
-    'INSERT OR IGNORE INTO content_access (user_id, package, first_access_at) VALUES (?,?,?)'
-  ).bind(session.id, pkgKey, Date.now()).run();
-
+  // 구버전 fire-and-forget 호출 호환용 조회 경로다. 이 요청 자체로 소비 기록을 만들면
+  // 페이지 자동 진입만으로 환불권이 제한되므로, 환불 근거는 /api/content/open 및 AI 제공
+  // 경로에서 서버가 만든 기록에만 의존한다.
   const row = await env.DB.prepare(
     'SELECT first_access_at FROM content_access WHERE user_id = ? AND package = ?'
   ).bind(session.id, pkgKey).first();
-  return ok({ recorded: true, firstAccessAt: row ? row.first_access_at : null }, origin);
+  return ok({
+    recorded: !!(row && row.first_access_at),
+    firstAccessAt: row ? row.first_access_at : null,
+    deprecated: true,
+    requiredEndpoint: '/api/content/open',
+    consentVersion: CONTENT_OPEN_CONSENT_VERSION,
+  }, origin);
 }
 
 async function handlePaymentComplete(request, env, origin) {
   const session = await getSessionUser(env.DB, request);
   if (!session) return err(401, '로그인이 필요합니다.', origin);
-  if (!env.PORTONE_API_SECRET)
-    return err(503, '결제 기능이 아직 준비 중입니다.', origin);
   const body = await readJson(request);
   const paymentId = body && typeof body.paymentId === 'string' ? body.paymentId : '';
   if (!paymentId) return err(400, '결제 정보가 없습니다.', origin);
@@ -2072,46 +2554,72 @@ async function handlePaymentComplete(request, env, origin) {
   const order = await env.DB.prepare('SELECT * FROM payments WHERE payment_id = ? AND user_id = ?')
     .bind(paymentId, session.id).first();
   if (!order) return err(404, '결제 주문을 찾을 수 없습니다.', origin);
-  if (order.status === 'paid') {
-    // 멱등: 이미 확정된 주문이면 재부여 없이 성공 응답
-    return ok({ granted: { plan: 'premium', plan_package: order.package, plan_package_name: PACKAGES[order.package]?.name }, alreadyPaid: true }, origin);
-  }
+  if (!['pending', 'failed', 'paid'].includes(order.status))
+    return err(400, '완료할 수 없는 결제 상태입니다.', origin);
+  if (order.status !== 'paid' && !env.PORTONE_API_SECRET)
+    return err(503, '결제 기능이 아직 준비 중입니다.', origin);
 
-  // 포트원 결제 조회
-  let payment;
-  try {
-    const r = await fetch(`https://api.portone.io/payments/${encodeURIComponent(paymentId)}`, {
-      headers: { Authorization: `PortOne ${env.PORTONE_API_SECRET}` },
-    });
-    if (!r.ok) throw new Error('portone lookup ' + r.status + ' ' + (await r.text().catch(() => '')).slice(0, 150));
-    payment = await r.json();
-  } catch (e) {
-    console.error('payment lookup failed', e.message);
-    return err(502, '결제 확인 중 오류가 발생했습니다. 결제가 되었다면 잠시 후 마이페이지에서 확인됩니다.', origin);
-  }
+  // 아직 내부에서 확정되지 않은 주문만 포트원 원본을 조회한다. paid인데 cache 쓰기/응답만
+  // 실패한 재시도는 주문 원장의 fulfilled/legacy 상태를 확인해 안전하게 복구한다.
+  if (order.status !== 'paid') {
+    let payment;
+    try {
+      const r = await fetch(`https://api.portone.io/payments/${encodeURIComponent(paymentId)}`, {
+        headers: { Authorization: `PortOne ${env.PORTONE_API_SECRET}` },
+      });
+      if (!r.ok) throw new Error('portone lookup ' + r.status + ' ' + (await r.text().catch(() => '')).slice(0, 150));
+      payment = await r.json();
+    } catch (e) {
+      console.error('payment lookup failed', e.message);
+      return err(502, '결제 확인 중 오류가 발생했습니다. 결제가 되었다면 잠시 후 마이페이지에서 확인됩니다.', origin);
+    }
 
-  // 검증: 상태 PAID + 금액 일치(위변조 방지)
-  if (payment.status !== 'PAID') {
-    await env.DB.prepare('UPDATE payments SET status = ? WHERE payment_id = ?').bind('failed', paymentId).run();
-    return err(400, '결제가 완료되지 않았습니다.', origin);
-  }
-  if (!payment.amount || payment.amount.total !== order.amount) {
-    await env.DB.prepare('UPDATE payments SET status = ? WHERE payment_id = ?').bind('failed', paymentId).run();
-    console.error('amount mismatch', paymentId, payment.amount?.total, 'expected', order.amount);
-    return err(400, '결제 금액이 일치하지 않습니다. 결제가 진행되었다면 문의해주세요.', origin);
+    if (payment.status !== 'PAID') {
+      await env.DB.prepare('UPDATE payments SET status = ? WHERE payment_id = ? AND status <> ?')
+        .bind('failed', paymentId, 'paid').run();
+      return err(400, '결제가 완료되지 않았습니다.', origin);
+    }
+    // ⚠️금액과 통화를 함께 본다. PACKAGES의 amount는 '원' 단위 숫자일 뿐 통화 정보가 없으므로,
+    // total만 비교하면 브라우저가 requestPayment의 currency를 바꿔 149000을 다른 통화로 결제해도
+    // 서버가 통과시킨다(프런트 pricing.html은 CURRENCY_KRW를 보내지만 클라이언트는 신뢰 대상이 아니다).
+    // 포트원 V2 조회 응답의 통화는 최상위 payment.currency('KRW')다.
+    if (!payment.amount || payment.amount.total !== order.amount || payment.currency !== 'KRW') {
+      await env.DB.prepare('UPDATE payments SET status = ? WHERE payment_id = ? AND status <> ?')
+        .bind('failed', paymentId, 'paid').run();
+      console.error('amount mismatch', paymentId, payment.amount?.total, payment.currency, 'expected', order.amount, 'KRW');
+      return err(400, '결제 금액이 일치하지 않습니다. 결제가 진행되었다면 문의해주세요.', origin);
+    }
   }
 
   const paidAt = Date.now();
-  await env.DB.prepare('UPDATE payments SET status = ?, paid_at = ? WHERE payment_id = ?')
-    .bind('paid', paidAt, paymentId).run();
-  const granted = await grantPackage(env, session.id, order.package);
+  let fulfillment;
+  try {
+    fulfillment = await fulfillOrderGrant(env, order, 'paid', paidAt);
+  } catch (e) {
+    if (e && e.code === 'FULFILLMENT_BUSY') {
+      return json({ ok: false, error: '결제 이용권을 확정 중입니다. 잠시 후 다시 확인해주세요.', code: 'PAYMENT_FULFILLMENT_IN_PROGRESS' }, 409, origin);
+    }
+    console.error('payment fulfillment failed', paymentId, e.message);
+    return err(500, '결제는 확인되었으나 이용권 반영에 실패했습니다. 잠시 후 다시 시도하면 복구됩니다.', origin);
+  }
+
+  let granted;
+  try {
+    granted = await syncPlanCache(env, session.id, order.package);
+  } catch (e) {
+    // 원장 확정은 끝났으므로 재요청이 cache만 다시 구성한다.
+    console.error('payment plan cache sync failed', paymentId, e.message);
+    return err(500, '이용권은 반영되었으나 화면 동기화에 실패했습니다. 잠시 후 다시 시도해주세요.', origin);
+  }
   // 계약 내용 서면(주문 확인 메일) — 전상법 제13조② 교부의무. 실패해도 결제 확정에는 영향 없음.
-  await sendOrderConfirmation(env, session.email, session.name, order, paidAt).catch(() => {});
-  return ok({ granted }, origin);
+  if (fulfillment.newlyFulfilled)
+    await sendOrderConfirmation(env, session.email, session.name, order, paidAt).catch(() => {});
+  return ok({ granted, alreadyPaid: !fulfillment.newlyFulfilled }, origin);
 }
 
 // 청약철회 신청 — 전자상거래법 제13조②5호(서식)·제5조④(전자문서). 본인 결제만.
 // 결제일부터 14일 이내 + 미개시(content_access 없음)면 자동 전액환불, 그 외는 접수 후 운영자 검토.
+// content_access는 콘텐츠 반환과 AI 결과 반환 전에 서버가 직접 기록하므로 클라이언트 이벤트에 의존하지 않는다.
 async function handleWithdraw(request, env, origin) {
   const session = await getSessionUser(env.DB, request);
   if (!session) return err(401, '로그인이 필요합니다.', origin);
@@ -2123,7 +2631,11 @@ async function handleWithdraw(request, env, origin) {
   const order = await env.DB.prepare('SELECT * FROM payments WHERE payment_id = ? AND user_id = ?')
     .bind(paymentId, session.id).first();
   if (!order) return err(404, '결제 주문을 찾을 수 없습니다.', origin);
-  if (order.status === 'refunded') return ok({ status: 'already_refunded', message: '이미 환불된 결제입니다.' }, origin);
+  if (order.status === 'refunded') {
+    try { await revokeOrderGrant(env, order, 'refunded'); }
+    catch (e) { return err(500, '환불 이용권 회수 상태를 복구하지 못했습니다. 잠시 후 다시 시도해주세요.', origin); }
+    return ok({ status: 'already_refunded', message: '이미 환불된 결제입니다.' }, origin);
+  }
   if (order.status !== 'paid') return err(400, '완료된 결제만 청약철회할 수 있습니다.', origin);
 
   const now = Date.now();
@@ -2133,12 +2645,12 @@ async function handleWithdraw(request, env, origin) {
   const pending = await env.DB.prepare(
     "SELECT id FROM withdrawal_requests WHERE payment_id = ? AND user_id = ? AND status = 'pending'"
   ).bind(paymentId, session.id).first();
-  if (pending) return ok({ status: 'already_requested', message: '이미 접수된 청약철회 신청이 있습니다. 처리 결과를 기다려 주세요.' }, origin);
-
   // 신청 접수 기록(서식 요건 충족 + 운영자 검토 근거)
-  await env.DB.prepare(
-    'INSERT INTO withdrawal_requests (payment_id, user_id, reason, status, created_at) VALUES (?,?,?,?,?)'
-  ).bind(paymentId, session.id, reason || null, 'pending', now).run();
+  if (!pending) {
+    await env.DB.prepare(
+      'INSERT INTO withdrawal_requests (payment_id, user_id, reason, status, created_at) VALUES (?,?,?,?,?)'
+    ).bind(paymentId, session.id, reason || null, 'pending', now).run();
+  }
 
   const access = await env.DB.prepare(
     'SELECT first_access_at FROM content_access WHERE user_id = ? AND package = ?'
@@ -2151,15 +2663,16 @@ async function handleWithdraw(request, env, origin) {
   if (within14 && !started && env.PORTONE_API_SECRET) {
     const res = await portoneCancel(env, paymentId, cancelReason);
     if (res !== 'fail') {
-      await env.DB.prepare("UPDATE payments SET status='refunded', refunded_at=? WHERE payment_id=? AND status='paid'")
-        .bind(now, paymentId).run();
+      try {
+        const revocation = await revokeOrderGrant(env, order, 'refunded', now);
+        if (revocation.legacyManualReconciliation)
+          console.error('legacy entitlement needs manual reconciliation after withdraw', paymentId);
+      } catch (e) {
+        console.error('withdraw refund ledger update failed', paymentId, e.message);
+        return err(500, '환불은 처리되었으나 이용권 회수 기록에 실패했습니다. 잠시 후 다시 시도하면 복구됩니다.', origin);
+      }
       await env.DB.prepare("UPDATE withdrawal_requests SET status='auto_refunded' WHERE payment_id=? AND status='pending'")
         .bind(paymentId).run();
-      try {
-        const remain = await env.DB.prepare("SELECT COUNT(*) AS c FROM payments WHERE user_id=? AND package=? AND status='paid'")
-          .bind(session.id, order.package).first();
-        if (!remain || remain.c === 0) await revokePackage(env, session.id, order.package);
-      } catch (e) { console.error('revoke after withdraw failed', e.message); }
       await sendEmail(env, session.email, '[챔로드] 청약철회 · 환불 처리 완료',
         emailShell('청약철회 처리 완료', `<p>${escHtml(session.name)}님, 요청하신 청약철회가 접수되어 <strong>전액 환불</strong> 처리되었습니다.</p>
         <p style="font-size:13px;color:#6b7280">카드 결제 취소는 카드사 정책에 따라 영업일 기준 수일이 걸릴 수 있습니다.</p>`)).catch(() => {});
@@ -2167,6 +2680,9 @@ async function handleWithdraw(request, env, origin) {
     }
     // portone 실패 → 아래 운영자 검토로 폴백
   }
+
+  if (pending)
+    return ok({ status: 'already_requested', message: '이미 접수된 청약철회 신청이 있습니다. 처리 결과를 기다려 주세요.' }, origin);
 
   // 자동 대상 아님(개시분 있음/기간 경과/PG 미설정/PG 실패) → 운영자 알림 + 이용자 접수 안내
   const admin = env.ADMIN_EMAIL || BUSINESS_INFO.email;
@@ -2181,43 +2697,85 @@ async function handleWithdraw(request, env, origin) {
   return ok({ status: 'received', message: '청약철회 신청이 접수되었습니다. 검토 후 이메일로 안내드리겠습니다.' }, origin);
 }
 
-// 환불 시 이용권 회수 — grantPackage의 역. 해당 패키지를 보유목록에서 빼고 대표 패키지를 재계산한다.
-// 남은 패키지가 없으면 plan 관련 키를 전부 삭제한다.
-async function revokePackage(env, userId, pkgKey) {
-  const rows = await env.DB.prepare(
-    "SELECT key, value FROM user_data WHERE user_id = ? AND key IN ('plan_packages','plan_package')"
-  ).bind(userId).all();
-  const cur = {};
-  for (const r of (rows.results || [])) { try { cur[r.key] = JSON.parse(r.value); } catch {} }
-
-  const owned = (Array.isArray(cur.plan_packages) ? cur.plan_packages : []).filter(k => k !== pkgKey);
-  const now = Date.now();
-
-  // 환불·회수 시 이용권도 함께 삭제 — 남겨 두면 만료 전까지 AI 회수가 계속 살아 있다
-  await env.DB.prepare('DELETE FROM entitlements WHERE user_id = ? AND package = ?')
-    .bind(userId, pkgKey).run();
-
-  if (owned.length === 0) {
-    // 보유 패키지 없음 — 이용권 전체 회수
-    await env.DB.batch([...PLAN_KEYS].map(k =>
-      env.DB.prepare('DELETE FROM user_data WHERE user_id = ? AND key = ?').bind(userId, k)));
-    return;
+// 주문 한 건의 몫만 회수한다. 뒤에 이어 붙인 동일 상품 주문은 각자의 기간 길이를 유지한 채
+// 앞으로 당겨 공백을 없앤다. AI 사용 이력은 감사용으로 남고 해당 grant만 더 이상 선택되지 않는다.
+async function revokeOrderGrant(env, order, targetStatus, now = Date.now()) {
+  const token = crypto.randomUUID();
+  const locked = await claimEntitlementLock(env.DB, order.user_id, order.package, token, now);
+  if (!locked) {
+    const busy = new Error('package grant is already processing');
+    busy.code = 'FULFILLMENT_BUSY';
+    throw busy;
   }
-  // 대표 패키지 재설정 — 남은 것 중 부가옵션(correction-*)이 아닌 것을 우선.
-  const rep = owned.find(k => !k.startsWith('correction-')) || owned[0];
-  const info = PACKAGES[rep] || {};
-  const puts = {
-    plan: 'premium',
-    plan_packages: owned,
-    plan_type: info.type,
-    plan_package: rep,
-    plan_package_name: info.name,
-  };
-  await env.DB.batch(Object.entries(puts).map(([k, v]) =>
-    env.DB.prepare(
-      `INSERT INTO user_data (user_id, key, value, updated_at) VALUES (?1, ?2, ?3, ?4)
-       ON CONFLICT(user_id, key) DO UPDATE SET value = ?3, updated_at = ?4`
-    ).bind(userId, k, JSON.stringify(v), now)));
+  let legacyManualReconciliation = false;
+  try {
+    let grant = await env.DB.prepare(
+      `SELECT id, starts_at, expires_at, status FROM entitlement_grants
+        WHERE payment_id=? AND user_id=? AND package=?`
+    ).bind(order.payment_id, order.user_id, order.package).first();
+    if (!grant) {
+      const fulfillment = await env.DB.prepare(
+        'SELECT state FROM payment_fulfillments WHERE payment_id=?'
+      ).bind(order.payment_id).first();
+      if (fulfillment && fulfillment.state === 'legacy') {
+        const others = await env.DB.prepare(
+          `SELECT COUNT(*) AS c FROM payments p
+             JOIN payment_fulfillments f ON f.payment_id=p.payment_id AND f.state='legacy'
+            WHERE p.user_id=? AND p.package=? AND p.payment_id<>?
+              AND p.status IN ('paid','test')`
+        ).bind(order.user_id, order.package, order.payment_id).first();
+        if (!others || Number(others.c) === 0) {
+          // 이 상품의 과거 확정 주문이 하나뿐이면 통합 legacy 행 전체가 그 주문 몫이다.
+          grant = await env.DB.prepare(
+            `SELECT id, starts_at, expires_at, status FROM entitlement_grants
+              WHERE user_id=? AND package=? AND source='legacy'`
+          ).bind(order.user_id, order.package).first();
+        } else {
+          // 복수 과거 주문의 사용량 배분은 집계형 원본만으로 복원할 수 없다. 임의 차감하지 않는다.
+          legacyManualReconciliation = true;
+        }
+      }
+    }
+    let anchor = now;
+    if (grant && grant.status === 'active') {
+      const previous = await env.DB.prepare(
+        `SELECT MAX(expires_at) AS expires_at FROM entitlement_grants
+          WHERE user_id=? AND package=? AND status='active' AND id<>? AND expires_at<=?`
+      ).bind(order.user_id, order.package, grant.id, grant.starts_at).first();
+      if (previous && Number(previous.expires_at) > anchor) anchor = Number(previous.expires_at);
+    }
+    const shouldShift = grant && grant.status === 'active' && Number(grant.expires_at) > anchor;
+    const duration = shouldShift ? Number(grant.expires_at) - anchor : 0;
+    const from = grant ? Number(grant.expires_at) : 0;
+    const allowedStatus = targetStatus === 'revoked' ? 'test' : 'paid';
+
+    const statements = [
+      env.DB.prepare(
+        'UPDATE payments SET status=?, refunded_at=CASE WHEN ? = \'refunded\' THEN COALESCE(refunded_at,?) ELSE refunded_at END WHERE payment_id=? AND status IN (?,?)'
+      ).bind(targetStatus, targetStatus, now, order.payment_id, allowedStatus, targetStatus),
+      env.DB.prepare(
+        `UPDATE entitlement_grants SET status='revoked', revoked_at=COALESCE(revoked_at,?)
+          WHERE id=? AND user_id=? AND status='active'`
+      ).bind(now, grant ? grant.id : -1, order.user_id),
+    ];
+    if (duration > 0) {
+      statements.push(env.DB.prepare(
+        `UPDATE entitlement_grants
+            SET starts_at=starts_at-?, expires_at=expires_at-?
+          WHERE user_id=? AND package=? AND status='active' AND starts_at>=? AND id<>?`
+      ).bind(duration, duration, order.user_id, order.package, from, grant.id));
+    }
+    statements.push(env.DB.prepare(
+      'DELETE FROM entitlement_locks WHERE user_id=? AND package=? AND claim_token=?'
+    ).bind(order.user_id, order.package, token));
+    await env.DB.batch(statements);
+  } catch (error) {
+    try { await releaseEntitlementLock(env.DB, order.user_id, order.package, token); } catch {}
+    throw error;
+  }
+  // syncPlanCache 실패도 환불 자체는 DB에 반영돼 있다. 재요청이 멱등하게 cache를 복구한다.
+  const cache = await syncPlanCache(env, order.user_id, order.package);
+  return { cache, legacyManualReconciliation };
 }
 
 /* ── 자체 익명 분석 ── */
@@ -2403,8 +2961,17 @@ async function handleAdminGrant(request, env, origin) {
   const paymentId = 'test-' + crypto.randomUUID();
   await env.DB.prepare(
     'INSERT INTO payments (payment_id, user_id, package, amount, status, created_at, paid_at) VALUES (?,?,?,?,?,?,?)'
-  ).bind(paymentId, user.id, pkgKey, pkg.amount, 'test', now, now).run();
-  const granted = await grantPackage(env, user.id, pkgKey);
+  ).bind(paymentId, user.id, pkgKey, pkg.amount, 'pending', now, null).run();
+  let fulfillment;
+  try {
+    fulfillment = await fulfillOrderGrant(env, {
+      payment_id: paymentId, user_id: user.id, package: pkgKey, status: 'pending',
+    }, 'test', now);
+  } catch (e) {
+    console.error('admin grant fulfillment failed', paymentId, e.message);
+    return err(500, '테스트 이용권 지급 기록에 실패했습니다. 다시 시도해주세요.', origin);
+  }
+  const granted = await syncPlanCache(env, user.id, pkgKey);
   return ok({ granted }, origin);
 }
 
@@ -2419,15 +2986,14 @@ async function handleAdminRevokeTest(request, env, origin) {
   if (!order) return err(404, '주문을 찾을 수 없습니다.', origin);
   if (order.status !== 'test') return err(400, '테스트 지급 건만 회수할 수 있습니다.', origin);
 
-  await env.DB.prepare("UPDATE payments SET status = 'revoked' WHERE payment_id = ?").bind(paymentId).run();
-  // 같은 패키지의 다른 활성(실결제 또는 테스트) 이용권이 없을 때만 회수.
+  let revocation;
   try {
-    const remain = await env.DB.prepare(
-      "SELECT COUNT(*) AS c FROM payments WHERE user_id = ? AND package = ? AND status IN ('paid','test')"
-    ).bind(order.user_id, order.package).first();
-    if (!remain || remain.c === 0) await revokePackage(env, order.user_id, order.package);
-  } catch (e) { console.error('revoke test failed', e.message); }
-  return ok({ revoked: true }, origin);
+    revocation = await revokeOrderGrant(env, order, 'revoked');
+  } catch (e) {
+    console.error('revoke test failed', e.message);
+    return err(500, '테스트 이용권 회수 기록에 실패했습니다. 다시 시도해주세요.', origin);
+  }
+  return ok({ revoked: true, legacyManualReconciliation: !!revocation.legacyManualReconciliation }, origin);
 }
 
 // 운영자 환불 — 이용약관 제6조(결제일부터 14일 청약철회) 실행 창구.
@@ -2458,29 +3024,25 @@ async function handleAdminRefund(request, env, origin) {
     return ok({ refunded: true, archived: true }, origin);   // 이미 탈퇴 — 회수할 이용권 없음
   }
 
-  if (order.status === 'refunded') return ok({ alreadyRefunded: true }, origin);
+  if (order.status === 'refunded') {
+    let revocation;
+    try { revocation = await revokeOrderGrant(env, order, 'refunded'); }
+    catch (e) { return err(500, '환불 이용권 회수 상태를 복구하지 못했습니다. 다시 시도해주세요.', origin); }
+    return ok({ alreadyRefunded: true, legacyManualReconciliation: !!revocation.legacyManualReconciliation }, origin);
+  }
   if (order.status !== 'paid') return err(400, '완료된 결제만 환불할 수 있습니다.', origin);
 
   const res = await portoneCancel(env, paymentId, reason);
   if (res === 'fail') return err(502, '결제대행사 취소 처리에 실패했습니다. 포트원 콘솔에서 상태를 확인해주세요.', origin);
 
-  // 포트원 취소 성공 — DB 갱신. WHERE status='paid'로 동시 요청의 이중 처리 방지.
+  // 포트원 취소 성공 — 결제 상태와 해당 주문 grant 회수를 한 D1 batch로 확정한다.
+  let revocation;
   try {
-    await env.DB.prepare("UPDATE payments SET status = 'refunded', refunded_at = ? WHERE payment_id = ? AND status = 'paid'")
-      .bind(Date.now(), paymentId).run();
+    revocation = await revokeOrderGrant(env, order, 'refunded', Date.now());
   } catch (e) {
-    // 취소는 됐으나 기록 갱신 실패. status가 paid로 남아도 재요청 시 포트원이 'already'로 성공 → 회복 가능.
     console.error('refund db update failed', paymentId, e.message);
-    return err(500, '환불은 처리되었으나 기록 갱신에 실패했습니다. 잠시 후 다시 시도하면 상태가 반영됩니다.', origin);
+    return err(500, '환불은 처리되었으나 주문별 이용권 회수 기록에 실패했습니다. 잠시 후 다시 시도하면 복구됩니다.', origin);
   }
-
-  // 이용권 회수 — 같은 패키지의 다른 활성(paid) 결제가 남아있으면 유지(회당 상품 중복구매 대비).
-  try {
-    const remain = await env.DB.prepare(
-      "SELECT COUNT(*) AS c FROM payments WHERE user_id = ? AND package = ? AND status = 'paid'"
-    ).bind(order.user_id, order.package).first();
-    if (!remain || remain.c === 0) await revokePackage(env, order.user_id, order.package);
-  } catch (e) { console.error('revoke after refund failed', e.message); }
 
   // 청약철회 신청 건이 있으면 종결 처리한다. 안 그러면 처리했는데도 'pending'으로 남아
   // 관리자가 같은 건을 다시 검토하게 된다.
@@ -2503,7 +3065,7 @@ async function handleAdminRefund(request, env, origin) {
     }
   } catch (e) { console.error('refund notice mail failed', e.message); }
 
-  return ok({ refunded: true }, origin);
+  return ok({ refunded: true, legacyManualReconciliation: !!revocation.legacyManualReconciliation }, origin);
 }
 
 /* ── 엔트리 ── */
@@ -2539,9 +3101,17 @@ const ROUTES = {
   'GET /api/payment/history': handlePaymentHistory,
   'POST /api/payment/withdraw': handleWithdraw,
   'GET /api/content/steps': handleContentSteps,
+  'POST /api/content/open': handleContentOpen,
   'POST /api/content/access': handleContentAccess,
   'POST /api/analytics': handleAnalytics,
 };
+
+// 보안 회귀검사에서 외부 전송 직전 마스킹 규칙을 직접 검증한다.
+// maskIdNumbers는 회귀검사가, callClaude는 tools/ai-output-eval.mjs가 쓴다.
+// Worker 런타임은 default export만 보므로 named export를 늘려도 배포 동작에는 영향이 없다.
+// ⚠️평가기는 handleAiReview와 **같은 함수**를 불러야 의미가 있다. 평가용 사본을 따로 만들지 말 것 —
+//   사본은 프롬프트·스키마가 갈리는 순간 조용히 거짓 안심을 준다.
+export { maskIdNumbers, callClaude };
 
 export default {
   async fetch(request, env) {

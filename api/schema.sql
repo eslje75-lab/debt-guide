@@ -1,10 +1,10 @@
 -- 챔로드 D1 스키마 (프로덕션 DB에 2026-07-19 적용됨)
 -- 로컬 적용: npx wrangler d1 execute chamroad --local --file=schema.sql
 
--- agreed_at·consent_version: 가입 시 받은 동의(이용약관·개인정보처리방침 + 만 14세 이상 확인)의
--- 시각과 판본. 화면 체크박스만으로는 동의 사실이 남지 않아 「개인정보 보호법」 제22조 제3항
--- (동의 없이 처리할 수 있다는 입증책임은 개인정보처리자 부담)·제22조의2 제1항(만 14세 미만은
--- 법정대리인 동의)에 대응할 근거가 없다. 서버가 동의를 필수로 요구하고 여기에 기록한다.
+-- agreed_at·consent_version·consent_form_version: 가입 시 서로 분리해 받은 만 14세 이상 확인·이용약관 동의·개인정보
+-- 수집이용 동의가 모두 참이었을 때만 기록하는 시각과 약관/방침 판본. API는 signup-consent-v1
+-- form version과 세 boolean을 각각 강제한다. 구체적인 동의 화면·기록 방식의 법적 충분성은
+-- LEGAL-REVIEW-BRIEF.md에 따라 출시 전 개인정보 전문가가 최종 확인한다.
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   email TEXT NOT NULL UNIQUE,
@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   agreed_at INTEGER,           -- unix ms
   consent_version TEXT,        -- 예: 'terms-2026-07-29/privacy-2026-08-06'
+  consent_form_version TEXT NOT NULL DEFAULT 'signup-consent-legacy', -- 분리동의 화면/서버 계약 판본
   email_verified INTEGER NOT NULL DEFAULT 0,  -- 이메일 인증 여부(소프트). 로그인·이용은 인증과 무관, 안내만.
   phone TEXT,                                 -- 연락처(휴대폰, 선택). 마이페이지 선택 입력 또는 결제 시 SMS 인증으로 확정.
   phone_verified INTEGER NOT NULL DEFAULT 0,  -- 결제 시 SMS 인증으로 진위 확인된 번호인지. 성인 '검증'은 아님(자기신고).
@@ -23,6 +24,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 -- 기존 DB 반영: ALTER TABLE users ADD COLUMN agreed_at INTEGER;
 --               ALTER TABLE users ADD COLUMN consent_version TEXT;
+--               ALTER TABLE users ADD COLUMN consent_form_version TEXT NOT NULL DEFAULT 'signup-consent-legacy';
 --               ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0;
 --               ALTER TABLE users ADD COLUMN phone TEXT;
 --               ALTER TABLE users ADD COLUMN phone_verified INTEGER NOT NULL DEFAULT 0;
@@ -116,10 +118,11 @@ CREATE TABLE IF NOT EXISTS withdrawal_archive (
   archived_at INTEGER NOT NULL     -- 탈퇴 시각(unix ms)
 );
 
--- 유료 콘텐츠를 실제로 처음 연 시각.
+-- 유료 콘텐츠를 명시적으로 열거나 AI 유료 결과를 처음 제공받은 시각.
 -- 「전자상거래 등에서의 소비자보호에 관한 법률」 제17조 제2항 제5호의 '디지털콘텐츠의
 -- 제공이 개시된 경우'에 해당하는지를 판단하는 근거(= 청약철회 가능 여부의 기준일).
--- 최초 1회만 기록한다(INSERT OR IGNORE). 이 기록이 없으면 '미개시'로 보아 전액 환불
+-- 콘텐츠 페이지 자동 진입/프리로드는 기록하지 않고, 명시적 열람 동의가 포함된 open 요청에서
+-- 본문 반환 전에 기록한다. 최초 1회만 기록한다(INSERT OR IGNORE). 이 기록이 없으면 '미개시'로 보아 전액 환불
 -- (약관 제6조 ① — 결제일부터 14일).
 CREATE TABLE IF NOT EXISTS content_access (
   user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -128,9 +131,9 @@ CREATE TABLE IF NOT EXISTS content_access (
   PRIMARY KEY (user_id, package)
 );
 
--- 이용권(entitlement) — 패키지별 이용기간과 AI 검토 잔여 회수를 한곳에서 관리한다.
--- plan_packages(user_data의 JSON 배열)는 클라이언트 캐시·하위호환용으로 계속 쓰되,
--- 만료·회수 판정의 최종 근거는 이 표다.
+-- 레거시 집계형 이용권(entitlement). 2026-08-16 이전 값을 무손실 보관하고 마이그레이션의
+-- 입력으로만 사용한다. 신규 만료·회수 판정의 최종 근거는 아래 entitlement_grants다.
+-- plan_packages(user_data의 JSON 배열)는 클라이언트 캐시·하위호환용이다.
 --
 -- expires_at 근거(2026-07-29 확정):
 --   rehab-full  24개월 — 준비 3개월 + 신청~인가 6개월(법 제596조① 개시 1월 + 이의기간 2월 + 집회 1월) + 여유
@@ -149,6 +152,54 @@ CREATE TABLE IF NOT EXISTS entitlements (
   PRIMARY KEY (user_id, package)
 );
 CREATE INDEX IF NOT EXISTS idx_entitlements_user ON entitlements(user_id);
+
+-- 주문 단위 이용권 원장. entitlements는 2026-08-16 이전 집계형 데이터의 보존·롤백용으로
+-- 남겨 두지만, 신규 접근/AI 회수/환불 판정의 원본은 이 표다. 한 주문은 UNIQUE(payment_id)라
+-- 결제 완료 콜백이 병렬·재시도되어도 이용기간과 AI 회수가 두 번 생기지 않는다.
+-- source='legacy' 행은 기존 entitlements의 값을 손실 없이 옮긴 것으로 payment_id가 없다.
+CREATE TABLE IF NOT EXISTS entitlement_grants (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  payment_id  TEXT UNIQUE REFERENCES payments(payment_id) ON DELETE SET NULL,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  package     TEXT    NOT NULL,
+  source      TEXT    NOT NULL DEFAULT 'order', -- order | test | legacy
+  status      TEXT    NOT NULL DEFAULT 'active', -- active | revoked
+  granted_at  INTEGER NOT NULL, -- AI 회수와 상품 접근은 결제 확정 즉시 활성화
+  starts_at   INTEGER NOT NULL, -- 같은 상품 연장 시 이 주문이 차지하는 기간 구간의 시작
+  expires_at  INTEGER NOT NULL,
+  ai_quota    INTEGER NOT NULL CHECK (ai_quota >= 0),
+  ai_used     INTEGER NOT NULL DEFAULT 0 CHECK (ai_used >= 0 AND ai_used <= ai_quota),
+  revoked_at  INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_entitlement_grants_active
+  ON entitlement_grants(user_id, package, status, starts_at, expires_at);
+CREATE INDEX IF NOT EXISTS idx_entitlement_grants_ai
+  ON entitlement_grants(user_id, status, expires_at, ai_used, ai_quota);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_entitlement_grants_one_legacy
+  ON entitlement_grants(user_id, package) WHERE source = 'legacy';
+
+-- 결제 확인과 이용권 부여 사이의 복구 가능한 상태 원장. processing은 임대(lease) 방식이라
+-- Worker가 중간 종료돼도 claim_expires_at 뒤 재요청이 이어받을 수 있다.
+CREATE TABLE IF NOT EXISTS payment_fulfillments (
+  payment_id       TEXT PRIMARY KEY REFERENCES payments(payment_id) ON DELETE CASCADE,
+  state            TEXT NOT NULL, -- processing | retry | fulfilled | legacy
+  claim_token      TEXT,
+  claim_expires_at INTEGER,
+  attempts         INTEGER NOT NULL DEFAULT 0,
+  last_error       TEXT,
+  fulfilled_at     INTEGER,
+  updated_at       INTEGER NOT NULL
+);
+
+-- 서로 다른 주문 두 건이 동시에 완료될 때 같은 패키지의 기간 시작점을 동일하게 계산하지
+-- 않도록 하는 짧은 임대 잠금. 영구 상태가 아니며 만료 후 다른 요청이 회복한다.
+CREATE TABLE IF NOT EXISTS entitlement_locks (
+  user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  package          TEXT NOT NULL,
+  claim_token      TEXT NOT NULL,
+  claim_expires_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, package)
+);
 
 -- ※ ai_trial(미구매자 AI 검토 체험 1회) 테이블은 2026-08-08 폐지·삭제됨.
 --    탈퇴 시 users FK CASCADE로 함께 지워져 재가입만 하면 체험이 무한 반복됐고,

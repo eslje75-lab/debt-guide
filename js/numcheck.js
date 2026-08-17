@@ -256,8 +256,9 @@ const NumCheck = (function () {
     const totalExpense = sum(expenses.map(r => r.amount));
     const balance      = totalIncome - totalExpense;
 
-    // 법원이 인정하는 생계비 = 실제 지출과 표준생계비 중 큰 값 (진단 calcRepayment와 같은 기준)
-    const courtLiving = Math.max(totalExpense, standard);
+    // 기본 검산에는 기준중위소득 60%만 공제한다. 실제 지출 중 초과분은 의료비·주거비 등
+    // 항목별 증빙과 개별 사정을 법원이 심사해야 하므로 이 도구가 자동 인정할 수 없다.
+    const courtLiving = standard;
     const disposable  = Math.max(0, totalIncome - courtLiving);
 
     items.push(ok('합계를 계산했습니다',
@@ -279,9 +280,9 @@ const NumCheck = (function () {
     }
 
     // ③ 가용소득
-    items.push(ok(`계산된 월 가용소득: ${formatWon(disposable)}원`,
-      `${formatWon(totalIncome)}원 − ${formatWon(courtLiving)}원(${courtLiving === standard ? '표준생계비' : '실제 지출'})`
-      + `\n가용소득은 소득에서 세금·보험료와 생계비 등을 뺀 나머지입니다(채무자회생법 제579조 제4호). 여기 적은 수입이 세후 금액인지 확인해 주세요.`));
+    items.push(ok(`60% 기준 월 잔여소득: ${formatWon(disposable)}원`,
+      `${formatWon(totalIncome)}원 − ${formatWon(courtLiving)}원(기준중위소득 60%)`
+      + `\n실제 지출이 더 많더라도 초과분은 자동 공제되지 않습니다. 법원이 증빙과 개별 사정을 보고 인정한 생계비에 따라 제출용 가용소득은 달라질 수 있습니다. 여기 적은 수입이 세후 금액인지도 확인해 주세요.`));
 
     if (input.declaredDisposable !== '' && input.declaredDisposable != null) {
       const declared = parseWon(input.declaredDisposable);
@@ -341,13 +342,14 @@ const NumCheck = (function () {
       //    파산 이용자는 이 탭에서 어떤 숫자도 받지 못한다(2026-08-14 여정 감사 P0-1).
       if (assets.length && liquidation >= 0) {
         const list = assets.map(a => `${a.label || '(이름 없음)'} ${formatWon(a.amount)}원`).join('\n');
-        const out = [ok(`재산 합계(청산가치): ${formatWon(liquidation)}원`, list)];
+        const out = [ok(`입력 재산 합계: ${formatWon(liquidation)}원`,
+          `${list}\n이 합계는 청산가치 산정의 기초일 뿐입니다. 면제재산·담보·환가비용 등은 별도로 반영될 수 있습니다.`)];
         if (input.procedure !== 'bankrupt') {
           out.push(ask('변제계획안까지 보시려면 월 가용소득과 변제 횟수도 넣어 주세요',
-            '두 값이 있어야 총 변제예정액과 청산가치 보장 여부(채무자회생법 제614조 제1항 제4호)를 계산할 수 있습니다.'));
+            '두 값이 있으면 명목상 납부합계를 계산할 수 있습니다. 다만 인가시점 현재가치와 정확한 청산가치가 필요한 법 제614조의 충족 여부는 이 도구가 판정하지 않습니다.'));
         } else {
           out.push(ask('재산 합계는 이렇게 씁니다',
-            '파산에서는 이 금액이 파산관재인 선임 여부와 면책 판단에 쓰입니다. 재산목록에 적은 합계와 이 값이 같은지 확인해 주세요.\n재직 중이시면 예상 퇴직금의 1/2도 재산에 들어갑니다.'));
+            '파산에서는 재산목록 작성의 출발점으로 씁니다. 실제 파산재단 편입 범위와 관재인 선임 여부는 재산 종류·면제재산·법원 판단에 따라 달라집니다. 퇴직급여도 종류별 보호 범위가 다르므로 일률적으로 전액 또는 절반을 더하지 마세요.'));
         }
         return { items: out, totals: { liquidation, assetsOnly: true }, claims: [] };
       }
@@ -355,8 +357,8 @@ const NumCheck = (function () {
     }
 
     const totalRepay = disposable * months;
-    items.push(ok(`총 변제예정액: ${formatWon(totalRepay)}원`,
-      `${formatWon(disposable)}원 × ${months}회`));
+    items.push(ok(`명목상 총 납부합계: ${formatWon(totalRepay)}원`,
+      `${formatWon(disposable)}원 × ${months}회 — 인가시점 현재가치로 할인하기 전 단순 곱셈값입니다.`));
 
     // ① 계획안에 적어 둔 총액과 대조
     if (input.declaredTotalRepay !== '' && input.declaredTotalRepay != null) {
@@ -371,38 +373,38 @@ const NumCheck = (function () {
     // ② 변제기간 — 제611조 제5항
     if (months > 60) {
       items.push(diff('변제 횟수가 법이 정한 상한을 넘습니다',
-        `${months}회로 적혀 있습니다. 변제기간은 변제개시일부터 3년(36회)을 초과할 수 없고, 특별한 사정이 있는 때에도 5년(60회)을 넘지 못하도록 정해져 있습니다.`,
+        `${months}회로 적혀 있습니다. 변제기간은 변제개시일부터 3년을 초과할 수 없습니다. 다만 법 제614조 제1항 제4호의 요건을 충족하기 위하여 필요한 경우 등 특별한 사정이 있으면 5년 이내로 정할 수 있습니다.`,
         '채무자회생법 제611조 제5항'));
     } else if (months > 36) {
       items.push(ask(`변제 횟수가 ${months}회(3년 초과)입니다`,
-        '변제기간은 3년을 초과하지 않는 것이 원칙이고, 특별한 사정이 있는 때에 한해 5년 이내로 정할 수 있습니다. 3년을 넘겨 잡은 사정(청산가치를 맞추기 위한 경우 등)을 계획안에 적으셨나요?',
+        '법 제611조 제5항은 변제개시일부터 3년을 상한으로 정하고, 법 제614조 제1항 제4호의 요건을 충족하기 위하여 필요한 경우 등 특별한 사정이 있으면 5년 이내로 정할 수 있게 합니다. 3년을 넘겨 적은 근거와 법원 양식의 현재가치 계산을 확인하세요.',
         '채무자회생법 제611조 제5항'));
     } else {
-      items.push(ok(`변제 횟수 ${months}회 — 원칙인 3년(36회) 이내입니다`, undefined));
+      items.push(ok(`변제 횟수 ${months}회 — 법정 3년 상한 이내입니다`, undefined));
     }
 
-    // ③ 청산가치 보장 — 제614조 제1항 제4호
+    // ③ 청산가치 관련 참고 — 제614조 제1항 제4호
+    // 법은 인가결정일을 기준으로 평가한 총변제액을 비교한다. 이 도구는 변제개시일·인가예정일과
+    // 법원별 현재가치 산식을 받지 않으므로 명목합계만으로 '충족/통과' 판정을 내리지 않는다.
     if (assets.length) {
-      items.push(ok(`재산 합계(청산가치): ${formatWon(liquidation)}원`,
-        assets.map(a => `${a.label || '(이름 없음)'} ${formatWon(a.amount)}원`).join(' / ')));
+        items.push(ok(`입력 재산 합계(청산가치 산정 기초): ${formatWon(liquidation)}원`,
+          assets.map(a => `${a.label || '(이름 없음)'} ${formatWon(a.amount)}원`).join(' / ')));
     }
     if (liquidation > 0 || assets.length) {
       const gap = totalRepay - liquidation;
       if (gap >= 0) {
-        items.push(ok('총 변제예정액이 청산가치 이상입니다',
-          `${formatWon(totalRepay)}원 ≥ ${formatWon(liquidation)}원 (${formatWon(gap)}원 여유)`));
+        items.push(ask('명목합계는 입력 재산 합계 이상이지만 청산가치 요건 통과 여부는 판정하지 않았습니다',
+          `${formatWon(totalRepay)}원 ≥ ${formatWon(liquidation)}원입니다. 그러나 법 제614조의 비교는 인가결정일 기준 현재가치로 하므로, 명목합계가 더 크다는 사실만으로 인가 요건을 충족한다고 단정할 수 없습니다. 법원 공식 변제계획안의 현재가치 계산 또는 담당 회생위원 안내로 확인하세요.`,
+          '채무자회생법 제614조 제1항 제4호'));
       } else {
-        const needMonths = Math.ceil(liquidation / disposable);
-        items.push(diff('총 변제예정액이 청산가치보다 적습니다',
-          `${formatWon(totalRepay)}원 < ${formatWon(liquidation)}원 — ${formatWon(-gap)}원 모자랍니다.`
-          + `\n지금 가용소득 그대로라면 ${needMonths}회(약 ${Math.floor(needMonths / 12)}년 ${needMonths % 12}개월)가 되어야 청산가치에 닿습니다`
-          + (needMonths > 60 ? ' — 다만 이는 법정 상한 60회를 넘습니다.' : '.')
-          + `\n법은 "인가결정일을 기준일로 하여 평가한 개인회생채권에 대한 총변제액이 채무자가 파산하는 때에 배당받을 총액보다 적지 아니할 것"을 인가 요건으로 정하고 있습니다.`,
+        items.push(diff('명목상 납부합계도 입력 재산 합계보다 적습니다',
+          `${formatWon(totalRepay)}원 < ${formatWon(liquidation)}원 — 명목상으로도 ${formatWon(-gap)}원 적습니다.`
+          + `\n현재가치 계산과 면제재산·담보 등을 반영한 정확한 청산가치 산정은 이 도구가 수행하지 않습니다. 변제기간이나 금액을 임의로 정하지 말고 법원 공식 양식과 담당 회생위원 안내로 다시 확인하세요.`,
           '채무자회생법 제614조 제1항 제4호'));
       }
     } else {
-      items.push(ask('재산(청산가치)을 입력하지 않으셨습니다',
-        '총 변제예정액이 재산의 청산가치보다 적지 않아야 한다는 요건이 있어(채무자회생법 제614조 제1항 제4호), 재산목록 합계를 넣어야 이 부분을 확인할 수 있습니다.',
+      items.push(ask('재산 정보를 입력하지 않으셨습니다',
+        '법 제614조의 청산가치 요건을 검토하려면 재산목록과 관련 증빙이 필요합니다. 이 도구는 입력 재산 합계와 명목 납부합계를 나란히 보여 줄 뿐, 인가시점 현재가치에 따른 충족 여부는 판정하지 않습니다.',
         '채무자회생법 제614조 제1항 제4호'));
     }
 
