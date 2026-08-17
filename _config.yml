@@ -14,5 +14,11 @@ exclude:
   - OPERATIONS-COST.md
   - DESIGN-stripe.md
   - LEGAL-REVIEW-BRIEF.md
+  - LEGAL-RISK-ANALYSIS.md
   - CODEX-HANDOFF.md
   - _headers
+
+# ⚠️ 운영 문서를 새로 만들면 **여기에 반드시 추가할 것.** 이 목록은 허용목록이 아니라
+#    제외목록이라, 빠뜨리면 조용히 공개된다(Jekyll이 .md를 .html로 변환해 게시한다).
+#    2026-08-17에 LEGAL-RISK-ANALYSIS.md가 실제로 빠져 있었다.
+#    dist/ 배포로 전환하면 tools/build-public.js의 **허용목록**이 이 위험을 구조적으로 없앤다.
