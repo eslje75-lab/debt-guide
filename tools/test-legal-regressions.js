@@ -61,4 +61,43 @@ for (const forbidden of ["Storage.load('diagnosis_scores')", "Storage.load('diag
   assert.ok(!resultSource.includes(forbidden), `결과 화면에 남으면 안 되는 점수 분기: ${forbidden}`);
 }
 
+/* ── AI 회차 단가 3중 일치 ────────────────────────────────────────────────
+ * 회차 단가는 세 곳에 있다: 서버 PACKAGE_TERMS.aiUnitPrice(환불액을 실제로 계산),
+ * pricing.html의 PACKAGE_AI_UNIT_PRICE(결제 전 confirm 고지), 같은 파일의 가격 구성표(화면).
+ * 어긋나면 고지한 금액과 실제 환불액이 달라져 전자상거래법 제13조② 문제가 된다.
+ * 사람이 세 곳을 동시에 고치는 것을 믿지 않고 여기서 검사한다.
+ */
+{
+  const server = fs.readFileSync(path.join(ROOT, 'api/src/index.js'), 'utf8');
+  const pricing = fs.readFileSync(path.join(ROOT, 'pricing.html'), 'utf8');
+
+  const serverUnits = {};
+  const termsBlock = server.match(/const PACKAGE_TERMS = \{[\s\S]*?\n\};/);
+  if (!termsBlock) assert.fail('PACKAGE_TERMS 블록을 찾지 못했다');
+  else {
+    for (const m of termsBlock[0].matchAll(/'([\w-]+)':\s*\{[^}]*aiUnitPrice:\s*(\d+)/g))
+      serverUnits[m[1]] = Number(m[2]);
+  }
+
+  const clientUnits = {};
+  const clientBlock = pricing.match(/const PACKAGE_AI_UNIT_PRICE = \{[\s\S]*?\};/);
+  if (!clientBlock) assert.fail('pricing.html의 PACKAGE_AI_UNIT_PRICE를 찾지 못했다');
+  else {
+    for (const m of clientBlock[0].matchAll(/'([\w-]+)':\s*(\d+)/g)) clientUnits[m[1]] = Number(m[2]);
+  }
+
+  const keys = Object.keys(serverUnits);
+  if (!keys.length) assert.fail('서버 aiUnitPrice를 하나도 읽지 못했다');
+  for (const key of keys) {
+    if (serverUnits[key] !== clientUnits[key])
+      assert.fail(`AI 회차 단가 불일치 ${key}: 서버 ${serverUnits[key]} vs pricing.html ${clientUnits[key]}`);
+  }
+  // 화면 표에도 같은 단가가 문자열로 있어야 한다(고지 누락 방지).
+  for (const key of keys) {
+    const shown = serverUnits[key].toLocaleString('ko-KR');
+    if (!pricing.includes(`× ${shown}원`))
+      assert.fail(`가격 구성표에 회차 단가 표기가 없다: ${key} (× ${shown}원)`);
+  }
+}
+
 console.log('legal regression tests passed');

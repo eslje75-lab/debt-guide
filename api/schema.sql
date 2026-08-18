@@ -125,11 +125,16 @@ CREATE TABLE IF NOT EXISTS withdrawal_archive (
 -- 본문 반환 전에 기록한다. 최초 1회만 기록한다(INSERT OR IGNORE). 이 기록이 없으면 '미개시'로 보아 전액 환불
 -- (약관 제6조 ① — 결제일부터 14일).
 CREATE TABLE IF NOT EXISTS content_access (
-  user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  package         TEXT    NOT NULL,
-  first_access_at INTEGER NOT NULL,   -- unix ms
+  user_id           INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  package           TEXT    NOT NULL,
+  first_access_at   INTEGER NOT NULL,   -- unix ms. 패키지 이용 개시(AI 사용 포함) — 14일 자동환불 게이트
+  content_opened_at INTEGER,            -- unix ms. 유료 본문을 실제로 연 시각(POST /api/content/open만)
   PRIMARY KEY (user_id, package)
 );
+-- ⚠️ 두 시각을 나눈 이유: AI만 쓰고 본문은 안 연 이용자의 '콘텐츠분'을 환불하려면 구분이 필요하다.
+--    전자상거래법 제17조 제2항 제5호 단서의 "제공이 개시되지 아니한 부분"이 그 몫이다.
+--    content_opened_at이 NULL이면 콘텐츠분 환불 가능으로 본다(이용자에게 유리한 쪽).
+--    마이그레이션: api/migrations/2026-08-18-content-opened-at.sql
 
 -- 레거시 집계형 이용권(entitlement). 2026-08-16 이전 값을 무손실 보관하고 마이그레이션의
 -- 입력으로만 사용한다. 신규 만료·회수 판정의 최종 근거는 아래 entitlement_grants다.

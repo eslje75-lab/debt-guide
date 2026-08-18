@@ -29,6 +29,7 @@ class FakeD1 {
   constructor({ entitled = true, entitlements } = {}) {
     this.entitlements = entitlements || (entitled ? ['rehab-full'] : []);
     this.access = new Map();
+    this.contentOpened = new Map();   // 콘텐츠 '열기'만 기록 — AI 사용과 구분(부분환불 산식용)
     this.userData = new Map();
     this.calls = [];
     this.batchCount = 0;
@@ -39,6 +40,7 @@ class FakeD1 {
   async batch(statements) {
     this.batchCount++;
     const snapshotAccess = new Map(this.access);
+    const snapshotOpened = new Map(this.contentOpened);
     const snapshotData = new Map(this.userData);
     try {
       const out = [];
@@ -46,6 +48,7 @@ class FakeD1 {
       return out;
     } catch (error) {
       this.access = snapshotAccess;
+      this.contentOpened = snapshotOpened;
       this.userData = snapshotData;
       throw error;
     }
@@ -78,10 +81,27 @@ class FakeD1 {
       return { success: true, meta: { changes: 1 } };
     }
 
+    // 콘텐츠 '열기'만 별도 시각을 남긴다(AI 사용과 구분). 부분환불 산식의 전제 —
+    // api/migrations/2026-08-18-content-opened-at.sql 참조.
+    if (sql.startsWith('UPDATE content_access SET content_opened_at')) {
+      const [openedAt, userId, pkg] = args;
+      const key = `${userId}:${pkg}`;
+      if (this.access.has(key) && !this.contentOpened.has(key)) this.contentOpened.set(key, openedAt);
+      return { success: true, meta: { changes: 1 } };
+    }
+
     if (sql.startsWith('SELECT first_access_at FROM content_access')) {
       const firstAccessAt = this.access.get(`${args[0]}:${args[1]}`);
       const row = firstAccessAt ? { first_access_at: firstAccessAt } : null;
       return mode === 'batch' ? { results: row ? [row] : [] } : row;
+    }
+
+    if (sql.startsWith('SELECT first_access_at, content_opened_at FROM content_access')) {
+      const key = `${args[0]}:${args[1]}`;
+      const firstAccessAt = this.access.get(key);
+      return firstAccessAt
+        ? { first_access_at: firstAccessAt, content_opened_at: this.contentOpened.get(key) ?? null }
+        : null;
     }
 
     if (sql.startsWith('SELECT package FROM content_access')) {

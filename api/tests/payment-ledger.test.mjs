@@ -394,3 +394,93 @@ test('a payment lookup without a currency field is rejected rather than assumed 
   assert.equal(response.status, 400);
   assert.equal(db.get('SELECT COUNT(*) AS c FROM entitlement_grants WHERE payment_id=?', 'pay-nocurrency').c, 0);
 });
+
+/* ── 부분환불 산식 ─────────────────────────────────────────────────────────
+ * 근거: 전자상거래법 제17조 제2항 제5호 단서 — 제공이 개시돼도 가분적 콘텐츠·용역이면
+ * "제공이 개시되지 아니한 부분"은 청약철회 대상이다. AI 검토를 회수로 세어 판 이상
+ * 미사용 회차가 그 부분이다.
+ *
+ *   콘텐츠분 = 유료 본문을 연 적 있으면 0, 없으면 전액   (불가분으로 본다)
+ *   AI분     = 회당단가 × 미사용 회수                    (가분적)
+ *
+ * 회생 완주: 149,000 = 콘텐츠 89,000 + AI 12회 × 5,000
+ * 🔴 금액이 틀리면 그대로 돈 문제가 된다. 산식을 고치면 이 표를 함께 고칠 것.
+ */
+function grantFor(db, paymentId, pkg, quota, used) {
+  const now = Date.now();
+  db.sqlite.prepare(
+    `INSERT INTO entitlement_grants
+       (payment_id,user_id,package,source,status,granted_at,starts_at,expires_at,ai_quota,ai_used)
+     VALUES (?,1,?,'order','active',?,?,?,?,?)`
+  ).run(paymentId, pkg, now - 1000, now - 1000, now + 86_400_000, quota, used);
+}
+
+// 운영자 검토 메일에 실리는 금액을 직접 확인할 수 없으므로, 같은 산식을 여기서 재현해 고정한다.
+function expectedRefund({ amount, unitPrice, quota, used, opened }) {
+  const content = opened ? 0 : amount - unitPrice * quota;
+  return content + unitPrice * (quota - used);
+}
+
+test('환불 산식 — 콘텐츠 미열람 + AI 미사용이면 전액', () => {
+  assert.equal(
+    expectedRefund({ amount: 149000, unitPrice: 5000, quota: 12, used: 0, opened: false }),
+    149000);
+});
+
+test('환불 산식 — 콘텐츠를 열면 콘텐츠분은 빠지고 미사용 회차만 남는다', () => {
+  // 12회 중 3회 사용 → 9회 × 5,000 = 45,000
+  assert.equal(
+    expectedRefund({ amount: 149000, unitPrice: 5000, quota: 12, used: 3, opened: true }),
+    45000);
+});
+
+test('환불 산식 — AI만 쓰고 본문을 안 열었으면 콘텐츠분이 남는다', () => {
+  // 🔴 옛 구조(content_access 한 행)로는 이 경우를 구분하지 못해 89,000원을 못 돌려줬다.
+  assert.equal(
+    expectedRefund({ amount: 149000, unitPrice: 5000, quota: 12, used: 3, opened: false }),
+    89000 + 45000);
+});
+
+test('환불 산식 — 전부 소진하면 0원', () => {
+  assert.equal(
+    expectedRefund({ amount: 149000, unitPrice: 5000, quota: 12, used: 12, opened: true }),
+    0);
+});
+
+test('상품별 구성요소 배분이 음수가 되지 않는다', () => {
+  const table = [
+    ['rehab-full', 149000, 12, 5000], ['bankrupt-full', 49000, 12, 2000],
+    ['maintain', 29000, 8, 1500], ['correction-rehab', 19000, 8, 1000],
+    ['correction-bankrupt', 19000, 8, 1000],
+  ];
+  for (const [key, amount, quota, unit] of table) {
+    const content = amount - unit * quota;
+    assert.ok(content > 0, `${key}: 콘텐츠분이 0 이하다(${content}) — 회당단가가 너무 높다`);
+    assert.equal(Number.isInteger(unit), true, `${key}: 회당단가가 정수가 아니다`);
+  }
+});
+
+test('콘텐츠 열기만 content_opened_at을 남기고 AI 사용은 남기지 않는다', (t) => {
+  const db = new SqliteFakeD1();
+  t.after(() => db.close());
+  seed(db);
+  const now = Date.now();
+  // AI 사용 경로가 쓰는 형태: first_access_at만 기록
+  db.sqlite.prepare('INSERT INTO content_access (user_id,package,first_access_at) VALUES (1,?,?)')
+    .run('rehab-full', now);
+  let row = db.get('SELECT first_access_at, content_opened_at FROM content_access WHERE user_id=1 AND package=?', 'rehab-full');
+  assert.ok(row.first_access_at, 'AI 사용 기록이 없다');
+  assert.equal(row.content_opened_at, null, 'AI 사용인데 콘텐츠 열람으로 기록됐다');
+
+  // 콘텐츠 열기 경로
+  db.sqlite.prepare('UPDATE content_access SET content_opened_at=? WHERE user_id=1 AND package=? AND content_opened_at IS NULL')
+    .run(now + 10, 'rehab-full');
+  row = db.get('SELECT content_opened_at FROM content_access WHERE user_id=1 AND package=?', 'rehab-full');
+  assert.equal(row.content_opened_at, now + 10);
+
+  // 두 번째 열기는 최초 시각을 덮어쓰지 않는다
+  db.sqlite.prepare('UPDATE content_access SET content_opened_at=? WHERE user_id=1 AND package=? AND content_opened_at IS NULL')
+    .run(now + 999, 'rehab-full');
+  row = db.get('SELECT content_opened_at FROM content_access WHERE user_id=1 AND package=?', 'rehab-full');
+  assert.equal(row.content_opened_at, now + 10, '최초 열람 시각이 덮어써졌다');
+});

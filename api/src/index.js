@@ -170,16 +170,56 @@ const PACKAGES = {
   'correction-bankrupt': { name: '보정명령 추가 대응',     amount: 19000,  type: 'bankrupt' },
 };
 
-// 패키지별 이용기간·AI 검토 회수. 근거는 api/schema.sql의 entitlements 주석 참조.
+// 패키지별 이용기간·AI 검토 회수·회당 단가. 근거는 api/schema.sql의 entitlements 주석 참조.
 // ⚠️ 이 값을 바꾸면 pricing.html 카드·결제 전 확인창·terms.html 제5조의 고지도 함께 바꿔야 한다
 //    (전자상거래법 제13조② 거래조건 고지). 고지 없는 소멸은 소멸 자체보다 큰 문제가 된다.
+//
+// 🔴 aiUnitPrice(AI 검토 회당 단가)가 있는 이유 — 예쁜 요금표를 만들려는 게 아니다.
+//    전자상거래법 제17조 제2항 제5호 단서: 제공이 개시돼도 **가분적** 콘텐츠·용역이면
+//    "제공이 개시되지 아니한 부분"은 여전히 청약철회 대상이다. AI 검토를 8회·12회로 **세어서**
+//    판 이상 가분성을 부정하기 어렵고, 그러면 미사용 회차는 돌려줘야 한다. 돌려주려면
+//    "9회분이 얼마인지"가 계약 전에 정해져 있어야 한다(제13조② 거래조건 고지).
+//    이 값이 없으면 환불 기준이 매번 달라져 그 자체가 분쟁 원인이 된다.
+//
+// ⚠️ 상품별로 단가가 다른 이유: 회생 서류가 가장 복잡해 검토 1회의 분량·난이도가 크다.
+//    바꿀 때 반드시 지킬 것 — **회당단가 × 회수 < 상품가격**(콘텐츠분이 0 이하가 되면 안 된다).
+//    아래 자가검사가 위반 시 모듈 로드 단계에서 즉시 실패시킨다.
 const PACKAGE_TERMS = {
-  'rehab-full':          { months: 24, aiQuota: 12 },
-  'bankrupt-full':       { months: 24, aiQuota: 12 },
-  'maintain':            { months: 84, aiQuota: 8 },
-  'correction-rehab':    { months: 12, aiQuota: 8 },
-  'correction-bankrupt': { months: 12, aiQuota: 8 },
+  'rehab-full':          { months: 24, aiQuota: 12, aiUnitPrice: 5000 },
+  'bankrupt-full':       { months: 24, aiQuota: 12, aiUnitPrice: 2000 },
+  'maintain':            { months: 84, aiQuota: 8,  aiUnitPrice: 1500 },
+  'correction-rehab':    { months: 12, aiQuota: 8,  aiUnitPrice: 1000 },
+  'correction-bankrupt': { months: 12, aiQuota: 8,  aiUnitPrice: 1000 },
 };
+
+/* 상품 가격을 환불 가능한 구성요소로 나눈다.
+ *   콘텐츠분 = 상품가격 − (회당단가 × 총 회수)
+ *   AI분     = 회당단가 × 미사용 회수
+ * 콘텐츠는 열면 전부 제공된 것으로 보고(불가분), AI 회차만 가분적으로 다룬다. */
+function packageBreakdown(pkgKey) {
+  const pkg = PACKAGES[pkgKey];
+  const term = PACKAGE_TERMS[pkgKey];
+  if (!pkg || !term) return null;
+  const aiTotal = term.aiUnitPrice * term.aiQuota;
+  return {
+    amount: pkg.amount,
+    aiQuota: term.aiQuota,
+    aiUnitPrice: term.aiUnitPrice,
+    aiTotal,
+    contentPrice: pkg.amount - aiTotal,
+  };
+}
+
+// 모듈 로드 시 자가검사 — 가격을 잘못 고치면 배포가 아니라 여기서 죽는다.
+// 콘텐츠분이 0 이하이면 "콘텐츠는 공짜"라고 고지하는 셈이 되어 환불 산식이 무너진다.
+for (const key of Object.keys(PACKAGES)) {
+  const b = packageBreakdown(key);
+  if (!b) throw new Error(`PACKAGE_TERMS 누락: ${key}`);
+  if (!Number.isInteger(b.aiUnitPrice) || b.aiUnitPrice <= 0)
+    throw new Error(`aiUnitPrice가 양의 정수가 아니다: ${key}`);
+  if (b.contentPrice <= 0)
+    throw new Error(`콘텐츠분이 0 이하다(회당단가×회수가 상품가격 이상): ${key} = ${b.contentPrice}`);
+}
 // ※ 미구매자 AI 체험 1회는 2026-08-08 폐지. 탈퇴→재가입으로 무한 반복이 가능해
 //    Anthropic API 실비가 새는 경로였다(ai_trial이 users FK CASCADE라 탈퇴 시 초기화됨).
 //    법 제17조⑥ 단서의 '시험 사용 상품 제공' 조치는 시행령 제21조의2 각 호 중
@@ -2436,18 +2476,35 @@ async function handlePaymentHistory(request, env, origin) {
 
 // 유료 콘텐츠 또는 AI 서비스를 처음 제공한 시각을 기록한다(패키지별 최초 1회).
 // 프런트 이벤트는 유실될 수 있으므로 **서버가 결과를 반환하기 전에** 반드시 이 함수를 끝낸다.
-async function recordPackageConsumption(db, userId, pkgKey, now = Date.now()) {
+/* 제공 개시 기록. 환불 판정의 근거이므로 클라이언트 이벤트가 아니라 서버가 직접 남긴다.
+ *
+ * ⚠️ `openedContent`를 반드시 정확히 넘길 것 — 부분환불 금액이 여기서 갈린다.
+ *    true  : 유료 본문을 실제로 연 경우(POST /api/content/open)만. 콘텐츠분 환불이 막힌다.
+ *    false : AI 검토·서류대조. 회차만 차감되고 콘텐츠분은 그대로 환불 대상으로 남는다.
+ *    옛 코드는 셋을 구분하지 않아 AI만 쓴 이용자의 콘텐츠분(회생 기준 89,000원)까지
+ *    환불 불가로 만들었다. 되돌리지 말 것.
+ */
+async function recordPackageConsumption(db, userId, pkgKey, now = Date.now(), openedContent = false) {
   // D1 batch는 한 트랜잭션으로 실행된다. INSERT와 확인 SELECT 중 하나라도 실패하면
   // 본문/AI 결과를 반환하지 않아 '기록 없는 제공' 상태가 생기지 않는다.
-  const results = await db.batch([
+  const statements = [
     db.prepare(
       'INSERT OR IGNORE INTO content_access (user_id, package, first_access_at) VALUES (?,?,?)'
     ).bind(userId, pkgKey, now),
-    db.prepare(
-      'SELECT first_access_at FROM content_access WHERE user_id = ? AND package = ?'
-    ).bind(userId, pkgKey),
-  ]);
-  const row = results[1] && results[1].results && results[1].results[0];
+  ];
+  // 콘텐츠 열기는 최초 1회만 시각을 남긴다(이미 열었으면 그 시각을 유지).
+  if (openedContent) {
+    statements.push(db.prepare(
+      'UPDATE content_access SET content_opened_at = ? WHERE user_id = ? AND package = ? AND content_opened_at IS NULL'
+    ).bind(now, userId, pkgKey));
+  }
+  statements.push(db.prepare(
+    'SELECT first_access_at FROM content_access WHERE user_id = ? AND package = ?'
+  ).bind(userId, pkgKey));
+
+  const results = await db.batch(statements);
+  const last = results[results.length - 1];
+  const row = last && last.results && last.results[0];
   if (!row || !row.first_access_at) throw new Error('content access record missing after insert');
   return row.first_access_at;
 }
@@ -2530,7 +2587,9 @@ async function handleContentOpen(request, env, origin) {
 
   // 이 트랜잭션이 실패하면 아래 본문 Response를 만들지 않는다. 직접 API 호출도
   // 제공 개시 기록을 피할 수 없고, 반대로 자동 GET만으로 기록되는 일도 없다.
-  const firstAccessAt = await recordPackageConsumption(env.DB, session.id, consumedPackage);
+  // ⚠️마지막 인자 true — 이 경로만 '유료 본문을 실제로 열었다'로 기록한다.
+  //   AI 검토·서류대조(handleAiReview·handleAiCrossCheck)는 false여야 콘텐츠분 환불권이 남는다.
+  const firstAccessAt = await recordPackageConsumption(env.DB, session.id, consumedPackage, Date.now(), true);
   return ok({
     steps: set.mod.STEPS,
     docExamples: set.mod.DOC_EXAMPLES,
@@ -2637,6 +2696,53 @@ async function handlePaymentComplete(request, env, origin) {
   return ok({ granted, alreadyPaid: !fulfillment.newlyFulfilled }, origin);
 }
 
+/* 청약철회 시 돌려줄 금액을 계산한다.
+ *
+ * 근거: 전자상거래법 제17조 제2항 제5호 단서 — 제공이 개시돼도 **가분적** 콘텐츠·용역이면
+ * "제공이 개시되지 아니한 부분"은 청약철회 대상이다. AI 검토를 회수로 세어 판 이상 그
+ * 미사용 회차가 그 부분에 해당한다.
+ *
+ *   콘텐츠분 = 유료 본문을 연 적이 있으면 0, 없으면 전액(불가분으로 본다)
+ *   AI분     = 회당단가 × (총 회수 − 사용 회수)
+ *
+ * ⚠️ 이 함수는 **금액만 계산한다. 실제 환불을 실행하지 않는다.** 부분취소는 포트원 API에
+ *    금액을 넘겨야 하고 판매 잠금 상태에서 실거래 검증이 불가능하다. 그래서 지금은 계산 결과를
+ *    운영자에게 넘기고 사람이 처리한다 — 법이 요구하는 것은 자동화가 아니라 미제공분을
+ *    실제로 돌려주는 것이다. 자동 부분취소는 라이브 채널에서 실거래로 검증한 뒤 붙일 것.
+ */
+async function refundBreakdown(db, order, now = Date.now()) {
+  const b = packageBreakdown(order.package);
+  if (!b) return null;
+
+  const access = await db.prepare(
+    'SELECT first_access_at, content_opened_at FROM content_access WHERE user_id = ? AND package = ?'
+  ).bind(order.user_id, order.package).first();
+
+  // 이 주문이 실제로 부여한 회차만 본다. 같은 상품을 재구매한 경우 다른 주문의 사용분이 섞이면 안 된다.
+  const grant = await db.prepare(
+    'SELECT ai_quota, ai_used FROM entitlement_grants WHERE payment_id = ? AND status = ?'
+  ).bind(order.payment_id, 'active').first();
+
+  const quota = grant ? Number(grant.ai_quota) : b.aiQuota;
+  const used  = grant ? Number(grant.ai_used)  : 0;
+  const unused = Math.max(0, Math.min(quota, quota - used));
+
+  // content_opened_at이 NULL이면 '연 기록이 확인되지 않음' → 이용자에게 유리한 쪽으로 환불 가능.
+  const contentOpened = !!(access && access.content_opened_at);
+  const contentPart = contentOpened ? 0 : b.contentPrice;
+  const aiPart = b.aiUnitPrice * unused;
+
+  return {
+    contentPart, aiPart,
+    total: contentPart + aiPart,
+    contentOpened,
+    aiQuota: quota, aiUsed: used, aiUnused: unused,
+    aiUnitPrice: b.aiUnitPrice, contentPrice: b.contentPrice,
+    started: !!(access && access.first_access_at),
+    withinWindow: !!(order.paid_at && (now - order.paid_at) <= REFUND_WINDOW_MS),
+  };
+}
+
 // 청약철회 신청 — 전자상거래법 제13조②5호(서식)·제5조④(전자문서). 본인 결제만.
 // 결제일부터 14일 이내 + 미개시(content_access 없음)면 자동 전액환불, 그 외는 접수 후 운영자 검토.
 // content_access는 콘텐츠 반환과 AI 결과 반환 전에 서버가 직접 기록하므로 클라이언트 이벤트에 의존하지 않는다.
@@ -2672,11 +2778,11 @@ async function handleWithdraw(request, env, origin) {
     ).bind(paymentId, session.id, reason || null, 'pending', now).run();
   }
 
-  const access = await env.DB.prepare(
-    'SELECT first_access_at FROM content_access WHERE user_id = ? AND package = ?'
-  ).bind(session.id, order.package).first();
-  const within14 = order.paid_at && (now - order.paid_at) <= REFUND_WINDOW_MS;
-  const started = !!(access && access.first_access_at);
+  // 환불 가능액을 먼저 계산한다. 자동 전액환불 대상이 아니어도 운영자가 같은 기준으로
+  // 처리할 수 있도록 금액을 남긴다 — 기준 없는 수동 검토가 분쟁의 실제 원인이다.
+  const refund = await refundBreakdown(env.DB, order, now);
+  const within14 = !!(refund && refund.withinWindow);
+  const started = !!(refund && refund.started);
   const cancelReason = reason || '고객 청약철회(이용약관 제6조)';
 
   // 자동 전액환불: 14일 이내 + 미개시 + PG 설정됨
@@ -2707,10 +2813,23 @@ async function handleWithdraw(request, env, origin) {
   // 자동 대상 아님(개시분 있음/기간 경과/PG 미설정/PG 실패) → 운영자 알림 + 이용자 접수 안내
   const admin = env.ADMIN_EMAIL || BUSINESS_INFO.email;
   const days = Math.floor((now - (order.paid_at || now)) / DAY_MS);
+  // 🔴 환불 기준을 메일에 함께 적는다. 운영자가 매번 다르게 판단하면 그 자체가 분쟁 원인이고,
+  //    전자상거래법 제17조 제2항 제5호 단서상 미사용 AI 회차는 돌려주어야 하는 몫이다.
+  const won = (v) => Number(v || 0).toLocaleString('ko-KR');
+  const refundRows = refund ? `
+    <table style="font-size:13px;border-collapse:collapse;margin-top:8px">
+      <tr><td style="padding:2px 10px 2px 0">콘텐츠분</td><td><strong>${won(refund.contentPart)}원</strong>
+        <span style="color:#6b7280">(${refund.contentOpened ? '유료 본문 열람함 → 환불 대상 아님' : '열람 기록 없음 → 환불 대상'} · 정가 ${won(refund.contentPrice)}원)</span></td></tr>
+      <tr><td style="padding:2px 10px 2px 0">AI 미사용분</td><td><strong>${won(refund.aiPart)}원</strong>
+        <span style="color:#6b7280">(${refund.aiUnused}회 미사용 × ${won(refund.aiUnitPrice)}원 · 총 ${refund.aiQuota}회 중 ${refund.aiUsed}회 사용)</span></td></tr>
+      <tr><td style="padding:6px 10px 2px 0"><strong>환불 예정액</strong></td><td style="padding-top:6px"><strong>${won(refund.total)}원</strong>
+        <span style="color:#6b7280">/ 결제액 ${won(order.amount)}원</span></td></tr>
+    </table>` : '<p style="font-size:13px;color:#b91c1c">환불 기준 계산 실패 — 상품 정의를 확인하세요.</p>';
   await sendEmail(env, admin, '[챔로드] 청약철회 신청 접수(검토 필요)',
-    emailShell('청약철회 신청(검토 필요)', `<p>주문번호: ${escHtml(paymentId)}<br>회원: ${escHtml(session.email)}<br>패키지: ${escHtml(order.package)}<br>제공 개시: ${started ? '있음' : '없음'} · 결제 후 ${days}일 경과</p>
+    emailShell('청약철회 신청(검토 필요)', `<p>주문번호: ${escHtml(paymentId)}<br>회원: ${escHtml(session.email)}<br>패키지: ${escHtml(order.package)}<br>제공 개시: ${started ? '있음' : '없음'} · 결제 후 ${days}일 경과${within14 ? ' (14일 이내)' : ' (14일 경과)'}</p>
     <p>사유: ${escHtml(reason || '(미기재)')}</p>
-    <p style="font-size:13px;color:#6b7280">관리자 페이지에서 검토 후 환불 처리하세요.</p>`)).catch(() => {});
+    ${refundRows}
+    <p style="font-size:13px;color:#6b7280">관리자 페이지에서 위 기준으로 환불 처리하세요. 기준을 벗어나 처리하려면 사유를 남기세요.</p>`)).catch(() => {});
   await sendEmail(env, session.email, '[챔로드] 청약철회 신청이 접수되었습니다',
     emailShell('청약철회 접수', `<p>${escHtml(session.name)}님, 청약철회 신청이 접수되었습니다.</p>
     <p style="font-size:13px;color:#374151">이미 이용을 시작한 부분이 있거나 확인이 필요한 경우가 있어, 검토 후 처리 결과를 이메일로 안내드립니다.</p>`)).catch(() => {});
