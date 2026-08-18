@@ -69,19 +69,26 @@ Cloudflare에 올린 시크릿은 이름만 조회되고 값은 다시 읽을 �
 
 ## 배포
 
-`main` push로는 화면·Worker가 반영되지 않는다. Pages와 Worker 배포는 모두 `workflow_dispatch`
-수동 실행이다(마이그레이션 없는 자동 배포 사고를 막기 위함). push는 quality-gate 검사만 돈다.
+🔴 **`main` push로는 화면도 Worker도 반영되지 않는다.** 둘 다 `workflow_dispatch` 수동 실행이다
+(마이그레이션 없는 자동 배포 사고를 막기 위함). push는 quality-gate 검사만 돈다.
+**코드를 고치고 push한 것으로 끝났다고 착각하지 말 것 — 반드시 워크플로를 돌려야 반영된다.**
 
 | 대상 | 경로 | 걸리는 시간 |
 |---|---|---|
-| 화면 (HTML·CSS·JS) | Actions `Deploy public site` 수동 실행 | 2분 내외 |
-| 서버 (`api/src/index.js`) | Actions에서 확인란 2개 체크 후 `Deploy Worker` 수동 실행 | 20초 내외 |
+| 화면 (HTML·CSS·JS) | Actions `Deploy public site` 수동 실행 (확인란 1개) | 20초 내외 |
+| 서버 (`api/src/index.js`) | Actions `Deploy Worker` 수동 실행 (확인란 2개) | 20초 내외 |
 
-⚠️ **저장소 루트가 여전히 Pages 소스다.** `tools/build-public.js`가 만드는 `dist/`는 존재하지만
-아직 GitHub Pages 설정을 그리로 전환하지 않았다 — `_config.yml`의 exclude 목록이 현재의
-유일한 방어선이다(허용목록이 아니라 제외목록이므로 새 운영 `.md`를 추가하면 **반드시** 여기에도
-넣을 것 — 2026-08-17에 `LEGAL-RISK-ANALYSIS.md`를 빠뜨려 잠깐 노출될 뻔했다). `dist/` 전환은
-LAUNCH-CHECKLIST.md 6단계.
+✅ **2026-08-19에 `dist/` 허용목록 배포로 전환 완료.** GitHub Pages 소스가 `legacy`(저장소 루트)에서
+`workflow`로 바뀌었고, `Deploy public site`가 `tools/build-public.js`로 만든 `dist/`만 게시한다.
+운영 실측으로 `api/src/**`·`api/migrations/**`·`tools/**`·모든 운영 `.md`가 404임을 확인했다.
+
+- 이제 **허용목록**이 방어선이다. 새 파일이 자동으로 공개되지 않으므로, 공개해야 할 자산을 추가하면
+  `tools/build-public.js`의 허용목록에 넣어야 화면에 나온다(반대 방향의 실수로 바뀐 것이다).
+- `_config.yml`은 더 이상 배포 경로가 아니다. 남겨 둔 것은 Pages 설정을 되돌릴 때의 안전장치일 뿐이다.
+  ⛔ 옛 방식에서는 제외목록에 빠뜨리면 조용히 공개됐다 — 2026-08-17에 `LEGAL-RISK-ANALYSIS.md`가
+  실제로 그랬다. 그 실패 모드가 이번 전환으로 사라졌다.
+- ⚠️ 커스텀 도메인은 `dist/CNAME`이 유지한다. 빌드 산출물에서 `CNAME`·`.nojekyll`이 빠지면
+  도메인이 끊기거나 Jekyll이 파일을 건드린다. 허용목록에서 이 둘을 빼지 말 것.
 
 - 프런트·Worker 계약이 바뀌는 배포는 **Pages 먼저, D1 마이그레이션, Worker 나중** 순서를 지킨다 —
   새 프런트가 구 Worker에도 통하는 호환 필드를 보내는 동안에만 순서가 안전하기 때문이다.
