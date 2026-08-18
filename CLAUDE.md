@@ -10,8 +10,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **판매 오픈 차단 사유는 사업자등록 하나가 아니다.** 배포는 끝났지만 판매는 별개다. 유상 AI 검토와
   개인별 절차 안내의 변호사법·법무사법 리스크를 국내 변호사에게 별도 확인하고(`LEGAL-REVIEW-BRIEF.md`),
-  유료 원문을 공개 저장소/정적 산출물에서 분리하고, AI가 내는 조문 번호 오류(PROGRESS.md 차단사유 7)를
-  해결한 뒤에만 판매를 검토한다. `PAYMENTS_ENABLED = false`는 배포 후에도 두 곳 모두 유지 중이다.
+  유료 원문을 공개 저장소/정적 산출물에서 분리한 뒤에만 판매를 검토한다.
+  `PAYMENTS_ENABLED = false`는 배포 후에도 두 곳 모두 유지 중이다.
+- 🔴 **AI는 조문 번호를 만들지 않는다** (2026-08-18). 옛 `lawNotes`(초안 문구 옆에 조문을 붙이던 필드)를
+  스키마·프롬프트·화면에서 제거했다. 이유 둘: ①개별 사실에 법을 적용하는 외관이었다
+  ②실측에서 조문 번호가 30건 중 11건 나왔는데 그중 **5건이 틀렸다**(도박·낭비를 제564조 제1항
+  '제4호'로 인용 — 정답 제6호). 조문 정보는 **사람이 검증해 `bankruptcy.html#discharge-denial`에 두고**
+  AI는 그 자리로 링크만 보낸다. 숫자 계산을 `numcheck`로 뺀 것과 같은 설계다.
+  프롬프트 금지 7 + 서버 `stripStatuteRefs()` 백스톱 + 평가 규칙 `R7-조문번호` 셋으로 지킨다. **되살리지 말 것.**
 - 유료 본문은 페이지 진입이나 gate 이벤트에서 자동으로 받지 않는다. 이용자가 환불 제한 안내를
   확인하고 누른 뒤 `POST /api/content/open`에
   `{type, consent:true, consentVersion:'content-open-v1'}`를 보내며, Worker가 소비 기록 저장에 성공한
