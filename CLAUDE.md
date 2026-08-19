@@ -43,6 +43,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - URL: https://chamroad.com/ (구 GitHub Pages 주소 https://eslje75-lab.github.io/debt-guide/ 도 병행 유효)
 - GitHub: https://github.com/eslje75-lab/debt-guide
 
+## 검사 도구
+
+| 명령 | 무엇을 | 비용 |
+|---|---|---|
+| `node tools/check-project.js` | JS·HTML 인라인 스크립트 문법 | 0 |
+| `node tools/test-storage-regressions.js` | 계정 격리·동기화 큐·삭제 확인 | 0 |
+| `node tools/test-legal-regressions.js` | 계산 중립성 + **AI 회차 단가 3중 일치** | 0 |
+| `node --test api/tests/*.test.mjs` | 유료 게이팅·백엔드 보안·주문 원장·AI 판정기 | 0 |
+| `node tools/build-public.js` | 허용목록 `dist/` 생성(섞이면 실패) | 0 |
+| **`node tools/e2e-browser.mjs`** | **실제 Chrome으로 도는 E2E 12건** | 0 |
+| `node tools/ai-output-eval.mjs` | 실제 Anthropic 호출로 AI 출력 경계 측정 | 🔴 30건 약 500원 |
+
+E2E는 `node tools/serve.js --public`을 다른 창에 띄운 뒤 실행한다. 외부 패키지 없이 설치된 Chrome을
+CDP로 몬다. **로그인 구간(동기화·삭제·탈퇴·환불)은 이메일 인증 때문에 자동화하지 않았다** —
+E2E가 통과했다고 그 구간까지 검증된 것처럼 말하지 말 것.
+
+⚠️**검사가 실패하면 앱보다 검사를 먼저 의심할 것.** E2E 첫 실행의 실패 3건이 전부 검사 버그였다
+(API 시그니처 오인, "…가 **아닙니다**"라는 부인 문장을 위반으로 셈). 새 검사를 넣으면 **일부러
+어긋내 보고 실제로 잡히는지 확인**한다 — 이 저장소에서 그 변이 검사가 실제 결함을 여러 번 잡았다.
+
 ## 로컬 개발
 
 소스 확인은 `node tools/serve.js` → http://localhost:3456. 공개 배포물은
