@@ -160,6 +160,25 @@
   - ⚠️`dist/CNAME`·`dist/.nojekyll`이 커스텀 도메인과 Jekyll 우회를 담당한다. 허용목록에서 빼지 말 것.
   - ⬜ **남은 것**: 공개 Git 저장소에는 유료 콘텐츠(`api/src/content/**`)가 **커밋 이력으로** 남아 있다.
     배포 경로는 막혔지만 저장소 자체는 공개다. 유료 판매 전에 저장소 비공개 전환 또는 소스 분리가 필요하다.
+
+- [ ] ⬜ **저장소 비공개 전환 — 2026-08-19 사용자 판단으로 보류.** 유료 판매를 실제로 열 때 처리한다.
+  아래는 그때 다시 조사하지 않도록 남기는 실사 결과다.
+  - 🔴**그냥 비공개로 바꾸면 사이트가 내려갈 수 있다.** GitHub Pages는 **무료 플랜에서 비공개 저장소를
+    게시하지 못한다.** 계정 플랜은 현재 토큰(`repo`·`workflow`·`gist`·`read:org`)으로 조회되지 않는다
+    (`read:user` 없음) — 전환 전 github.com/settings/billing에서 직접 확인할 것.
+  - **선택지 A — GitHub 유료 플랜(Pro)**: 비공개 저장소도 Pages 게시가 되므로 URL·DNS·robots·sitemap이
+    전부 그대로다. 이사 비용 0. 가장 단순하다.
+  - **선택지 B — Cloudflare Pages 이전(무료)**: 2026-08-19에 실제로 만들어 배포까지 해 보고 지웠다.
+    · `wrangler pages project create` + `pages deploy dist`로 **GitHub 연결 없이** 직접 업로드된다
+      (현재 Cloudflare 토큰에 `pages (write)` 있음). 저장소 공개 여부와 무관해진다.
+    · `_headers`가 **실제로 적용된다**(GitHub Pages에서는 안 되던 것) — 보안헤더 측면의 이점.
+    · 🔴**단, 정규 URL이 바뀐다.** Cloudflare Pages는 `.html`을 떼고 308로 보낸다
+      (`/terms.html` → 308 → `/terms` → 200). 그래서 **함께 고쳐야 하는 것**:
+        `robots.txt`의 `Disallow: /mypage.html` 등 4줄 — **확장자 없는 경로와 매칭되지 않아 무력화된다**
+        (noindex 메타가 1차 방어라 치명적이진 않지만 방어선이 하나 준다)
+        `sitemap.xml` 13개 항목이 전부 308이 된다
+    · 🔴**DNS 전환은 제가 못 한다.** 현재 Cloudflare 토큰은 `zone (read)`뿐이라 대시보드에서 해야 한다.
+  - 어느 쪽이든 **DNS/플랜 변경 전에 되돌릴 경로를 먼저 확인**할 것.
 - [ ] **Pages → D1 → Worker를 수동 순차 배포** — 두 배포 workflow는 push 자동배포가 아니며, Worker 확인란은 실제 백업·마이그레이션·검증을 대신하지 않는다.
 - [ ] **Worker 성공 뒤 구버전 점수 삭제** — `api/migrations/2026-08-16-remove-diagnosis-scores.sql` 적용 후 점수·등급 키 0건을 확인한다.
 - [ ] **품질 게이트 통과 확인** — 문법, 저장·동기화, 보안·유료 콘텐츠 회귀, 공개 산출물 검사를 모두 통과한 커밋만 배포한다.

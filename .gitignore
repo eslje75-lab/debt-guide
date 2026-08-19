@@ -13,6 +13,10 @@ api/.dev.vars
 api/.wrangler/
 api/node_modules/
 
+# wrangler 캐시. `wrangler pages …`를 저장소 루트에서 실행하면 여기에도 생긴다
+# (계정 id가 담긴 wrangler-account.json 포함). api/ 아래만 무시하면 루트 것이 커밋된다.
+.wrangler/
+
 # 공개 배포용 허용목록 빌드 산출물. 소스·운영문서·API가 섞이지 않도록 매번 새로 만든다.
 dist/
 
